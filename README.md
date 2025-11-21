@@ -105,7 +105,7 @@ pip install -r requirements.txt
 基于性价比得分（Importance/Cost）全局选择最优剪枝策略。
 
 ```bash
-python global_pruning.py \
+python run_global_pruning.py \
     --base_model /path/to/llama-3-8b \
     --save_ckpt_log_name my_experiment \
     --pruning_ratio 0.25 \
@@ -164,7 +164,7 @@ python layer_pruning.py \
 
 ```bash
 # 全局剪枝 + LoRA微调
-python global_pruning.py \
+python run_global_pruning.py \
     --base_model /path/to/llama-3-8b \
     --pruning_ratio 0.25 \
     --finetune \
@@ -264,7 +264,7 @@ python layer_pruning.py \
 ### 深度剪枝（自动移除空层）
 
 ```bash
-python global_pruning.py \
+python run_global_pruning.py \
     --pruning_ratio 0.30 \
     --remove_empty_layers
 ```
@@ -338,7 +338,7 @@ def prune_attention_by_gqa_groups(layer, keep_kv_indices, head_dim=128, gqa_rati
     layer.self_attn.num_key_value_heads = len(keep_kv_indices)
 ```
 
-#### MLP 分组剪枝 (`global_pruning.py`)
+#### MLP 分组剪枝 (`run_global_pruning.py`)
 
 ```python
 def prune_mlp_by_channels(layer, keep_channel_indices):
@@ -464,7 +464,7 @@ MLP:
 ---
 
 **核心文件**：
-- `global_pruning.py` - 全局剪枝主脚本
+- `run_global_pruning.py` - 全局剪枝主脚本（推荐使用）
 - `layer_pruning.py` - 层级剪枝主脚本
 - `core/methods/global_pruning.py` - 全局剪枝算法实现
 - `core/methods/gqa_aware.py` - GQA 感知的 Attention 分组剪枝
