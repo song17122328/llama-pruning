@@ -99,6 +99,87 @@ class LayerImportanceAnalyzer:
 
         return layer_importance
 
+    def measure_block_importance_by_removal(self, texts: List[str],
+                                           num_layers: int) -> Dict[str, Dict[int, float]]:
+        """
+        通过移除块（Attention或MLP）来评估重要性
+
+        Args:
+            texts: 测试文本列表
+            num_layers: 层数
+
+        Returns:
+            Dict包含两个键:
+            - 'attention': {layer_idx: importance, ...}
+            - 'mlp': {layer_idx: importance, ...}
+        """
+        baseline_ppl = self.compute_perplexity(texts)
+        attention_importance = {}
+        mlp_importance = {}
+
+        print(f"基准困惑度: {baseline_ppl:.4f}")
+        print("\n分析 Attention 块重要性...")
+
+        # 评估每层的 Attention 重要性
+        for layer_idx in tqdm(range(num_layers), desc="Attention 块"):
+            layer = self.model.model.layers[layer_idx]
+
+            # 保存原始 self_attn forward
+            original_attn_forward = layer.self_attn.forward
+
+            # 定义恒等映射（跳过 Attention）
+            def identity_attn_forward(hidden_states, *args, **kwargs):
+                output_attentions = kwargs.get('output_attentions', False)
+                use_cache = kwargs.get('use_cache', False)
+
+                if output_attentions or use_cache:
+                    outputs = (hidden_states,)
+                    if output_attentions:
+                        outputs += (None,)
+                    if use_cache:
+                        outputs += (None,)
+                    return outputs
+                else:
+                    return hidden_states
+
+            # 替换 Attention forward
+            layer.self_attn.forward = identity_attn_forward
+
+            try:
+                ppl = self.compute_perplexity(texts)
+                importance = ppl - baseline_ppl
+                attention_importance[layer_idx] = importance
+            finally:
+                layer.self_attn.forward = original_attn_forward
+
+        print("\n分析 MLP 块重要性...")
+
+        # 评估每层的 MLP 重要性
+        for layer_idx in tqdm(range(num_layers), desc="MLP 块"):
+            layer = self.model.model.layers[layer_idx]
+
+            # 保存原始 mlp forward
+            original_mlp_forward = layer.mlp.forward
+
+            # 定义恒等映射（跳过 MLP）
+            def identity_mlp_forward(hidden_states, *args, **kwargs):
+                return hidden_states
+
+            # 替换 MLP forward
+            layer.mlp.forward = identity_mlp_forward
+
+            try:
+                ppl = self.compute_perplexity(texts)
+                importance = ppl - baseline_ppl
+                mlp_importance[layer_idx] = importance
+            finally:
+                layer.mlp.forward = original_mlp_forward
+
+        return {
+            'attention': attention_importance,
+            'mlp': mlp_importance
+        }
+
     def measure_layer_importance_by_activation(self, texts: List[str]) -> Dict[int, float]:
         """通过激活值统计评估重要性"""
         layer_activations = {}

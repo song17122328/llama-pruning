@@ -21,7 +21,7 @@ from core.methods.global_pruning import (
     select_groups_to_prune
 )
 from core.methods.gqa_aware import prune_attention_by_gqa_groups
-from core.datasets.example_samples import get_examples
+from core.datasets import DatasetManager
 from evaluation.metrics.ppl import PPLMetric
 from core.trainer.finetuner import FineTuner
 from core.utils.logger import LoggerWithDepth
@@ -281,6 +281,9 @@ def main():
     parser.add_argument('--importance_method', type=str, default='taylor',
                        choices=['taylor', 'wanda', 'taylor_2nd'],
                        help='重要性计算方法: taylor(一阶), wanda(权重×激活), taylor_2nd(二阶)')
+    parser.add_argument('--dataset', type=str, default='wikitext2',
+                       choices=['wikitext2', 'ptb', 'c4'],
+                       help='数据集选择（用于梯度计算、层重要性评估、PPL评估等所有阶段）')
     parser.add_argument('--num_samples', type=int, default=128,
                        help='用于计算重要性的样本数')
     parser.add_argument('--gradient_batch_size', type=int, default=4,
@@ -355,6 +358,7 @@ def main():
     logger.log(f"模型: {args.base_model}")
     logger.log(f"剪枝率: {args.pruning_ratio:.1%}")
     logger.log(f"重要性方法: {args.importance_method}")
+    logger.log(f"数据集: {args.dataset}")
 
     # ========== Step 1: 加载模型 ==========
     logger.log("\n[Step 1] 加载模型...")
@@ -404,10 +408,14 @@ def main():
         logger.log(f"  GPU 显存: {allocated:.2f}GB / {total_mem:.2f}GB (已分配)")
         logger.log(f"  GPU 显存: {reserved:.2f}GB / {total_mem:.2f}GB (已预留)")
 
+    # 创建数据集管理器（统一管理所有数据集加载）
+    logger.log(f"\n✓ 初始化数据集管理器: {args.dataset}")
+    dataset_manager = DatasetManager(dataset_name=args.dataset, tokenizer=tokenizer)
+
     # ========== Step 2: 评估基线 ==========
     if args.test_before_prune:
         logger.log("\n[Step 2] 评估基线 PPL...")
-        baseline_ppl = PPLMetric(model, tokenizer, datasets=['wikitext2'], device=args.device)
+        baseline_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
         logger.log(f"✓ 基线 PPL: {baseline_ppl}")
 
     # ========== Step 3: 计算重要性（梯度或激活） ==========
@@ -456,8 +464,10 @@ def main():
 
             # 加载当前批次
             logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 加载数据...")
-            input_ids = get_examples('c4', tokenizer, num_samples=current_batch_size, seq_len=args.seq_len)
-            # input_ids = get_examples('wikitext', tokenizer, num_samples=current_batch_size, seq_len=args.seq_len)
+            input_ids = dataset_manager.get_gradient_samples(
+                num_samples=current_batch_size,
+                seq_len=args.seq_len
+            )
             input_ids = input_ids.to(args.device)
 
             # 前向传播
@@ -526,8 +536,10 @@ def main():
 
             # 加载当前批次
             logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 加载数据...")
-            input_ids = get_examples('c4', tokenizer, num_samples=current_batch_size, seq_len=args.seq_len)
-            # input_ids = get_examples('wikitext', tokenizer, num_samples=current_batch_size, seq_len=args.seq_len)
+            input_ids = dataset_manager.get_gradient_samples(
+                num_samples=current_batch_size,
+                seq_len=args.seq_len
+            )
             input_ids = input_ids.to(args.device)
 
             # 收集激活
@@ -575,14 +587,11 @@ def main():
 
         from core.importance.layer_analyzer import LayerImportanceAnalyzer
 
-        # 加载用于层重要性分析的样本
-        layer_texts = get_examples('wikitext', tokenizer, num_samples=args.layer_weighting_samples, seq_len=args.seq_len)
-
-        # 转换为文本列表（用于 LayerImportanceAnalyzer）
-        layer_texts_list = []
-        for i in range(layer_texts.size(0)):
-            text = tokenizer.decode(layer_texts[i], skip_special_tokens=True)
-            layer_texts_list.append(text)
+        # 加载用于层重要性分析的样本（文本格式）
+        layer_texts_list = dataset_manager.get_layer_importance_samples(
+            num_samples=args.layer_weighting_samples,
+            seq_len=args.seq_len
+        )
 
         # 创建分析器
         analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
@@ -757,12 +766,13 @@ def main():
     # ========== Step 9: 评估剪枝后 PPL ==========
     if args.test_after_prune:
         logger.log(f"\n[Step 9] 评估剪枝后 PPL...")
-        pruned_ppl = PPLMetric(model, tokenizer, datasets=['wikitext2'], device=args.device)
+        pruned_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
         logger.log(f"✓ 剪枝后 PPL: {pruned_ppl}")
 
         if args.test_before_prune:
-            degradation = (pruned_ppl['wikitext2 (wikitext-2-raw-v1)'] /
-                          baseline_ppl['wikitext2 (wikitext-2-raw-v1)'] - 1) * 100
+            # 获取对应数据集的 PPL key
+            ppl_key = list(pruned_ppl.results.keys())[0]
+            degradation = (pruned_ppl[ppl_key] / baseline_ppl[ppl_key] - 1) * 100
             logger.log(f"  PPL 退化: {degradation:.2f}%")
 
     # ========== Step 10: 微调恢复（可选）==========
@@ -772,7 +782,7 @@ def main():
         finetuner = FineTuner(model, tokenizer, device=args.device, logger=logger)
 
         finetuner.finetune(
-            dataset_name='wikitext',
+            dataset_name=args.dataset,
             num_samples=args.finetune_samples,
             lr=args.finetune_lr,
             epochs=args.finetune_epochs,
@@ -786,12 +796,12 @@ def main():
         # 评估微调后 PPL
         if args.test_after_prune:
             logger.log(f"\n评估微调后 PPL...")
-            finetuned_ppl = PPLMetric(model, tokenizer, datasets=['wikitext2'], device=args.device)
+            finetuned_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
             logger.log(f"✓ 微调后 PPL: {finetuned_ppl}")
 
             if args.test_before_prune:
-                final_degradation = (finetuned_ppl['wikitext2 (wikitext-2-raw-v1)'] /
-                                    baseline_ppl['wikitext2 (wikitext-2-raw-v1)'] - 1) * 100
+                ppl_key = list(finetuned_ppl.results.keys())[0]
+                final_degradation = (finetuned_ppl[ppl_key] / baseline_ppl[ppl_key] - 1) * 100
                 logger.log(f"  最终 PPL 退化: {final_degradation:.2f}%")
 
     # ========== Step 11: 保存模型 ==========
