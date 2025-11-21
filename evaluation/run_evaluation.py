@@ -314,7 +314,7 @@ def main():
     # 单模型评估参数
     parser.add_argument('--model_path', type=str,
                        help='模型路径（HF目录或checkpoint.bin）')
-    parser.add_argument('--metrics', type=str, default='ppl,speed',
+    parser.add_argument('--metrics', type=str, default='ppl,zeroshot,speed,memory',
                        help='评估指标（逗号分隔）: ppl, zeroshot, fewshot, speed, memory, efficiency, all')
 
     # 对比模式参数

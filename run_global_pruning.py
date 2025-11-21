@@ -435,7 +435,7 @@ def main():
                        help='Q:KV 比例（默认: 4）')
 
     # 评估参数
-    parser.add_argument('--run_evaluation', type=str, default="ppl,zeroshot",
+    parser.add_argument('--run_evaluation', type=str, default="all",
                        help='评估类型: ppl, zeroshot, efficiency, all（多个用逗号分隔）')
     parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2,ptb',
                        help='PPL评估数据集（默认: wikitext2,ptb）')
