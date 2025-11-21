@@ -426,8 +426,6 @@ def main():
                        help='H-GSP 门控阈值 τ（默认: None 自动计算）')
     parser.add_argument('--epsilon', type=float, default=0.15,
                        help='H-GSP 坍缩阈值 ε（默认: 0.15）')
-    parser.add_argument('--remove_empty_layers', action='store_true',
-                       help='是否移除空层（默认: False）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
@@ -908,15 +906,19 @@ def main():
     # 将额外的空层加入到 empty_layers 列表
     pruning_stats['empty_layers'].extend(additional_empty_layers)
 
-    # ========== Step 7: 移除空层（可选）==========
+    # ========== Step 7: 移除空层（自动执行）==========
+    # 注：既然 Auto-Collapse 已检测到稀疏层，应自动替换为 Identity 层
+    # 这符合 H-GSP 的核心理念："留 10% 不如不留"
     all_empty_layers = pruning_stats['empty_layers']
-    if args.remove_empty_layers and len(all_empty_layers) > 0:
+    if len(all_empty_layers) > 0:
         logger.log(f"\n[Step 7] 移除空层...")
         logger.log(f"  原始空层: {len(all_empty_layers) - len(additional_empty_layers)}")
         if len(additional_empty_layers) > 0:
             logger.log(f"  坍缩触发: {len(additional_empty_layers)}")
         logger.log(f"  总计移除: {len(all_empty_layers)} 层")
         remove_empty_layers(model, all_empty_layers, logger)
+    else:
+        logger.log(f"\n[Step 7] ✓ 无需移除空层")
 
     # ========== Step 8: 统计剪枝结果 ==========
     logger.log(f"\n{'='*60}")
