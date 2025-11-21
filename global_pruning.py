@@ -230,7 +230,11 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
 
 def remove_empty_layers(model, empty_layers, logger=None):
     """
-    移除被完全剪空的层
+    "移除"被完全剪空的层 - 通过替换为 identity 层
+
+    注意：由于 HuggingFace Transformers 的内部实现可能在多处假设层数固定，
+    完全删除层可能导致 "list index out of range" 错误。
+    因此我们采用更安全的策略：将空层替换为简单的 pass-through 层。
 
     Args:
         model: 模型
@@ -251,28 +255,46 @@ def remove_empty_layers(model, empty_layers, logger=None):
     log(f"移除完全剪空的层")
     log(f"{'='*60}")
     log(f"要移除的层: {empty_layers}")
+    log(f"策略: 替换为 Identity 层（保持模型结构完整）")
 
-    # 创建保留的层列表
+    # 为了避免 HuggingFace Transformers 内部的各种假设被打破
+    # 我们不删除层，而是将它们替换为 identity 层
+    class IdentityDecoderLayer(torch.nn.Module):
+        """Identity 层：直接传递输入，不做任何计算"""
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, hidden_states, *args, **kwargs):
+            # 检查返回格式要求
+            output_attentions = kwargs.get('output_attentions', False)
+            use_cache = kwargs.get('use_cache', False)
+
+            if output_attentions or use_cache:
+                # 返回元组格式
+                outputs = (hidden_states,)
+                if output_attentions:
+                    outputs += (None,)  # attention_weights
+                if use_cache:
+                    outputs += (None,)  # past_key_value
+                return outputs
+            else:
+                # 只返回 hidden_states
+                return hidden_states
+
     num_layers = len(model.model.layers)
-    keep_layers = [i for i in range(num_layers) if i not in empty_layers]
 
-    # 重建 layers 列表
-    new_layers = torch.nn.ModuleList([model.model.layers[i] for i in keep_layers])
-    model.model.layers = new_layers
+    # 替换空层为 identity 层
+    for layer_idx in empty_layers:
+        if layer_idx < num_layers:
+            log(f"  替换 Layer {layer_idx} 为 Identity 层")
+            model.model.layers[layer_idx] = IdentityDecoderLayer()
 
-    # 更新配置
-    model.config.num_hidden_layers = len(keep_layers)
-
-    log(f"✓ 层数: {num_layers} → {len(keep_layers)}")
-
-    # 清除可能的缓存，确保模型状态一致
-    # 这对于避免 "list index out of range" 错误至关重要
-    if hasattr(model, 'clear_cache'):
-        model.clear_cache()
+    log(f"✓ 已替换 {len(empty_layers)} 层为 Identity 层")
+    log(f"  物理层数: {num_layers} (保持不变)")
+    log(f"  有效层数: {num_layers - len(empty_layers)}")
 
     # 确保模型在正确的设备上并处于eval模式
     device = next(model.parameters()).device
-    model.to(device)
     model.eval()
 
     log(f"✓ 模型状态已刷新")
@@ -286,6 +308,8 @@ def remove_empty_layers(model, empty_layers, logger=None):
     except Exception as e:
         log(f"⚠️  模型forward验证失败: {e}")
         log(f"   这可能会导致后续PPL计算出错")
+        import traceback
+        log(f"   错误详情:\n{traceback.format_exc()}")
 
 
 def auto_collapse(model, pruning_stats, collapse_threshold=0.15, logger=None):
@@ -939,8 +963,9 @@ def main():
 
     if len(pruning_stats['empty_layers']) > 0:
         logger.log(f"\n自动深度剪枝:")
-        logger.log(f"  移除的层: {pruning_stats['empty_layers']}")
-        logger.log(f"  剩余层数: {len(model.model.layers)}")
+        logger.log(f"  替换为Identity的层: {pruning_stats['empty_layers']}")
+        logger.log(f"  物理层数: {len(model.model.layers)} (保持不变)")
+        logger.log(f"  有效层数: {len(model.model.layers) - len(pruning_stats['empty_layers'])}")
 
     # ========== Step 9: 评估剪枝后 PPL ==========
     if args.test_after_prune:
