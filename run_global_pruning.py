@@ -27,6 +27,35 @@ from evaluation.metrics.ppl import PPLMetric
 from core.trainer.finetuner import FineTuner
 from core.utils.logger import LoggerWithDepth
 
+# 导入 evaluation 模块
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'evaluation'))
+from evaluation.run_evaluation import evaluate_single_model
+
+
+def setup_output_directories(base_dir):
+    """
+    创建统一的输出目录结构
+
+    Args:
+        base_dir: 基础输出目录（例如: prune_log/my_experiment）
+
+    Returns:
+        dict: 包含各个子目录路径的字典
+    """
+    dirs = {
+        'base': base_dir,
+        'models': os.path.join(base_dir, 'models'),           # 保存模型
+        'analysis': os.path.join(base_dir, 'analysis'),       # 保存中间分析结果
+        'evaluation': os.path.join(base_dir, 'evaluation'),   # 保存评估结果
+        'logs': os.path.join(base_dir, 'logs'),               # 保存日志
+    }
+
+    # 创建所有目录
+    for dir_path in dirs.values():
+        os.makedirs(dir_path, exist_ok=True)
+
+    return dirs
+
 
 def collect_layer_activations(model, input_ids, device='cuda'):
     """
@@ -406,10 +435,18 @@ def main():
                        help='Q:KV 比例')
 
     # 评估参数
+    parser.add_argument('--run_evaluation', type=str, default=None,
+                       help='剪枝后运行评估测试，多个测试用逗号分隔。支持: ppl, zeroshot, efficiency, all。例如: ppl,zeroshot')
+    parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2',
+                       help='PPL评估数据集，多个用逗号分隔。例如: wikitext2,ptb,c4')
+    parser.add_argument('--eval_zeroshot_tasks', type=str, default='winogrande,arc_easy,arc_challenge,hellaswag',
+                       help='Zero-shot评估任务，多个用逗号分隔')
+    parser.add_argument('--eval_use_custom_zeroshot', action='store_true',
+                       help='使用自定义zero-shot评估器（不依赖lm-eval）')
     parser.add_argument('--test_before_prune', action='store_true',
-                       help='剪枝前评估基线 PPL')
+                       help='[已弃用] 使用 --run_evaluation 替代')
     parser.add_argument('--test_after_prune', action='store_true',
-                       help='剪枝后评估 PPL')
+                       help='[已弃用] 使用 --run_evaluation 替代')
 
     # 微调参数
     parser.add_argument('--finetune', action='store_true',
@@ -445,6 +482,13 @@ def main():
 
     args = parser.parse_args()
 
+    # 向后兼容：将旧参数映射到新参数
+    if args.test_before_prune or args.test_after_prune:
+        if not args.run_evaluation:
+            args.run_evaluation = 'ppl'
+        print("⚠️  警告: --test_before_prune 和 --test_after_prune 已弃用")
+        print(f"   已自动转换为: --run_evaluation {args.run_evaluation}")
+
     # 设置 logger
     logger = LoggerWithDepth(
         env_name=args.save_ckpt_log_name,
@@ -452,13 +496,26 @@ def main():
         root_dir='prune_log'
     )
 
-    logger.log("="*60)
-    logger.log("基于全局性价比的混合结构化剪枝")
+    # 创建输出目录结构
+    output_dirs = setup_output_directories(logger.env_name)
+    logger.log(f"\n✓ 输出目录结构已创建:")
+    logger.log(f"  基础目录: {output_dirs['base']}")
+    logger.log(f"  模型保存: {output_dirs['models']}")
+    logger.log(f"  分析结果: {output_dirs['analysis']}")
+    logger.log(f"  评估结果: {output_dirs['evaluation']}")
+    logger.log(f"  日志文件: {output_dirs['logs']}")
+
+    logger.log("\n" + "="*60)
+    logger.log("基于全局性价比的混合结构化剪枝 (H-GSP)")
     logger.log("="*60)
     logger.log(f"模型: {args.base_model}")
     logger.log(f"剪枝率: {args.pruning_ratio:.1%}")
     logger.log(f"重要性方法: {args.importance_method}")
     logger.log(f"数据集: {args.dataset}")
+    logger.log(f"\nH-GSP 参数:")
+    logger.log(f"  温度 T: {args.temperature}")
+    logger.log(f"  阈值 τ: {'自动计算' if args.tau is None else args.tau}")
+    logger.log(f"  坍缩阈值 ε: {args.epsilon}")
 
     # ========== Step 1: 加载模型 ==========
     logger.log("\n[Step 1] 加载模型...")
@@ -714,14 +771,9 @@ def main():
     logger.log(f"  示例 - Layer {num_layers//2}: Removal PPL = {layer_removal_ppl[num_layers//2]:.4f}")
     logger.log(f"  示例 - Layer {num_layers-1}: Removal PPL = {layer_removal_ppl[num_layers-1]:.4f}")
 
-    # 保存层移除困惑度到文件
+    # 保存层移除困惑度到分析目录
     import json
-    if not hasattr(logger, 'env_name'):
-        logger.env_name = 'global_results'
-    if not os.path.exists(logger.env_name):
-        os.makedirs(logger.env_name, exist_ok=True)
-
-    layer_ppl_path = os.path.join(logger.env_name, 'layer_removal_ppl.json')
+    layer_ppl_path = os.path.join(output_dirs['analysis'], 'layer_removal_ppl.json')
     with open(layer_ppl_path, 'w') as f:
         json.dump(layer_removal_ppl, f, indent=2)
     logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
@@ -746,8 +798,8 @@ def main():
     logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
     logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
 
-    # 保存块移除困惑度到文件
-    block_ppl_path = os.path.join(logger.env_name, 'block_removal_ppl.json')
+    # 保存块移除困惑度到分析目录
+    block_ppl_path = os.path.join(output_dirs['analysis'], 'block_removal_ppl.json')
     with open(block_ppl_path, 'w') as f:
         json.dump(block_removal_ppl, f, indent=2)
     logger.log(f"✓ 块移除困惑度已保存: {block_ppl_path}")
@@ -794,31 +846,24 @@ def main():
 
     logger.log(f"✓ 选中 {len(groups_to_prune)} 个 groups 进行剪枝")
 
-    # 确保输出目录存在
-    output_dir = 'global_results'
-    if not hasattr(logger, 'env_name'):
-        logger.env_name = output_dir
-    if not os.path.exists(logger.env_name):
-        os.makedirs(logger.env_name, exist_ok=True)
-
-    # 保存分析表（按score排序）
-    table_path = os.path.join(logger.env_name, 'global_group_table.csv')
+    # 保存分析表到 analysis 目录（按score排序）
+    table_path = os.path.join(output_dirs['analysis'], 'global_group_table.csv')
     df.to_csv(table_path, index=False)
     logger.log(f"✓ 分析表已保存（按score排序）: {table_path}")
 
-    prune_table_path = os.path.join(logger.env_name, 'groups_to_prune.csv')
+    prune_table_path = os.path.join(output_dirs['analysis'], 'groups_to_prune.csv')
     groups_to_prune.to_csv(prune_table_path, index=False)
     logger.log(f"✓ 剪枝列表已保存（按score排序）: {prune_table_path}")
 
     # 保存按层排序的分析表
     df_by_layer = df.sort_values(['layer_idx', 'group_type', 'group_idx']).reset_index(drop=True)
-    table_by_layer_path = os.path.join(logger.env_name, 'global_group_table_by_layer.csv')
+    table_by_layer_path = os.path.join(output_dirs['analysis'], 'global_group_table_by_layer.csv')
     df_by_layer.to_csv(table_by_layer_path, index=False)
     logger.log(f"✓ 分析表已保存（按层排序）: {table_by_layer_path}")
 
     # 保存按层排序的剪枝列表
     prune_by_layer = groups_to_prune.sort_values(['layer_idx', 'group_type', 'group_idx']).reset_index(drop=True)
-    prune_by_layer_path = os.path.join(logger.env_name, 'groups_to_prune_by_layer.csv')
+    prune_by_layer_path = os.path.join(output_dirs['analysis'], 'groups_to_prune_by_layer.csv')
     prune_by_layer.to_csv(prune_by_layer_path, index=False)
     logger.log(f"✓ 剪枝列表已保存（按层排序）: {prune_by_layer_path}")
 
@@ -967,20 +1012,15 @@ def main():
                 else:
                     logger.log(f"  ⚠️  无法计算最终PPL退化（存在inf值）")
 
-    # ========== Step 11: 保存模型（默认行为）==========
+    # ========== Step 11: 保存模型 ==========
     if args.output_model:
         logger.log(f"\n[Step 11] 保存剪枝后的模型...")
 
-        # 支持绝对路径或相对于实验目录的路径
+        # 支持绝对路径或相对于 models 目录的路径
         if os.path.isabs(args.output_model):
             save_path = args.output_model
         else:
-            save_path = os.path.join(logger.env_name, args.output_model)
-
-        # 确保保存目录存在
-        save_dir = os.path.dirname(save_path)
-        if save_dir:  # 只有当路径包含目录时才创建
-            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(output_dirs['models'], args.output_model)
 
         save_dict = {
             'model': model,
@@ -997,10 +1037,82 @@ def main():
         logger.log(f"  文件大小: {os.path.getsize(save_path) / (1024**3):.2f} GB")
     else:
         logger.log(f"\n[Step 11] 跳过模型保存（未指定 --output_model）")
+        save_path = None
+
+    # ========== Step 12: 运行评估测试（可选）==========
+    if args.run_evaluation:
+        logger.log(f"\n[Step 12] 运行评估测试...")
+
+        # 解析评估类型
+        eval_types = [t.strip() for t in args.run_evaluation.split(',')]
+        if 'all' in eval_types:
+            eval_types = ['ppl', 'zeroshot', 'efficiency']
+
+        logger.log(f"  评估类型: {', '.join(eval_types)}")
+
+        # 解析数据集和任务
+        ppl_datasets = [d.strip() for d in args.eval_ppl_datasets.split(',')] if 'ppl' in eval_types else None
+        zeroshot_tasks = [t.strip() for t in args.eval_zeroshot_tasks.split(',')] if 'zeroshot' in eval_types else None
+
+        # 保存当前模型用于评估（临时）
+        if not save_path:
+            logger.log("  保存临时模型用于评估...")
+            save_path = os.path.join(output_dirs['models'], 'temp_pruned_model.bin')
+            torch.save(save_dict, save_path)
+            logger.log(f"  ✓ 临时模型已保存: {save_path}")
+
+        # 运行评估
+        logger.log(f"\n  开始评估...")
+        eval_results = evaluate_single_model(
+            model_path=save_path,
+            metrics=eval_types,
+            device=args.device,
+            ppl_datasets=ppl_datasets,
+            zeroshot_tasks=zeroshot_tasks,
+            speed_samples=50,
+            verbose=True,
+            use_custom_zeroshot=args.eval_use_custom_zeroshot,
+            zeroshot_batch_size=8
+        )
+
+        # 保存评估结果
+        eval_result_path = os.path.join(output_dirs['evaluation'], 'evaluation_results.json')
+        with open(eval_result_path, 'w') as f:
+            json.dump(eval_results, f, indent=2)
+        logger.log(f"\n✓ 评估结果已保存: {eval_result_path}")
+
+        # 打印简要评估摘要
+        logger.log(f"\n{'='*60}")
+        logger.log(f"评估结果摘要")
+        logger.log(f"{'='*60}")
+        if 'ppl' in eval_results.get('metrics', {}):
+            logger.log(f"\nPPL 结果:")
+            for dataset, ppl in eval_results['metrics']['ppl'].items():
+                logger.log(f"  {dataset}: {ppl:.2f}" if ppl else f"  {dataset}: N/A")
+
+        if 'avg_zeroshot_acc' in eval_results.get('metrics', {}):
+            acc = eval_results['metrics']['avg_zeroshot_acc']
+            logger.log(f"\nZero-shot 平均准确率: {acc*100:.2f}%")
+
+        if 'efficiency' in eval_results.get('metrics', {}):
+            eff = eval_results['metrics']['efficiency']
+            if 'speed' in eff:
+                throughput = eff['speed'].get('batch_size_1', {}).get('throughput_tokens_per_sec', 'N/A')
+                logger.log(f"\n推理速度: {throughput:.1f} tokens/s" if isinstance(throughput, (int, float)) else f"\n推理速度: {throughput}")
+            if 'memory' in eff:
+                mem = eff['memory'].get('model_memory_mb', 'N/A')
+                logger.log(f"GPU 显存: {mem:.0f} MB" if isinstance(mem, (int, float)) else f"GPU 显存: {mem}")
+    else:
+        logger.log(f"\n[Step 12] 跳过评估测试（未指定 --run_evaluation）")
 
     logger.log(f"\n{'='*60}")
     logger.log(f"✓ 全部完成！")
     logger.log(f"{'='*60}")
+    logger.log(f"\n输出目录: {output_dirs['base']}")
+    logger.log(f"  - 模型: {output_dirs['models']}")
+    logger.log(f"  - 分析结果: {output_dirs['analysis']}")
+    logger.log(f"  - 评估结果: {output_dirs['evaluation']}")
+    logger.log(f"  - 日志: {output_dirs['logs']}")
 
 
 if __name__ == '__main__':
