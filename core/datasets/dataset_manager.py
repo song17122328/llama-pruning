@@ -63,13 +63,13 @@ class DatasetManager:
         Returns:
             torch.Tensor: shape [num_samples, seq_len]
         """
-        print(f"\n{'='*60}")
-        print(f"加载数据集: {self.dataset_name}")
-        print(f"  用途: {purpose}")
-        print(f"  样本数: {num_samples}")
-        print(f"  序列长度: {seq_len}")
-        print(f"  数据分割: {split}")
-        print(f"{'='*60}")
+        # print(f"\n{'='*60}")
+        # print(f"加载数据集: {self.dataset_name}")
+        # print(f"  用途: {purpose}")
+        # print(f"  样本数: {num_samples}")
+        # print(f"  序列长度: {seq_len}")
+        # print(f"  数据分割: {split}")
+        # print(f"{'='*60}")
 
         samples = get_examples(
             dataset_name=self.dataset_name,

@@ -741,9 +741,12 @@ def main():
     )
 
     logger.log(f"✓ 层移除困惑度计算完成")
-    logger.log(f"  示例 - Layer 0: Removal PPL = {layer_removal_ppl[0]:.4f}")
-    logger.log(f"  示例 - Layer {num_layers//2}: Removal PPL = {layer_removal_ppl[num_layers//2]:.4f}")
-    logger.log(f"  示例 - Layer {num_layers-1}: Removal PPL = {layer_removal_ppl[num_layers-1]:.4f}")
+    print("\n" + "="*60)
+    print("层级重要度")
+    print("="*60)
+    for layer_idx in range(num_layers):
+        importance = layer_removal_ppl.get(layer_idx, 0.0)
+        print(f"Layer {layer_idx:2d}   {importance:10.4f}")
 
     # 保存层移除困惑度到分析目录
     import json

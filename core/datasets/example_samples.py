@@ -34,7 +34,7 @@ def get_examples(
     if dataset_name.lower() in ['wikitext', 'wikitext2', 'wikitext-2']:
         try:
             dataset = load_from_disk("/newdata/DataSets/wikitext2")[split]
-            print("✅ 本地加载成功！")
+            # print("✅ 本地加载成功！")
         except Exception as e:
             print(f"⚠️ 本地加载失败， (文件可能损坏或格式不匹配): {e}")
             print("从网上获取")
