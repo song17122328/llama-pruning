@@ -91,6 +91,33 @@ def collect_layer_activations(model, input_ids, device='cuda'):
     return activations
 
 
+class IdentityDecoderLayer(torch.nn.Module):
+    """
+    Identity 层：直接传递输入，不做任何计算
+
+    用于替换被完全剪空的层，保持模型层数结构不变
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, hidden_states, *args, **kwargs):
+        # 检查返回格式要求
+        output_attentions = kwargs.get('output_attentions', False)
+        use_cache = kwargs.get('use_cache', False)
+
+        if output_attentions or use_cache:
+            # 返回元组格式
+            outputs = (hidden_states,)
+            if output_attentions:
+                outputs += (None,)  # attention_weights
+            if use_cache:
+                outputs += (None,)  # past_key_value
+            return outputs
+        else:
+            # 只返回 hidden_states
+            return hidden_states
+
+
 def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, logger=None):
     """
     根据全局分析表执行实际剪枝
@@ -258,29 +285,7 @@ def remove_empty_layers(model, empty_layers, logger=None):
     log(f"策略: 替换为 Identity 层（保持模型结构完整）")
 
     # 为了避免 HuggingFace Transformers 内部的各种假设被打破
-    # 我们不删除层，而是将它们替换为 identity 层
-    class IdentityDecoderLayer(torch.nn.Module):
-        """Identity 层：直接传递输入，不做任何计算"""
-        def __init__(self):
-            super().__init__()
-
-        def forward(self, hidden_states, *args, **kwargs):
-            # 检查返回格式要求
-            output_attentions = kwargs.get('output_attentions', False)
-            use_cache = kwargs.get('use_cache', False)
-
-            if output_attentions or use_cache:
-                # 返回元组格式
-                outputs = (hidden_states,)
-                if output_attentions:
-                    outputs += (None,)  # attention_weights
-                if use_cache:
-                    outputs += (None,)  # past_key_value
-                return outputs
-            else:
-                # 只返回 hidden_states
-                return hidden_states
-
+    # 我们不删除层，而是将它们替换为全局定义的 IdentityDecoderLayer
     num_layers = len(model.model.layers)
 
     # 替换空层为 identity 层
