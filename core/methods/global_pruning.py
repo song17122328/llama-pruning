@@ -9,6 +9,7 @@
 4. 全局排序，选择 Score 最低的 groups 剪枝
 """
 
+import math
 import torch
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
@@ -303,7 +304,8 @@ def build_global_group_table(
     layer_end=None,
     head_dim=128,
     gqa_ratio=4,
-    device='cuda'
+    device='cuda',
+    layer_removal_ppl=None
 ) -> pd.DataFrame:
     """
     构建全局 Group 分析表
@@ -319,6 +321,8 @@ def build_global_group_table(
         head_dim: head 维度
         gqa_ratio: Q:KV 比例
         device: 设备
+        layer_removal_ppl: 每层的移除困惑度变化 (Dict[int, float])
+            如果提供，则使用公式: Final_Score = Taylor_Score × ln(1 + Removal_PPL)
 
     Returns:
         DataFrame with columns: layer_idx, group_type, group_idx, importance, cost, score
@@ -350,6 +354,8 @@ def build_global_group_table(
     print(f"重要性方法: {importance_method}")
     if importance_method == 'taylor_2nd':
         print(f"  使用二阶泰勒展开（包含 Hessian 对角线）")
+    if layer_removal_ppl is not None:
+        print(f"  ✓ 启用层重要性加权: Final_Score = Taylor_Score × ln(1 + Removal_PPL)")
     print(f"层范围: [{layer_start}, {layer_end})")
     print(f"总层数: {num_layers}")
 
@@ -376,6 +382,12 @@ def build_global_group_table(
             cost = compute_attention_group_cost(layer, group_idx, head_dim, gqa_ratio)
             score = importance / cost if cost > 0 else 0.0
 
+            # 应用层重要性加权
+            if layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+                removal_ppl = layer_removal_ppl[layer_idx]
+                # Final_Score = Taylor_Score × ln(1 + Removal_PPL)
+                score = score * math.log(1 + removal_ppl)
+
             group = GroupInfo(
                 layer_idx=layer_idx,
                 group_type='attention',
@@ -400,6 +412,12 @@ def build_global_group_table(
             importance = mlp_importance[group_idx].item()
             cost = mlp_group_cost  # 每个通道的成本相同
             score = importance / cost if cost > 0 else 0.0
+
+            # 应用层重要性加权
+            if layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+                removal_ppl = layer_removal_ppl[layer_idx]
+                # Final_Score = Taylor_Score × ln(1 + Removal_PPL)
+                score = score * math.log(1 + removal_ppl)
 
             group = GroupInfo(
                 layer_idx=layer_idx,

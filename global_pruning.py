@@ -291,6 +291,10 @@ def main():
                        help='使用梯度检查点（节省显存但会慢一些）')
     parser.add_argument('--remove_empty_layers', action='store_true',
                        help='是否移除被完全剪空的层（自动深度剪枝）')
+    parser.add_argument('--use_layer_weighting', action='store_true',
+                       help='使用层重要性加权评分: Final_Score = Taylor_Score × ln(1 + Removal_PPL)')
+    parser.add_argument('--layer_weighting_samples', type=int, default=32,
+                       help='用于计算层移除困惑度的样本数（仅当 use_layer_weighting=True 时有效）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
@@ -563,6 +567,50 @@ def main():
         logger.log(f"  总耗时: {total_time:.2f}s ({total_time/60:.2f}min)")
         logger.log(f"  平均每批次: {total_time/num_batches:.2f}s")
 
+    # ========== Step 3.5: 计算层移除困惑度（如果启用）==========
+    layer_removal_ppl = None
+    if args.use_layer_weighting:
+        logger.log(f"\n[Step 3.5] 计算层移除困惑度（用于加权评分）...")
+        logger.log(f"  样本数: {args.layer_weighting_samples}")
+
+        from core.importance.layer_analyzer import LayerImportanceAnalyzer
+
+        # 加载用于层重要性分析的样本
+        layer_texts = get_examples('wikitext', tokenizer, num_samples=args.layer_weighting_samples, seq_len=args.seq_len)
+
+        # 转换为文本列表（用于 LayerImportanceAnalyzer）
+        layer_texts_list = []
+        for i in range(layer_texts.size(0)):
+            text = tokenizer.decode(layer_texts[i], skip_special_tokens=True)
+            layer_texts_list.append(text)
+
+        # 创建分析器
+        analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
+
+        # 计算每层的移除困惑度
+        num_layers = len(model.model.layers)
+        layer_removal_ppl = analyzer.measure_layer_importance_by_removal(
+            texts=layer_texts_list,
+            num_layers=num_layers
+        )
+
+        logger.log(f"✓ 层移除困惑度计算完成")
+        logger.log(f"  示例 - Layer 0: Removal PPL = {layer_removal_ppl[0]:.4f}")
+        logger.log(f"  示例 - Layer {num_layers//2}: Removal PPL = {layer_removal_ppl[num_layers//2]:.4f}")
+        logger.log(f"  示例 - Layer {num_layers-1}: Removal PPL = {layer_removal_ppl[num_layers-1]:.4f}")
+
+        # 保存层移除困惑度到文件
+        import json
+        if not hasattr(logger, 'env_name'):
+            logger.env_name = 'global_results'
+        if not os.path.exists(logger.env_name):
+            os.makedirs(logger.env_name, exist_ok=True)
+
+        layer_ppl_path = os.path.join(logger.env_name, 'layer_removal_ppl.json')
+        with open(layer_ppl_path, 'w') as f:
+            json.dump(layer_removal_ppl, f, indent=2)
+        logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
+
     # ========== Step 4: 构建全局分析表 ==========
     logger.log("\n[Step 4] 构建全局 Group 分析表...")
 
@@ -585,7 +633,8 @@ def main():
         layer_end=layer_end,
         head_dim=args.head_dim,
         gqa_ratio=args.gqa_ratio,
-        device=args.device
+        device=args.device,
+        layer_removal_ppl=layer_removal_ppl  # 传递层移除困惑度
     )
 
     logger.log(f"✓ 分析表构建完成")
