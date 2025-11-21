@@ -112,7 +112,7 @@ python run_global_pruning.py \
     --importance_method taylor \
     --num_samples 128 \
     --test_after_prune \
-    --save_model
+    --output_model pruned_model.bin
 ```
 
 **核心参数**：
@@ -174,7 +174,7 @@ python run_global_pruning.py \
     --finetune_samples 1000 \
     --finetune_lr 1e-4 \
     --test_after_prune \
-    --save_model
+    --output_model finetuned_model.bin
 ```
 
 **微调参数**：

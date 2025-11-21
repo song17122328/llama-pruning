@@ -429,8 +429,8 @@ def main():
                        help='LoRA alpha')
 
     # 保存参数
-    parser.add_argument('--save_model', action='store_true',
-                       help='保存剪枝后的模型')
+    parser.add_argument('--output_model', type=str, default=None,
+                       help='保存剪枝后模型的文件名（相对于实验目录）。例如：pruned_model.bin。如果不指定则不保存模型。')
 
     # 其他
     from core.utils.get_best_gpu import get_best_gpu
@@ -967,11 +967,20 @@ def main():
                 else:
                     logger.log(f"  ⚠️  无法计算最终PPL退化（存在inf值）")
 
-    # ========== Step 11: 保存模型 ==========
-    if args.save_model:
-        logger.log(f"\n[Step 11] 保存模型...")
+    # ========== Step 11: 保存模型（默认行为）==========
+    if args.output_model:
+        logger.log(f"\n[Step 11] 保存剪枝后的模型...")
 
-        save_path = os.path.join(logger.env_name, 'pytorch_model.bin')
+        # 支持绝对路径或相对于实验目录的路径
+        if os.path.isabs(args.output_model):
+            save_path = args.output_model
+        else:
+            save_path = os.path.join(logger.env_name, args.output_model)
+
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir:  # 只有当路径包含目录时才创建
+            os.makedirs(save_dir, exist_ok=True)
 
         save_dict = {
             'model': model,
@@ -985,6 +994,9 @@ def main():
 
         torch.save(save_dict, save_path)
         logger.log(f"✓ 模型已保存: {save_path}")
+        logger.log(f"  文件大小: {os.path.getsize(save_path) / (1024**3):.2f} GB")
+    else:
+        logger.log(f"\n[Step 11] 跳过模型保存（未指定 --output_model）")
 
     logger.log(f"\n{'='*60}")
     logger.log(f"✓ 全部完成！")
