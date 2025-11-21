@@ -306,10 +306,12 @@ def build_global_group_table(
     gqa_ratio=4,
     device='cuda',
     layer_removal_ppl=None,
-    block_removal_ppl=None
+    block_removal_ppl=None,
+    layer_gate_threshold=None,
+    layer_gate_penalty=0.1
 ) -> pd.DataFrame:
     """
-    构建全局 Group 分析表
+    构建全局 Group 分析表（支持 H-GSP）
 
     Args:
         model: LLaMA 模型
@@ -329,6 +331,10 @@ def build_global_group_table(
             如果提供，则使用公式:
                 Attn_Score = Taylor_Score × ln(1 + Attn_Block_PPL)
                 MLP_Score = Taylor_Score × ln(1 + MLP_Block_PPL)
+        layer_gate_threshold: 层级门控阈值 (float)
+            当 PPL_layer < threshold 时触发惩罚，鼓励整层移除
+        layer_gate_penalty: 层级门控惩罚系数 (float)
+            触发时的得分折扣，例如 0.1 表示得分 × 0.1
 
     Returns:
         DataFrame with columns: layer_idx, group_type, group_idx, importance, cost, score
@@ -355,7 +361,7 @@ def build_global_group_table(
                     raise ValueError("Second-order Taylor requires 'hessian_diag' in importance_info")
 
     print(f"\n{'='*60}")
-    print(f"构建全局 Group 分析表")
+    print(f"构建全局 Group 分析表 (H-GSP)")
     print(f"{'='*60}")
     print(f"重要性方法: {importance_method}")
     if importance_method == 'taylor_2nd':
@@ -366,6 +372,10 @@ def build_global_group_table(
         print(f"  ✓ 启用块级重要性加权:")
         print(f"     Attn_Score = Taylor_Score × ln(1 + Attn_Block_PPL)")
         print(f"     MLP_Score  = Taylor_Score × ln(1 + MLP_Block_PPL)")
+    if layer_gate_threshold is not None:
+        print(f"  ✓ 启用层级门控 (Layer-wise Gate):")
+        print(f"     当 PPL_layer < {layer_gate_threshold} 时，Score × {layer_gate_penalty}")
+        print(f"     利用残差悖论，鼓励整层移除")
     print(f"层范围: [{layer_start}, {layer_end})")
     print(f"总层数: {num_layers}")
 
@@ -404,6 +414,14 @@ def build_global_group_table(
                 # Final_Score = Taylor_Score × ln(1 + Removal_PPL)
                 score = score * math.log(1 + removal_ppl)
 
+            # 应用层级门控 (Layer-wise Gate)
+            if layer_gate_threshold is not None and layer_removal_ppl is not None:
+                if layer_idx in layer_removal_ppl:
+                    ppl_layer = layer_removal_ppl[layer_idx]
+                    if ppl_layer < layer_gate_threshold:
+                        # 触发惩罚：利用残差悖论，鼓励整层移除
+                        score = score * layer_gate_penalty
+
             group = GroupInfo(
                 layer_idx=layer_idx,
                 group_type='attention',
@@ -440,6 +458,14 @@ def build_global_group_table(
                 removal_ppl = layer_removal_ppl[layer_idx]
                 # Final_Score = Taylor_Score × ln(1 + Removal_PPL)
                 score = score * math.log(1 + removal_ppl)
+
+            # 应用层级门控 (Layer-wise Gate)
+            if layer_gate_threshold is not None and layer_removal_ppl is not None:
+                if layer_idx in layer_removal_ppl:
+                    ppl_layer = layer_removal_ppl[layer_idx]
+                    if ppl_layer < layer_gate_threshold:
+                        # 触发惩罚：利用残差悖论，鼓励整层移除
+                        score = score * layer_gate_penalty
 
             group = GroupInfo(
                 layer_idx=layer_idx,

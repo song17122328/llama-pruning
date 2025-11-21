@@ -266,6 +266,81 @@ def remove_empty_layers(model, empty_layers, logger=None):
     log(f"✓ 层数: {num_layers} → {len(keep_layers)}")
 
 
+def auto_collapse(model, pruning_stats, collapse_threshold=0.15, logger=None):
+    """
+    自动坍缩：检测稀疏层并强制移除整层
+
+    H-GSP 核心思想：避免"留 10% 不如不留"的情况
+    当某层的参数保留率低于阈值时，直接移除整层
+
+    Args:
+        model: 模型
+        pruning_stats: 剪枝统计信息
+            {'attention': {layer_idx: (old, new)}, 'mlp': {layer_idx: (old, new)}, 'empty_layers': []}
+        collapse_threshold: 坍缩阈值（默认 0.15 = 15%）
+        logger: 日志记录器
+
+    Returns:
+        additional_empty_layers: 需要额外移除的层列表
+    """
+    def log(msg):
+        if logger:
+            logger.log(msg)
+        else:
+            print(msg)
+
+    log(f"\n{'='*60}")
+    log(f"自动坍缩检测 (Auto-Collapse)")
+    log(f"{'='*60}")
+    log(f"坍缩阈值: {collapse_threshold:.1%}")
+    log(f"检测逻辑: 当层参数保留率 < {collapse_threshold:.1%} 时，强制移除整层")
+
+    num_layers = len(model.model.layers)
+    additional_empty_layers = []
+
+    for layer_idx in range(num_layers):
+        # 跳过已经被剪空的层
+        if layer_idx in pruning_stats.get('empty_layers', []):
+            continue
+
+        # 计算该层的参数保留率
+        attn_info = pruning_stats['attention'].get(layer_idx)
+        mlp_info = pruning_stats['mlp'].get(layer_idx)
+
+        # 计算 Attention 保留率
+        if attn_info:
+            old_kv, new_kv = attn_info
+            attn_retain_rate = new_kv / old_kv if old_kv > 0 else 1.0
+        else:
+            attn_retain_rate = 1.0
+
+        # 计算 MLP 保留率
+        if mlp_info:
+            old_channels, new_channels = mlp_info
+            mlp_retain_rate = new_channels / old_channels if old_channels > 0 else 1.0
+        else:
+            mlp_retain_rate = 1.0
+
+        # 计算综合保留率（取两者的平均）
+        avg_retain_rate = (attn_retain_rate + mlp_retain_rate) / 2.0
+
+        # 判断是否触发坍缩
+        if avg_retain_rate < collapse_threshold:
+            log(f"  🔻 Layer {layer_idx} 触发坍缩:")
+            log(f"     Attn 保留率: {attn_retain_rate:.1%}, MLP 保留率: {mlp_retain_rate:.1%}")
+            log(f"     平均保留率: {avg_retain_rate:.1%} < {collapse_threshold:.1%}")
+            log(f"     决策: 强制移除整层")
+            additional_empty_layers.append(layer_idx)
+
+    if len(additional_empty_layers) == 0:
+        log(f"\n✓ 没有层触发坍缩阈值")
+    else:
+        log(f"\n✓ 检测到 {len(additional_empty_layers)} 层需要坍缩: {additional_empty_layers}")
+        log(f"  这些层将被强制移除（利用残差悖论）")
+
+    return additional_empty_layers
+
+
 def main():
     parser = argparse.ArgumentParser(description='基于全局性价比的混合结构化剪枝')
 
@@ -302,6 +377,18 @@ def main():
                        help='使用块级重要性加权评分: Attn_Score = Taylor × ln(1 + Attn_Block_PPL), MLP_Score = Taylor × ln(1 + MLP_Block_PPL)')
     parser.add_argument('--block_weighting_samples', type=int, default=32,
                        help='用于计算块移除困惑度的样本数（仅当 use_block_weighting=True 时有效）')
+
+    # H-GSP 高级特性
+    parser.add_argument('--use_layer_gate', action='store_true',
+                       help='启用层级门控 (Layer-wise Gate)：对移除代价低的层强制打折，鼓励整层移除')
+    parser.add_argument('--layer_gate_threshold', type=float, default=1.0,
+                       help='层级门控阈值：当 PPL_layer < threshold 时触发惩罚（默认1.0）')
+    parser.add_argument('--layer_gate_penalty', type=float, default=0.1,
+                       help='层级门控惩罚系数：触发时的得分折扣系数（默认0.1）')
+    parser.add_argument('--auto_collapse', action='store_true',
+                       help='启用自动坍缩：当某层剩余参数率 < threshold 时自动移除整层')
+    parser.add_argument('--collapse_threshold', type=float, default=0.15,
+                       help='自动坍缩阈值：层剩余参数率低于此值时触发整层移除（默认0.15）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
@@ -679,6 +766,10 @@ def main():
     elif args.importance_method == 'wanda':
         importance_info['activations'] = activations
 
+    # 准备 Layer-wise Gate 参数
+    layer_gate_threshold_val = args.layer_gate_threshold if args.use_layer_gate else None
+    layer_gate_penalty_val = args.layer_gate_penalty if args.use_layer_gate else 0.1
+
     df = build_global_group_table(
         model=model,
         importance_method=args.importance_method,
@@ -688,8 +779,10 @@ def main():
         head_dim=args.head_dim,
         gqa_ratio=args.gqa_ratio,
         device=args.device,
-        layer_removal_ppl=layer_removal_ppl,  # 传递层移除困惑度
-        block_removal_ppl=block_removal_ppl   # 传递块移除困惑度
+        layer_removal_ppl=layer_removal_ppl,          # 传递层移除困惑度
+        block_removal_ppl=block_removal_ppl,          # 传递块移除困惑度
+        layer_gate_threshold=layer_gate_threshold_val, # H-GSP: 层级门控阈值
+        layer_gate_penalty=layer_gate_penalty_val      # H-GSP: 层级门控惩罚
     )
 
     logger.log(f"✓ 分析表构建完成")
@@ -786,10 +879,28 @@ def main():
 
     logger.log("\n✓ 全局剪枝完成")
 
+    # ========== Step 6.5: 自动坍缩（可选）==========
+    additional_empty_layers = []
+    if args.auto_collapse:
+        logger.log(f"\n[Step 6.5] 自动坍缩检测...")
+        additional_empty_layers = auto_collapse(
+            model=model,
+            pruning_stats=pruning_stats,
+            collapse_threshold=args.collapse_threshold,
+            logger=logger
+        )
+        # 将额外的空层加入到 empty_layers 列表
+        pruning_stats['empty_layers'].extend(additional_empty_layers)
+
     # ========== Step 7: 移除空层（可选）==========
-    if args.remove_empty_layers and len(pruning_stats['empty_layers']) > 0:
+    all_empty_layers = pruning_stats['empty_layers']
+    if args.remove_empty_layers and len(all_empty_layers) > 0:
         logger.log(f"\n[Step 7] 移除空层...")
-        remove_empty_layers(model, pruning_stats['empty_layers'], logger)
+        logger.log(f"  原始空层: {len(all_empty_layers) - len(additional_empty_layers)}")
+        if len(additional_empty_layers) > 0:
+            logger.log(f"  坍缩触发: {len(additional_empty_layers)}")
+        logger.log(f"  总计移除: {len(all_empty_layers)} 层")
+        remove_empty_layers(model, all_empty_layers, logger)
 
     # ========== Step 8: 统计剪枝结果 ==========
     logger.log(f"\n{'='*60}")
