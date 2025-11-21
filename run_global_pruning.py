@@ -203,8 +203,15 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
                 log(f"  Attention: {old_q}Q:{old_kv}KV → {new_q}Q:{new_kv}KV")
                 pruning_stats['attention'][layer_idx] = (old_kv, new_kv)
             else:
-                # 该层 Attention 被完全剪空
+                # 该层 Attention 被完全剪空 - 也需要执行剪枝以删除权重
                 log(f"  ⚠️ Attention 被完全剪空（{old_kv} → 0 KV heads）")
+                # 传入空列表，将所有权重删除
+                new_q, new_kv = prune_attention_by_gqa_groups(
+                    layer,
+                    [],  # 空列表 = 删除所有 heads
+                    head_dim=head_dim,
+                    gqa_ratio=gqa_ratio
+                )
                 pruning_stats['attention'][layer_idx] = (old_kv, 0)
 
         # ========== MLP 剪枝 ==========
@@ -243,8 +250,23 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
                 log(f"  MLP: {intermediate_size} → {new_intermediate_size} channels")
                 pruning_stats['mlp'][layer_idx] = (intermediate_size, new_intermediate_size)
             else:
-                # 该层 MLP 被完全剪空
+                # 该层 MLP 被完全剪空 - 也需要执行剪枝以删除权重
                 log(f"  ⚠️ MLP 被完全剪空（{intermediate_size} → 0 channels）")
+                # 传入空tensor，将所有权重删除
+                empty_tensor = torch.tensor([], dtype=torch.long, device=layer.mlp.gate_proj.weight.device)
+                layer.mlp.gate_proj.weight = torch.nn.Parameter(
+                    layer.mlp.gate_proj.weight[empty_tensor, :]
+                )
+                layer.mlp.up_proj.weight = torch.nn.Parameter(
+                    layer.mlp.up_proj.weight[empty_tensor, :]
+                )
+                layer.mlp.down_proj.weight = torch.nn.Parameter(
+                    layer.mlp.down_proj.weight[:, empty_tensor]
+                )
+                # 更新 intermediate_size 为 0
+                layer.mlp.gate_proj.out_features = 0
+                layer.mlp.up_proj.out_features = 0
+                layer.mlp.down_proj.in_features = 0
                 pruning_stats['mlp'][layer_idx] = (intermediate_size, 0)
 
         # 检查是否整层被剪空
