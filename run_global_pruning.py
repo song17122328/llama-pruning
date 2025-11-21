@@ -425,6 +425,8 @@ def main():
                        help='H-GSP 门控阈值 τ（默认: None 自动计算）')
     parser.add_argument('--epsilon', type=float, default=0.15,
                        help='H-GSP 坍缩阈值 ε（默认: 0.15）')
+    parser.add_argument('--remove_empty_layers', action='store_true',
+                       help='是否移除空层（默认: False）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
