@@ -429,9 +429,9 @@ if __name__ == "__main__":
     eval_samples = all_samples[:50]
     eval_texts = [tokenizer.decode(sample, skip_special_tokens=True) for sample in eval_samples]
     layer_importance = analyzer.measure_layer_importance_by_removal(
-        eval_texts, num_layers = 2
+        eval_texts, num_layers = 32
     )
     print(layer_importance)
     # importance_values = list(layer_importance.values())
-    for element in layer_importance:
-        print(f"  Layer {element.key}: {element.value:.6f}")
+    for layer_id, importance in layer_importance.items():
+        print(f"  Layer {layer_id}: {importance:.6f}")
