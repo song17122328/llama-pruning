@@ -64,25 +64,9 @@ class LayerImportanceAnalyzer:
             # 定义恒等映射函数
             def identity_forward(hidden_states, *args, **kwargs):
                 # 直接返回输入的hidden_states，跳过该层的计算
-                # Llama 的 DecoderLayer forward 返回格式：
-                # - 如果不返回额外信息：hidden_states
-                # - 如果返回注意力权重：(hidden_states, self_attn_weights, present_key_value)
-
-                # 检查是否需要返回额外信息
-                output_attentions = kwargs.get('output_attentions', False)
-                use_cache = kwargs.get('use_cache', False)
-
-                if output_attentions or use_cache:
-                    # 返回元组格式
-                    outputs = (hidden_states,)
-                    if output_attentions:
-                        outputs += (None,)  # self_attn_weights
-                    if use_cache:
-                        outputs += (None,)  # present_key_value
-                    return outputs
-                else:
-                    # 只返回 hidden_states
-                    return hidden_states
+                # LlamaDecoderLayer 可以返回单个值或元组
+                # 为了兼容性，总是返回元组格式
+                return (hidden_states,)
 
             # 临时替换该层的forward
             self.model.model.layers[layer_idx].forward = identity_forward
@@ -129,18 +113,10 @@ class LayerImportanceAnalyzer:
 
             # 定义恒等映射（跳过 Attention）
             def identity_attn_forward(hidden_states, *args, **kwargs):
-                output_attentions = kwargs.get('output_attentions', False)
-                use_cache = kwargs.get('use_cache', False)
-
-                if output_attentions or use_cache:
-                    outputs = (hidden_states,)
-                    if output_attentions:
-                        outputs += (None,)
-                    if use_cache:
-                        outputs += (None,)
-                    return outputs
-                else:
-                    return hidden_states
+                # LlamaAttention 总是返回元组格式
+                # 标准返回: (attn_output, attn_weights, past_key_value)
+                # 但通常情况下只需要 (attn_output,) 即可
+                return (hidden_states,)
 
             # 替换 Attention forward
             layer.self_attn.forward = identity_attn_forward
