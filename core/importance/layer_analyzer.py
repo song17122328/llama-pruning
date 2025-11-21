@@ -92,7 +92,7 @@ class LayerImportanceAnalyzer:
                 importance = ppl - baseline_ppl  # 困惑度增加越多，该层越重要
                 layer_importance[layer_idx] = importance
 
-                # print(f"第 {layer_idx} 层: PPL 变化 = {importance:.4f}")
+                print(f"第 {layer_idx} 层: PPL 变化 = {importance:.4f}")
             finally:
                 # 无论是否出错，都要恢复该层
                 self.model.model.layers[layer_idx].forward = original_forward
@@ -429,8 +429,9 @@ if __name__ == "__main__":
     eval_samples = all_samples[:50]
     eval_texts = [tokenizer.decode(sample, skip_special_tokens=True) for sample in eval_samples]
     layer_importance = analyzer.measure_layer_importance_by_removal(
-        eval_texts, num_layers = len(model.model.layers)
+        eval_texts, num_layers = 2
     )
+    print(layer_importance)
     # importance_values = list(layer_importance.values())
-    for layer_idx, importance in layer_importance:
-        print(f"  Layer {layer_idx}: {importance:.6f}")
+    for element in layer_importance:
+        print(f"  Layer {element.key}: {element.value:.6f}")
