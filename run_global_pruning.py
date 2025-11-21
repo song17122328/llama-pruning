@@ -605,8 +605,7 @@ def main():
 
             batch_start_time = time.time()
 
-            # 加载当前批次
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 加载数据...")
+            # 加载当前批次并计算梯度
             input_ids = dataset_manager.get_gradient_samples(
                 num_samples=current_batch_size,
                 seq_len=TAYLOR_SEQ_LEN
@@ -614,12 +613,10 @@ def main():
             input_ids = input_ids.to(args.device)
 
             # 前向传播
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 前向传播...")
             outputs = model(input_ids, labels=input_ids)
             loss = outputs.loss / num_batches  # 归一化
 
             # 反向传播
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 反向传播...")
             loss.backward()
 
             # 二阶泰勒：累积 Hessian 对角线（使用梯度平方近似）
@@ -632,12 +629,10 @@ def main():
             batch_time = time.time() - batch_start_time
             total_loss += loss.item() * num_batches
 
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 完成！耗时: {batch_time:.2f}s, loss: {loss.item() * num_batches:.4f}")
-
             # 更新进度条信息
             pbar.set_postfix({
                 'loss': f'{loss.item() * num_batches:.4f}',
-                'batch_time': f'{batch_time:.2f}s'
+                'time': f'{batch_time:.2f}s'
             })
 
             # 清理内存
@@ -677,8 +672,7 @@ def main():
 
             batch_start_time = time.time()
 
-            # 加载当前批次
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 加载数据...")
+            # 加载当前批次并收集激活
             input_ids = dataset_manager.get_gradient_samples(
                 num_samples=current_batch_size,
                 seq_len=TAYLOR_SEQ_LEN
@@ -686,7 +680,6 @@ def main():
             input_ids = input_ids.to(args.device)
 
             # 收集激活
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 收集激活...")
             batch_activations = collect_layer_activations(model, input_ids, args.device)
 
             # 累加激活值
@@ -700,9 +693,9 @@ def main():
                         all_activations[layer_idx][name] += act.to(args.device)
 
             batch_time = time.time() - batch_start_time
-            logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 完成！耗时: {batch_time:.2f}s")
 
-            pbar.set_postfix({'batch_time': f'{batch_time:.2f}s'})
+            # 更新进度条信息
+            pbar.set_postfix({'time': f'{batch_time:.2f}s'})
 
             del input_ids, batch_activations
             if torch.cuda.is_available():
