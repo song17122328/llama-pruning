@@ -27,6 +27,7 @@ from evaluation.metrics.ppl import PPLMetric
 from core.trainer.finetuner import FineTuner
 from core.utils.logger import LoggerWithDepth
 
+import sys
 # 导入 evaluation 模块
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'evaluation'))
 from evaluation.run_evaluation import evaluate_single_model
@@ -405,8 +406,8 @@ def main():
                        help='输出目录名称，所有结果保存在 results/{output_name}/ 下')
 
     # 剪枝参数
-    parser.add_argument('--pruning_ratio', type=float, default=0.5,
-                       help='目标剪枝率（默认: 0.5）')
+    parser.add_argument('--pruning_ratio', type=float, default=0.2,
+                       help='目标剪枝率（默认: 0.2）')
     parser.add_argument('--importance_method', type=str, default='taylor',
                        choices=['taylor', 'wanda', 'taylor_2nd'],
                        help='重要性计算方法（默认: taylor）')
