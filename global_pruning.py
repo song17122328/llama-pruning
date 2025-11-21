@@ -383,37 +383,21 @@ def main():
                        help='重要性计算方法: taylor(一阶), wanda(权重×激活), taylor_2nd(二阶)')
     parser.add_argument('--dataset', type=str, default='wikitext2',
                        choices=['wikitext2', 'ptb', 'c4'],
-                       help='数据集选择（用于梯度计算、层重要性评估、PPL评估等所有阶段）')
-    parser.add_argument('--num_samples', type=int, default=128,
-                       help='用于计算重要性的样本数')
+                       help='数据集选择（用于所有重要性计算和评估）')
     parser.add_argument('--gradient_batch_size', type=int, default=4,
                        help='梯度计算时的批次大小（用于节省内存）')
-    parser.add_argument('--seq_len', type=int, default=128,
-                       help='样本序列长度（减小可节省显存）')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',
                        help='使用梯度检查点（节省显存但会慢一些）')
     parser.add_argument('--remove_empty_layers', action='store_true',
                        help='是否移除被完全剪空的层（自动深度剪枝）')
-    parser.add_argument('--use_layer_weighting', action='store_true',
-                       help='使用层重要性加权评分: Final_Score = Taylor_Score × ln(1 + Removal_PPL)')
-    parser.add_argument('--layer_weighting_samples', type=int, default=32,
-                       help='用于计算层移除困惑度的样本数（仅当 use_layer_weighting=True 时有效）')
-    parser.add_argument('--use_block_weighting', action='store_true',
-                       help='使用块级重要性加权评分: Attn_Score = Taylor × ln(1 + Attn_Block_PPL), MLP_Score = Taylor × ln(1 + MLP_Block_PPL)')
-    parser.add_argument('--block_weighting_samples', type=int, default=32,
-                       help='用于计算块移除困惑度的样本数（仅当 use_block_weighting=True 时有效）')
 
-    # H-GSP 高级特性
-    parser.add_argument('--use_layer_gate', action='store_true',
-                       help='启用层级门控 (Layer-wise Gate)：对移除代价低的层强制打折，鼓励整层移除')
-    parser.add_argument('--layer_gate_threshold', type=float, default=1.0,
-                       help='层级门控阈值：当 PPL_layer < threshold 时触发惩罚（默认1.0）')
-    parser.add_argument('--layer_gate_penalty', type=float, default=0.1,
-                       help='层级门控惩罚系数：触发时的得分折扣系数（默认0.1）')
-    parser.add_argument('--auto_collapse', action='store_true',
-                       help='启用自动坍缩：当某层剩余参数率 < threshold 时自动移除整层')
-    parser.add_argument('--collapse_threshold', type=float, default=0.15,
-                       help='自动坍缩阈值：层剩余参数率低于此值时触发整层移除（默认0.15）')
+    # H-GSP 核心参数
+    parser.add_argument('--temperature', type=float, default=1.0,
+                       help='H-GSP 温度参数 T：控制敏感度加权强度 (T=0: 纯Taylor, T=1: 推荐平衡, T>1: 激进强化首尾)')
+    parser.add_argument('--tau', type=float, default=None,
+                       help='H-GSP 门控阈值 τ：Layer/Block 模式切换点 (None: 自动计算25分位数, 0: 纯Block, inf: 纯Layer)')
+    parser.add_argument('--epsilon', type=float, default=0.15,
+                       help='H-GSP 坍缩阈值 ε：层剩余参数率低于此值时自动坍缩整层（默认0.15）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
@@ -538,13 +522,21 @@ def main():
     activations = None
     hessian_diag = None
 
+    # H-GSP 内部固定参数（不对外暴露）
+    TAYLOR_NUM_SAMPLES = 128
+    TAYLOR_SEQ_LEN = 128
+    LAYER_IMPORTANCE_NUM_SAMPLES = 50
+    LAYER_IMPORTANCE_SEQ_LEN = 128
+    BLOCK_IMPORTANCE_NUM_SAMPLES = 50
+    BLOCK_IMPORTANCE_SEQ_LEN = 128
+
     if args.importance_method in ['taylor', 'taylor_2nd']:
         logger.log(f"\n[Step 3] 计算梯度（{'一阶' if args.importance_method == 'taylor' else '二阶'} Taylor importance）...")
-        logger.log(f"  加载 {args.num_samples} 个样本...")
+        logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN} (内部固定)")
 
         # 分批计算梯度以节省内存
         batch_size = args.gradient_batch_size
-        num_batches = (args.num_samples + batch_size - 1) // batch_size
+        num_batches = (TAYLOR_NUM_SAMPLES + batch_size - 1) // batch_size
         logger.log(f"  批次大小: {batch_size}, 总批次数: {num_batches}")
 
         model.zero_grad()
@@ -573,7 +565,7 @@ def main():
 
         for batch_idx in pbar:
             start_idx = batch_idx * batch_size
-            end_idx = min(start_idx + batch_size, args.num_samples)
+            end_idx = min(start_idx + batch_size, TAYLOR_NUM_SAMPLES)
             current_batch_size = end_idx - start_idx
 
             batch_start_time = time.time()
@@ -582,7 +574,7 @@ def main():
             logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 加载数据...")
             input_ids = dataset_manager.get_gradient_samples(
                 num_samples=current_batch_size,
-                seq_len=args.seq_len
+                seq_len=TAYLOR_SEQ_LEN
             )
             input_ids = input_ids.to(args.device)
 
@@ -631,11 +623,11 @@ def main():
 
     elif args.importance_method == 'wanda':
         logger.log(f"\n[Step 3] 收集激活值（Wanda importance）...")
-        logger.log(f"  加载 {args.num_samples} 个样本...")
+        logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN} (内部固定)")
 
         # 分批收集激活
         batch_size = args.gradient_batch_size
-        num_batches = (args.num_samples + batch_size - 1) // batch_size
+        num_batches = (TAYLOR_NUM_SAMPLES + batch_size - 1) // batch_size
         logger.log(f"  批次大小: {batch_size}, 总批次数: {num_batches}")
 
         all_activations = {}
@@ -645,7 +637,7 @@ def main():
 
         for batch_idx in pbar:
             start_idx = batch_idx * batch_size
-            end_idx = min(start_idx + batch_size, args.num_samples)
+            end_idx = min(start_idx + batch_size, TAYLOR_NUM_SAMPLES)
             current_batch_size = end_idx - start_idx
 
             batch_start_time = time.time()
@@ -654,7 +646,7 @@ def main():
             logger.log(f"  [批次 {batch_idx + 1}/{num_batches}] 加载数据...")
             input_ids = dataset_manager.get_gradient_samples(
                 num_samples=current_batch_size,
-                seq_len=args.seq_len
+                seq_len=TAYLOR_SEQ_LEN
             )
             input_ids = input_ids.to(args.device)
 
@@ -695,87 +687,70 @@ def main():
         logger.log(f"  总耗时: {total_time:.2f}s ({total_time/60:.2f}min)")
         logger.log(f"  平均每批次: {total_time/num_batches:.2f}s")
 
-    # ========== Step 3.5: 计算层移除困惑度（如果启用）==========
-    layer_removal_ppl = None
-    if args.use_layer_weighting:
-        logger.log(f"\n[Step 3.5] 计算层移除困惑度（用于加权评分）...")
-        logger.log(f"  样本数: {args.layer_weighting_samples}")
+    # ========== Step 3.5: 计算层移除困惑度（H-GSP 必需）==========
+    logger.log(f"\n[Step 3.5] 计算层移除困惑度（H-GSP Layer-wise 重要性）...")
+    logger.log(f"  样本数: {LAYER_IMPORTANCE_NUM_SAMPLES}, 序列长度: {LAYER_IMPORTANCE_SEQ_LEN} (内部固定)")
 
-        from core.importance.layer_analyzer import LayerImportanceAnalyzer
+    from core.importance.layer_analyzer import LayerImportanceAnalyzer
 
-        # 加载用于层重要性分析的样本（文本格式）
-        layer_texts_list = dataset_manager.get_layer_importance_samples(
-            num_samples=args.layer_weighting_samples,
-            seq_len=args.seq_len
-        )
+    # 加载用于层重要性分析的样本（文本格式）
+    layer_texts_list = dataset_manager.get_layer_importance_samples(
+        num_samples=LAYER_IMPORTANCE_NUM_SAMPLES,
+        seq_len=LAYER_IMPORTANCE_SEQ_LEN
+    )
 
-        # 创建分析器
-        analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
+    # 创建分析器
+    analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
 
-        # 计算每层的移除困惑度
-        num_layers = len(model.model.layers)
-        layer_removal_ppl = analyzer.measure_layer_importance_by_removal(
-            texts=layer_texts_list,
-            num_layers=num_layers
-        )
+    # 计算每层的移除困惑度
+    num_layers = len(model.model.layers)
+    layer_removal_ppl = analyzer.measure_layer_importance_by_removal(
+        texts=layer_texts_list,
+        num_layers=num_layers
+    )
 
-        logger.log(f"✓ 层移除困惑度计算完成")
-        logger.log(f"  示例 - Layer 0: Removal PPL = {layer_removal_ppl[0]:.4f}")
-        logger.log(f"  示例 - Layer {num_layers//2}: Removal PPL = {layer_removal_ppl[num_layers//2]:.4f}")
-        logger.log(f"  示例 - Layer {num_layers-1}: Removal PPL = {layer_removal_ppl[num_layers-1]:.4f}")
+    logger.log(f"✓ 层移除困惑度计算完成")
+    logger.log(f"  示例 - Layer 0: Removal PPL = {layer_removal_ppl[0]:.4f}")
+    logger.log(f"  示例 - Layer {num_layers//2}: Removal PPL = {layer_removal_ppl[num_layers//2]:.4f}")
+    logger.log(f"  示例 - Layer {num_layers-1}: Removal PPL = {layer_removal_ppl[num_layers-1]:.4f}")
 
-        # 保存层移除困惑度到文件
-        import json
-        if not hasattr(logger, 'env_name'):
-            logger.env_name = 'global_results'
-        if not os.path.exists(logger.env_name):
-            os.makedirs(logger.env_name, exist_ok=True)
+    # 保存层移除困惑度到文件
+    import json
+    if not hasattr(logger, 'env_name'):
+        logger.env_name = 'global_results'
+    if not os.path.exists(logger.env_name):
+        os.makedirs(logger.env_name, exist_ok=True)
 
-        layer_ppl_path = os.path.join(logger.env_name, 'layer_removal_ppl.json')
-        with open(layer_ppl_path, 'w') as f:
-            json.dump(layer_removal_ppl, f, indent=2)
-        logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
+    layer_ppl_path = os.path.join(logger.env_name, 'layer_removal_ppl.json')
+    with open(layer_ppl_path, 'w') as f:
+        json.dump(layer_removal_ppl, f, indent=2)
+    logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
 
-    # ========== Step 3.6: 计算块移除困惑度（如果启用）==========
-    block_removal_ppl = None
-    if args.use_block_weighting:
-        logger.log(f"\n[Step 3.6] 计算块移除困惑度（用于块级加权评分）...")
-        logger.log(f"  样本数: {args.block_weighting_samples}")
+    # ========== Step 3.6: 计算块移除困惑度（H-GSP 必需）==========
+    logger.log(f"\n[Step 3.6] 计算块移除困惑度（H-GSP Block-wise 重要性）...")
+    logger.log(f"  样本数: {BLOCK_IMPORTANCE_NUM_SAMPLES}, 序列长度: {BLOCK_IMPORTANCE_SEQ_LEN} (内部固定)")
 
-        from core.importance.layer_analyzer import LayerImportanceAnalyzer
+    # 加载用于块重要性分析的样本（文本格式）
+    block_texts_list = dataset_manager.get_layer_importance_samples(
+        num_samples=BLOCK_IMPORTANCE_NUM_SAMPLES,
+        seq_len=BLOCK_IMPORTANCE_SEQ_LEN
+    )
 
-        # 加载用于块重要性分析的样本（文本格式）
-        block_texts_list = dataset_manager.get_layer_importance_samples(
-            num_samples=args.block_weighting_samples,
-            seq_len=args.seq_len
-        )
+    # 计算每层的 Attention 和 MLP 块移除困惑度
+    block_removal_ppl = analyzer.measure_block_importance_by_removal(
+        texts=block_texts_list,
+        num_layers=num_layers
+    )
 
-        # 创建分析器（如果还没有创建）
-        if not args.use_layer_weighting:
-            analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
+    logger.log(f"✓ 块移除困惑度计算完成")
+    logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
+    logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
 
-        # 计算每层的 Attention 和 MLP 块移除困惑度
-        num_layers = len(model.model.layers)
-        block_removal_ppl = analyzer.measure_block_importance_by_removal(
-            texts=block_texts_list,
-            num_layers=num_layers
-        )
-
-        logger.log(f"✓ 块移除困惑度计算完成")
-        logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
-        logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
-
-        # 保存块移除困惑度到文件
-        import json
-        if not hasattr(logger, 'env_name'):
-            logger.env_name = 'global_results'
-        if not os.path.exists(logger.env_name):
-            os.makedirs(logger.env_name, exist_ok=True)
-
-        block_ppl_path = os.path.join(logger.env_name, 'block_removal_ppl.json')
-        with open(block_ppl_path, 'w') as f:
-            json.dump(block_removal_ppl, f, indent=2)
-        logger.log(f"✓ 块移除困惑度已保存: {block_ppl_path}")
+    # 保存块移除困惑度到文件
+    block_ppl_path = os.path.join(logger.env_name, 'block_removal_ppl.json')
+    with open(block_ppl_path, 'w') as f:
+        json.dump(block_removal_ppl, f, indent=2)
+    logger.log(f"✓ 块移除困惑度已保存: {block_ppl_path}")
 
     # ========== Step 4: 构建全局分析表 ==========
     logger.log("\n[Step 4] 构建全局 Group 分析表...")
@@ -791,10 +766,6 @@ def main():
     elif args.importance_method == 'wanda':
         importance_info['activations'] = activations
 
-    # 准备 Layer-wise Gate 参数
-    layer_gate_threshold_val = args.layer_gate_threshold if args.use_layer_gate else None
-    layer_gate_penalty_val = args.layer_gate_penalty if args.use_layer_gate else 0.1
-
     df = build_global_group_table(
         model=model,
         importance_method=args.importance_method,
@@ -804,10 +775,10 @@ def main():
         head_dim=args.head_dim,
         gqa_ratio=args.gqa_ratio,
         device=args.device,
-        layer_removal_ppl=layer_removal_ppl,          # 传递层移除困惑度
-        block_removal_ppl=block_removal_ppl,          # 传递块移除困惑度
-        layer_gate_threshold=layer_gate_threshold_val, # H-GSP: 层级门控阈值
-        layer_gate_penalty=layer_gate_penalty_val      # H-GSP: 层级门控惩罚
+        layer_removal_ppl=layer_removal_ppl,    # H-GSP: 层级重要性
+        block_removal_ppl=block_removal_ppl,    # H-GSP: 块级重要性
+        temperature=args.temperature,           # H-GSP: 温度参数 T
+        tau=args.tau                           # H-GSP: 门控阈值 τ
     )
 
     logger.log(f"✓ 分析表构建完成")
@@ -904,18 +875,16 @@ def main():
 
     logger.log("\n✓ 全局剪枝完成")
 
-    # ========== Step 6.5: 自动坍缩（可选）==========
-    additional_empty_layers = []
-    if args.auto_collapse:
-        logger.log(f"\n[Step 6.5] 自动坍缩检测...")
-        additional_empty_layers = auto_collapse(
-            model=model,
-            pruning_stats=pruning_stats,
-            collapse_threshold=args.collapse_threshold,
-            logger=logger
-        )
-        # 将额外的空层加入到 empty_layers 列表
-        pruning_stats['empty_layers'].extend(additional_empty_layers)
+    # ========== Step 6.5: 自动坍缩（H-GSP 必需）==========
+    logger.log(f"\n[Step 6.5] 自动坍缩检测（H-GSP Auto-Collapse, ε={args.epsilon}）...")
+    additional_empty_layers = auto_collapse(
+        model=model,
+        pruning_stats=pruning_stats,
+        collapse_threshold=args.epsilon,
+        logger=logger
+    )
+    # 将额外的空层加入到 empty_layers 列表
+    pruning_stats['empty_layers'].extend(additional_empty_layers)
 
     # ========== Step 7: 移除空层（可选）==========
     all_empty_layers = pruning_stats['empty_layers']
