@@ -94,24 +94,23 @@ class ZeroAttention(nn.Module):
             hidden_states: 输入 [batch_size, seq_len, hidden_dim]
 
         Returns:
-            全零tensor，shape与输入相同
+            (attn_output, attn_weights) 或 (attn_output, attn_weights, past_key_value)
+            兼容 LlamaAttention 的返回格式
         """
         # 返回全零（在残差连接中等效于跳过）
         output = torch.zeros_like(hidden_states)
 
         # 兼容 HuggingFace 接口
-        output_attentions = kwargs.get('output_attentions', False)
+        # 注意：LlamaAttention.forward() 总是返回 (attn_output, attn_weights)
+        # 即使 output_attentions=False，也返回 (output, None)
         use_cache = kwargs.get('use_cache', False)
 
-        if output_attentions or use_cache:
-            outputs = (output,)
-            if output_attentions:
-                outputs += (None,)  # attention_weights = None
-            if use_cache:
-                outputs += (None,)  # past_key_value = None
-            return outputs
+        if use_cache:
+            # 返回 (output, None, None) - (attn_output, attn_weights, past_key_value)
+            return output, None, None
         else:
-            return output
+            # 返回 (output, None) - (attn_output, attn_weights)
+            return output, None
 
     def __repr__(self):
         """字符串表示"""
