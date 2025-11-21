@@ -129,27 +129,9 @@ class LayerImportanceAnalyzer:
 
             # 定义恒等映射（跳过 Attention）
             def identity_attn_forward(hidden_states, *args, **kwargs):
-                # LlamaAttention 的返回格式：(attn_output, attn_weights, past_key_value)
-                # 但 LlamaDecoderLayer 至少期望解包2个值：hidden_states, _
-                # 因此我们需要返回至少2个元素的元组
-                output_attentions = kwargs.get('output_attentions', False)
-                use_cache = kwargs.get('use_cache', False)
-
-                # 构建返回值
-                attn_output = hidden_states
-                attn_weights = None if output_attentions else None
-                past_key_value = None if use_cache else None
-
-                # 根据参数返回不同格式
-                if output_attentions and use_cache:
-                    return (attn_output, attn_weights, past_key_value)
-                elif use_cache:
-                    return (attn_output, past_key_value)
-                elif output_attentions:
-                    return (attn_output, attn_weights)
-                else:
-                    # 默认至少返回 (attn_output, None) 以匹配解包要求
-                    return (attn_output, None)
+                # LlamaAttention.forward 总是返回固定格式：(attn_output, attn_weights)
+                # 我们的恒等映射也返回相同格式
+                return (hidden_states, None)
 
             # 替换 Attention forward
             layer.self_attn.forward = identity_attn_forward
