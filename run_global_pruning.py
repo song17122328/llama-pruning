@@ -435,19 +435,14 @@ def main():
                        help='Q:KV 比例')
 
     # 评估参数
-    parser.add_argument('--run_evaluation', type=str, default=None,
+    parser.add_argument('--run_evaluation', type=str, default="ppl, zeroshot",
                        help='剪枝后运行评估测试，多个测试用逗号分隔。支持: ppl, zeroshot, efficiency, all。例如: ppl,zeroshot')
-    parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2',
+    parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2,ptb',
                        help='PPL评估数据集，多个用逗号分隔。例如: wikitext2,ptb,c4')
-    parser.add_argument('--eval_zeroshot_tasks', type=str, default='winogrande,arc_easy,arc_challenge,hellaswag',
+    parser.add_argument('--eval_zeroshot_tasks', type=str, default='boolq,piqa,hellaswag,winogrande,arc_easy,arc_challenge,openbookqa',
                        help='Zero-shot评估任务，多个用逗号分隔')
     parser.add_argument('--eval_use_custom_zeroshot', action='store_true',
                        help='使用自定义zero-shot评估器（不依赖lm-eval）')
-    parser.add_argument('--test_before_prune', action='store_true',
-                       help='[已弃用] 使用 --run_evaluation 替代')
-    parser.add_argument('--test_after_prune', action='store_true',
-                       help='[已弃用] 使用 --run_evaluation 替代')
-
     # 微调参数
     parser.add_argument('--finetune', action='store_true',
                        help='剪枝后进行微调')
@@ -482,12 +477,6 @@ def main():
 
     args = parser.parse_args()
 
-    # 向后兼容：将旧参数映射到新参数
-    if args.test_before_prune or args.test_after_prune:
-        if not args.run_evaluation:
-            args.run_evaluation = 'ppl'
-        print("⚠️  警告: --test_before_prune 和 --test_after_prune 已弃用")
-        print(f"   已自动转换为: --run_evaluation {args.run_evaluation}")
 
     # 设置 logger
     logger = LoggerWithDepth(
