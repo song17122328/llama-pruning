@@ -305,7 +305,8 @@ def build_global_group_table(
     head_dim=128,
     gqa_ratio=4,
     device='cuda',
-    layer_removal_ppl=None
+    layer_removal_ppl=None,
+    block_removal_ppl=None
 ) -> pd.DataFrame:
     """
     构建全局 Group 分析表
@@ -323,6 +324,11 @@ def build_global_group_table(
         device: 设备
         layer_removal_ppl: 每层的移除困惑度变化 (Dict[int, float])
             如果提供，则使用公式: Final_Score = Taylor_Score × ln(1 + Removal_PPL)
+        block_removal_ppl: 每个块的移除困惑度变化 (Dict[str, Dict[int, float]])
+            格式: {'attention': {layer_idx: ppl, ...}, 'mlp': {layer_idx: ppl, ...}}
+            如果提供，则使用公式:
+                Attn_Score = Taylor_Score × ln(1 + Attn_Block_PPL)
+                MLP_Score = Taylor_Score × ln(1 + MLP_Block_PPL)
 
     Returns:
         DataFrame with columns: layer_idx, group_type, group_idx, importance, cost, score
@@ -356,6 +362,10 @@ def build_global_group_table(
         print(f"  使用二阶泰勒展开（包含 Hessian 对角线）")
     if layer_removal_ppl is not None:
         print(f"  ✓ 启用层重要性加权: Final_Score = Taylor_Score × ln(1 + Removal_PPL)")
+    if block_removal_ppl is not None:
+        print(f"  ✓ 启用块级重要性加权:")
+        print(f"     Attn_Score = Taylor_Score × ln(1 + Attn_Block_PPL)")
+        print(f"     MLP_Score  = Taylor_Score × ln(1 + MLP_Block_PPL)")
     print(f"层范围: [{layer_start}, {layer_end})")
     print(f"总层数: {num_layers}")
 
@@ -382,8 +392,14 @@ def build_global_group_table(
             cost = compute_attention_group_cost(layer, group_idx, head_dim, gqa_ratio)
             score = importance / cost if cost > 0 else 0.0
 
-            # 应用层重要性加权
-            if layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+            # 应用加权（块级优先于层级）
+            if block_removal_ppl is not None and layer_idx in block_removal_ppl.get('attention', {}):
+                # 使用块级重要性加权
+                attn_block_ppl = block_removal_ppl['attention'][layer_idx]
+                # Attn_Score = Taylor_Score × ln(1 + Attn_Block_PPL)
+                score = score * math.log(1 + attn_block_ppl)
+            elif layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+                # 使用层级重要性加权
                 removal_ppl = layer_removal_ppl[layer_idx]
                 # Final_Score = Taylor_Score × ln(1 + Removal_PPL)
                 score = score * math.log(1 + removal_ppl)
@@ -413,8 +429,14 @@ def build_global_group_table(
             cost = mlp_group_cost  # 每个通道的成本相同
             score = importance / cost if cost > 0 else 0.0
 
-            # 应用层重要性加权
-            if layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+            # 应用加权（块级优先于层级）
+            if block_removal_ppl is not None and layer_idx in block_removal_ppl.get('mlp', {}):
+                # 使用块级重要性加权
+                mlp_block_ppl = block_removal_ppl['mlp'][layer_idx]
+                # MLP_Score = Taylor_Score × ln(1 + MLP_Block_PPL)
+                score = score * math.log(1 + mlp_block_ppl)
+            elif layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+                # 使用层级重要性加权
                 removal_ppl = layer_removal_ppl[layer_idx]
                 # Final_Score = Taylor_Score × ln(1 + Removal_PPL)
                 score = score * math.log(1 + removal_ppl)

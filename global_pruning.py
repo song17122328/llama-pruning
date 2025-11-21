@@ -298,6 +298,10 @@ def main():
                        help='使用层重要性加权评分: Final_Score = Taylor_Score × ln(1 + Removal_PPL)')
     parser.add_argument('--layer_weighting_samples', type=int, default=32,
                        help='用于计算层移除困惑度的样本数（仅当 use_layer_weighting=True 时有效）')
+    parser.add_argument('--use_block_weighting', action='store_true',
+                       help='使用块级重要性加权评分: Attn_Score = Taylor × ln(1 + Attn_Block_PPL), MLP_Score = Taylor × ln(1 + MLP_Block_PPL)')
+    parser.add_argument('--block_weighting_samples', type=int, default=32,
+                       help='用于计算块移除困惑度的样本数（仅当 use_block_weighting=True 时有效）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
@@ -620,6 +624,47 @@ def main():
             json.dump(layer_removal_ppl, f, indent=2)
         logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
 
+    # ========== Step 3.6: 计算块移除困惑度（如果启用）==========
+    block_removal_ppl = None
+    if args.use_block_weighting:
+        logger.log(f"\n[Step 3.6] 计算块移除困惑度（用于块级加权评分）...")
+        logger.log(f"  样本数: {args.block_weighting_samples}")
+
+        from core.importance.layer_analyzer import LayerImportanceAnalyzer
+
+        # 加载用于块重要性分析的样本（文本格式）
+        block_texts_list = dataset_manager.get_layer_importance_samples(
+            num_samples=args.block_weighting_samples,
+            seq_len=args.seq_len
+        )
+
+        # 创建分析器（如果还没有创建）
+        if not args.use_layer_weighting:
+            analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
+
+        # 计算每层的 Attention 和 MLP 块移除困惑度
+        num_layers = len(model.model.layers)
+        block_removal_ppl = analyzer.measure_block_importance_by_removal(
+            texts=block_texts_list,
+            num_layers=num_layers
+        )
+
+        logger.log(f"✓ 块移除困惑度计算完成")
+        logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
+        logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
+
+        # 保存块移除困惑度到文件
+        import json
+        if not hasattr(logger, 'env_name'):
+            logger.env_name = 'global_results'
+        if not os.path.exists(logger.env_name):
+            os.makedirs(logger.env_name, exist_ok=True)
+
+        block_ppl_path = os.path.join(logger.env_name, 'block_removal_ppl.json')
+        with open(block_ppl_path, 'w') as f:
+            json.dump(block_removal_ppl, f, indent=2)
+        logger.log(f"✓ 块移除困惑度已保存: {block_ppl_path}")
+
     # ========== Step 4: 构建全局分析表 ==========
     logger.log("\n[Step 4] 构建全局 Group 分析表...")
 
@@ -643,7 +688,8 @@ def main():
         head_dim=args.head_dim,
         gqa_ratio=args.gqa_ratio,
         device=args.device,
-        layer_removal_ppl=layer_removal_ppl  # 传递层移除困惑度
+        layer_removal_ppl=layer_removal_ppl,  # 传递层移除困惑度
+        block_removal_ppl=block_removal_ppl   # 传递块移除困惑度
     )
 
     logger.log(f"✓ 分析表构建完成")
