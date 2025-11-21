@@ -265,6 +265,28 @@ def remove_empty_layers(model, empty_layers, logger=None):
 
     log(f"✓ 层数: {num_layers} → {len(keep_layers)}")
 
+    # 清除可能的缓存，确保模型状态一致
+    # 这对于避免 "list index out of range" 错误至关重要
+    if hasattr(model, 'clear_cache'):
+        model.clear_cache()
+
+    # 确保模型在正确的设备上并处于eval模式
+    device = next(model.parameters()).device
+    model.to(device)
+    model.eval()
+
+    log(f"✓ 模型状态已刷新")
+
+    # 验证模型是否可以正常forward（使用一个小的dummy输入）
+    try:
+        with torch.no_grad():
+            dummy_input = torch.randint(0, 1000, (1, 10)).to(device)
+            _ = model(dummy_input)
+        log(f"✓ 模型forward验证通过")
+    except Exception as e:
+        log(f"⚠️  模型forward验证失败: {e}")
+        log(f"   这可能会导致后续PPL计算出错")
+
 
 def auto_collapse(model, pruning_stats, collapse_threshold=0.15, logger=None):
     """
@@ -926,11 +948,17 @@ def main():
         pruned_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
         logger.log(f"✓ 剪枝后 PPL: {pruned_ppl}")
 
-        if args.test_before_prune:
-            # 获取对应数据集的 PPL key
-            ppl_key = list(pruned_ppl.results.keys())[0]
-            degradation = (pruned_ppl[ppl_key] / baseline_ppl[ppl_key] - 1) * 100
-            logger.log(f"  PPL 退化: {degradation:.2f}%")
+        if args.test_before_prune and len(pruned_ppl.results) > 0 and len(baseline_ppl.results) > 0:
+            # 获取对应数据集的 PPL key（两者应该一致）
+            pruned_key = list(pruned_ppl.results.keys())[0]
+            baseline_key = list(baseline_ppl.results.keys())[0]
+
+            # 确保都不是inf
+            if pruned_ppl[pruned_key] != float('inf') and baseline_ppl[baseline_key] != float('inf'):
+                degradation = (pruned_ppl[pruned_key] / baseline_ppl[baseline_key] - 1) * 100
+                logger.log(f"  PPL 退化: {degradation:.2f}%")
+            else:
+                logger.log(f"  ⚠️  无法计算PPL退化（存在inf值）")
 
     # ========== Step 10: 微调恢复（可选）==========
     if args.finetune:
@@ -956,10 +984,15 @@ def main():
             finetuned_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
             logger.log(f"✓ 微调后 PPL: {finetuned_ppl}")
 
-            if args.test_before_prune:
-                ppl_key = list(finetuned_ppl.results.keys())[0]
-                final_degradation = (finetuned_ppl[ppl_key] / baseline_ppl[ppl_key] - 1) * 100
-                logger.log(f"  最终 PPL 退化: {final_degradation:.2f}%")
+            if args.test_before_prune and len(finetuned_ppl.results) > 0 and len(baseline_ppl.results) > 0:
+                finetuned_key = list(finetuned_ppl.results.keys())[0]
+                baseline_key = list(baseline_ppl.results.keys())[0]
+
+                if finetuned_ppl[finetuned_key] != float('inf') and baseline_ppl[baseline_key] != float('inf'):
+                    final_degradation = (finetuned_ppl[finetuned_key] / baseline_ppl[baseline_key] - 1) * 100
+                    logger.log(f"  最终 PPL 退化: {final_degradation:.2f}%")
+                else:
+                    logger.log(f"  ⚠️  无法计算最终PPL退化（存在inf值）")
 
     # ========== Step 11: 保存模型 ==========
     if args.save_model:
