@@ -509,8 +509,17 @@ if __name__ == "__main__":
     all_samples = get_examples('wikitext', tokenizer, num_samples=512, seq_len=512, split='test')
     eval_samples = all_samples[:50]
     eval_texts = [tokenizer.decode(sample, skip_special_tokens=True) for sample in eval_samples]
-    layer_importance = analyzer.measure_layer_importance_by_removal(
+    # print("层级重要度:")
+    # layer_importance = analyzer.measure_layer_importance_by_removal(
+    #     eval_texts, num_layers = 32
+    # )
+    # for layer_id, importance in layer_importance.items():
+    #     print(f"  Layer {layer_id}: {importance:.6f}")
+
+    print("块级重要度:")
+    block_importance = analyzer.measure_block_importance_by_removal(
         eval_texts, num_layers = 32
     )
-    for layer_id, importance in layer_importance.items():
+    for layer_id, importance in block_importance.items():
         print(f"  Layer {layer_id}: {importance:.6f}")
+    
