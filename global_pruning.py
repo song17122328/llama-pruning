@@ -22,6 +22,7 @@ from core.methods.global_pruning import (
 )
 from core.methods.gqa_aware import prune_attention_by_gqa_groups
 from core.datasets import DatasetManager
+from core.models import IdentityDecoderLayer
 from evaluation.metrics.ppl import PPLMetric
 from core.trainer.finetuner import FineTuner
 from core.utils.logger import LoggerWithDepth
@@ -89,33 +90,6 @@ def collect_layer_activations(model, input_ids, device='cuda'):
         hook.remove()
 
     return activations
-
-
-class IdentityDecoderLayer(torch.nn.Module):
-    """
-    Identity 层：直接传递输入，不做任何计算
-
-    用于替换被完全剪空的层，保持模型层数结构不变
-    """
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, hidden_states, *args, **kwargs):
-        # 检查返回格式要求
-        output_attentions = kwargs.get('output_attentions', False)
-        use_cache = kwargs.get('use_cache', False)
-
-        if output_attentions or use_cache:
-            # 返回元组格式
-            outputs = (hidden_states,)
-            if output_attentions:
-                outputs += (None,)  # attention_weights
-            if use_cache:
-                outputs += (None,)  # past_key_value
-            return outputs
-        else:
-            # 只返回 hidden_states
-            return hidden_states
 
 
 def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, logger=None):

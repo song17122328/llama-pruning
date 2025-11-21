@@ -2,6 +2,9 @@
 LLaMA Pruning 核心模块
 """
 
+# 模型组件
+from .models import IdentityDecoderLayer
+
 # 剪枝方法
 from .methods.gqa_aware import (
     compute_gqa_group_importance,
@@ -46,6 +49,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'eva
 from metrics.ppl import PPLMetric
 
 __all__ = [
+    # 模型组件
+    'IdentityDecoderLayer',
+
     # 剪枝方法
     'compute_gqa_group_importance',
     'select_gqa_groups_to_prune',

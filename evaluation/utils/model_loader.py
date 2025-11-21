@@ -9,10 +9,16 @@
 """
 
 import os
+import sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Tuple, Dict, Optional
 import gc
+
+# 导入 IdentityDecoderLayer 以支持加载包含该层的剪枝模型
+# 这个导入必须在 torch.load() 之前，否则 unpickle 会找不到类定义
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from core.models import IdentityDecoderLayer
 
 
 def load_model_and_tokenizer(
