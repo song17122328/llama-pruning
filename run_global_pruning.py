@@ -569,12 +569,6 @@ def main():
     logger.log(f"\n✓ 初始化数据集管理器: {args.dataset}")
     dataset_manager = DatasetManager(dataset_name=args.dataset, tokenizer=tokenizer)
 
-    # ========== Step 2: 评估基线 ==========
-    if args.test_before_prune:
-        logger.log("\n[Step 2] 评估基线 PPL...")
-        baseline_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
-        logger.log(f"✓ 基线 PPL: {baseline_ppl}")
-
     # ========== Step 3: 计算重要性（梯度或激活） ==========
     activations = None
     hessian_diag = None
@@ -960,27 +954,9 @@ def main():
         logger.log(f"  物理层数: {len(model.model.layers)} (保持不变)")
         logger.log(f"  有效层数: {len(model.model.layers) - len(pruning_stats['empty_layers'])}")
 
-    # ========== Step 9: 评估剪枝后 PPL ==========
-    if args.test_after_prune:
-        logger.log(f"\n[Step 9] 评估剪枝后 PPL...")
-        pruned_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
-        logger.log(f"✓ 剪枝后 PPL: {pruned_ppl}")
-
-        if args.test_before_prune and len(pruned_ppl.results) > 0 and len(baseline_ppl.results) > 0:
-            # 获取对应数据集的 PPL key（两者应该一致）
-            pruned_key = list(pruned_ppl.results.keys())[0]
-            baseline_key = list(baseline_ppl.results.keys())[0]
-
-            # 确保都不是inf
-            if pruned_ppl[pruned_key] != float('inf') and baseline_ppl[baseline_key] != float('inf'):
-                degradation = (pruned_ppl[pruned_key] / baseline_ppl[baseline_key] - 1) * 100
-                logger.log(f"  PPL 退化: {degradation:.2f}%")
-            else:
-                logger.log(f"  ⚠️  无法计算PPL退化（存在inf值）")
-
-    # ========== Step 10: 微调恢复（可选）==========
+    # ========== Step 9: 微调恢复（可选）==========
     if args.finetune:
-        logger.log(f"\n[Step 10] 微调恢复...")
+        logger.log(f"\n[Step 9] 微调恢复...")
 
         finetuner = FineTuner(model, tokenizer, device=args.device, logger=logger)
 
@@ -996,25 +972,20 @@ def main():
 
         logger.log(f"✓ 微调完成")
 
-        # 评估微调后 PPL
-        if args.test_after_prune:
-            logger.log(f"\n评估微调后 PPL...")
-            finetuned_ppl = PPLMetric(model, tokenizer, datasets=[args.dataset], device=args.device)
-            logger.log(f"✓ 微调后 PPL: {finetuned_ppl}")
+    # ========== Step 10: 保存模型 ==========
+    # 准备模型字典（无论是否保存，评估都可能需要）
+    save_dict = {
+        'model': model,
+        'tokenizer': tokenizer,
+        'pruning_stats': pruning_stats,
+        'pruning_ratio': args.pruning_ratio,
+        'actual_ratio': actual_ratio,
+        'method': 'global_pruning',
+        'config': args.__dict__
+    }
 
-            if args.test_before_prune and len(finetuned_ppl.results) > 0 and len(baseline_ppl.results) > 0:
-                finetuned_key = list(finetuned_ppl.results.keys())[0]
-                baseline_key = list(baseline_ppl.results.keys())[0]
-
-                if finetuned_ppl[finetuned_key] != float('inf') and baseline_ppl[baseline_key] != float('inf'):
-                    final_degradation = (finetuned_ppl[finetuned_key] / baseline_ppl[baseline_key] - 1) * 100
-                    logger.log(f"  最终 PPL 退化: {final_degradation:.2f}%")
-                else:
-                    logger.log(f"  ⚠️  无法计算最终PPL退化（存在inf值）")
-
-    # ========== Step 11: 保存模型 ==========
     if args.output_model:
-        logger.log(f"\n[Step 11] 保存剪枝后的模型...")
+        logger.log(f"\n[Step 10] 保存剪枝后的模型...")
 
         # 支持绝对路径或相对于 models 目录的路径
         if os.path.isabs(args.output_model):
@@ -1022,26 +993,16 @@ def main():
         else:
             save_path = os.path.join(output_dirs['models'], args.output_model)
 
-        save_dict = {
-            'model': model,
-            'tokenizer': tokenizer,
-            'pruning_stats': pruning_stats,
-            'pruning_ratio': args.pruning_ratio,
-            'actual_ratio': actual_ratio,
-            'method': 'global_pruning',
-            'config': args.__dict__
-        }
-
         torch.save(save_dict, save_path)
         logger.log(f"✓ 模型已保存: {save_path}")
         logger.log(f"  文件大小: {os.path.getsize(save_path) / (1024**3):.2f} GB")
     else:
-        logger.log(f"\n[Step 11] 跳过模型保存（未指定 --output_model）")
+        logger.log(f"\n[Step 10] 跳过模型保存（未指定 --output_model）")
         save_path = None
 
-    # ========== Step 12: 运行评估测试（可选）==========
+    # ========== Step 11: 运行评估测试（可选）==========
     if args.run_evaluation:
-        logger.log(f"\n[Step 12] 运行评估测试...")
+        logger.log(f"\n[Step 11] 运行评估测试...")
 
         # 解析评估类型
         eval_types = [t.strip() for t in args.run_evaluation.split(',')]
@@ -1103,7 +1064,7 @@ def main():
                 mem = eff['memory'].get('model_memory_mb', 'N/A')
                 logger.log(f"GPU 显存: {mem:.0f} MB" if isinstance(mem, (int, float)) else f"GPU 显存: {mem}")
     else:
-        logger.log(f"\n[Step 12] 跳过评估测试（未指定 --run_evaluation）")
+        logger.log(f"\n[Step 11] 跳过评估测试（未指定 --run_evaluation）")
 
     logger.log(f"\n{'='*60}")
     logger.log(f"✓ 全部完成！")
