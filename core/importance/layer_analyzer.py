@@ -10,6 +10,12 @@ from typing import List, Dict
 from tqdm import tqdm
 import json
 import matplotlib.pyplot as plt
+from transformers import AutoTokenizer, LlamaForCausalLM
+
+import sys,os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+print(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from core.datasets.example_samples import get_examples
 
 
 class LayerImportanceAnalyzer:
@@ -404,3 +410,27 @@ if __name__ == "__main__":
             alpha=1.0
         )
     """)
+    try:
+        from core.utils.get_best_gpu import get_best_gpu
+        device = f"cuda:{get_best_gpu()}"
+    except:
+        device = "cuda:0"
+
+    model = LlamaForCausalLM.from_pretrained(
+        "/newdata/LLMs/Llama-3-8B-Instruct",
+        device_map=device,
+        torch_dtype=torch.float16,
+    )
+    model.half()
+    tokenizer = AutoTokenizer.from_pretrained("/newdata/LLMs/Llama-3-8B-Instruct")
+    analyzer = LayerImportanceAnalyzer(model, tokenizer)
+
+    all_samples = get_examples('wikitext', tokenizer, num_samples=512, seq_len=512, split='test')
+    eval_samples = all_samples[:50]
+    eval_texts = [tokenizer.decode(sample, skip_special_tokens=True) for sample in eval_samples]
+    layer_importance = analyzer.measure_layer_importance_by_removal(
+        eval_texts, num_layers = len(model.model.layers)
+    )
+    importance_values = list(layer_importance.values())
+    for layer_idx, importance in importance_values:
+        print(f"  Layer {layer_idx}: {importance:.6f}")
