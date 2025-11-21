@@ -475,15 +475,15 @@ def main():
     # 设置输出目录为 results/{output_name}
     output_base_dir = os.path.join('results', args.output_name)
 
-    # 设置 logger
-    logger = LoggerWithDepth(
-        env_name=output_base_dir,
-        config=args.__dict__,
-        root_dir='.'  # 直接使用当前目录，因为路径已经包含 results/
-    )
+    # 创建输出目录结构（先创建，再初始化 logger）
+    output_dirs = setup_output_directories(output_base_dir)
 
-    # 创建输出目录结构
-    output_dirs = setup_output_directories(logger.env_name)
+    # 设置 logger，日志保存在 logs 子目录下
+    logger = LoggerWithDepth(
+        env_name='logs',  # 在 logs 子目录下创建时间戳文件夹
+        config=args.__dict__,
+        root_dir=output_base_dir  # 基础目录是 results/{output_name}
+    )
     logger.log(f"\n✓ 输出目录结构已创建:")
     logger.log(f"  基础目录: {output_dirs['base']}")
     logger.log(f"  模型保存: {output_dirs['models']}")
@@ -874,8 +874,8 @@ def main():
                         f"{groups_to_prune['cost'].sum():,} params")
     summary_lines.append("="*80)
 
-    # 保存摘要文件
-    summary_path = os.path.join(logger.env_name, 'pruning_summary_by_layer.txt')
+    # 保存摘要文件到 analysis 目录
+    summary_path = os.path.join(output_dirs['analysis'], 'pruning_summary_by_layer.txt')
     with open(summary_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(summary_lines))
     logger.log(f"✓ 层级统计摘要已保存: {summary_path}")
