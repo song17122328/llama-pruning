@@ -56,19 +56,23 @@ def evaluate_ppl(
 
 
 def evaluate_zeroshot(
-    model_path: str,
+    model_path: str = None,
     tasks: List[str] = None,
     batch_size: int = 8,
-    device: str = 'cuda'
+    device: str = 'cuda',
+    model = None,
+    tokenizer = None
 ) -> Dict[str, Dict]:
     """
     使用lm-evaluation-harness评估Zero-shot任务（在线加载数据集）
 
     Args:
-        model_path: 模型路径（支持HF目录或.bin checkpoint）
+        model_path: 模型路径（支持HF目录或.bin checkpoint）。如果提供了 model/tokenizer，可为 None
         tasks: 任务列表，默认为常用的7个任务
         batch_size: 批次大小
         device: 设备
+        model: 可选，预加载的模型（避免重复加载）
+        tokenizer: 可选，预加载的 tokenizer
 
     Returns:
         评估结果字典
@@ -76,7 +80,7 @@ def evaluate_zeroshot(
     注意：
         - 使用 lm-eval 标准任务，在线加载数据集
         - 需要安装 lm-eval: pip install lm-eval
-        - .bin文件会自动使用自定义加载器
+        - 如果提供了预加载的 model/tokenizer，将优先使用（避免重复加载）
     """
     # 使用标准 lm-eval 任务名称（在线加载）
     if tasks is None:
@@ -103,8 +107,25 @@ def evaluate_zeroshot(
         print("开始评估（从 HuggingFace 在线加载数据集）...")
         print("首次运行可能需要下载数据集，请耐心等待...\n")
 
+        # 优先使用预加载的模型
+        if model is not None and tokenizer is not None:
+            print("使用预加载的模型（避免重复加载）...")
+            # 使用HFLM包装预加载的模型
+            lm = HFLM(
+                pretrained=model,
+                tokenizer=tokenizer,
+                batch_size=batch_size
+            )
+
+            # 使用包装后的模型进行评估
+            results = lm_eval.simple_evaluate(
+                model=lm,
+                tasks=tasks,
+                log_samples=False,
+                verbosity="INFO"  # 显示更多信息
+            )
         # 检查是否是checkpoint文件
-        if model_path.endswith('.bin'):
+        elif model_path and model_path.endswith('.bin'):
             print("检测到.bin格式，使用自定义加载器...")
             from evaluation.utils.model_loader import load_model_and_tokenizer
 
@@ -129,7 +150,7 @@ def evaluate_zeroshot(
                 log_samples=False,
                 verbosity="INFO"  # 显示更多信息
             )
-        else:
+        elif model_path:
             # HF格式，直接使用路径
             results = lm_eval.simple_evaluate(
                 model="hf",
@@ -139,6 +160,8 @@ def evaluate_zeroshot(
                 log_samples=False,
                 verbosity="INFO"  # 显示更多信息
             )
+        else:
+            raise ValueError("必须提供 model_path 或 model/tokenizer")
 
         # 提取关键结果
         summary = {}

@@ -120,13 +120,6 @@ def evaluate_single_model(
         )
         results['metrics']['ppl'] = ppl_results
 
-        # 如果接下来要用 lm-eval 评估 zeroshot，需要先清理显存
-        if 'zeroshot' in metrics and not use_custom_zeroshot:
-            print("\n清理显存，为 lm-eval zeroshot 评估腾出空间...")
-            cleanup_model(model, tokenizer)
-            model = None
-            tokenizer = None
-
     # 2. Zero-shot评估
     if 'zeroshot' in metrics:
         if use_custom_zeroshot:
@@ -149,11 +142,13 @@ def evaluate_single_model(
                 batch_size=zeroshot_batch_size
             )
         else:
-            # 使用 lm-eval（可能有网络问题）
+            # 使用 lm-eval，传递预加载的模型（避免重复加载）
             zeroshot_results = evaluate_zeroshot(
-                model_path,
+                model_path=model_path,
                 tasks=zeroshot_tasks,
-                device=device
+                device=device,
+                model=model,
+                tokenizer=tokenizer
             )
 
         results['metrics']['zeroshot'] = zeroshot_results
@@ -168,11 +163,6 @@ def evaluate_single_model(
                 avg_acc = sum(accuracies) / len(accuracies)
                 results['metrics']['avg_zeroshot_acc'] = avg_acc
                 print(f"\n平均Zero-shot准确率: {avg_acc*100:.2f}%")
-
-        # 如果用了 lm-eval（重新加载了模型），且后续还需要模型（efficiency评估），重新加载
-        if not use_custom_zeroshot and any(m in metrics for m in ['speed', 'memory', 'efficiency']):
-            print("\n重新加载模型用于 efficiency 评估...")
-            model, tokenizer = load_model_and_tokenizer(model_path, device=device)
 
     # 3. Few-shot评估（可选）
     if 'fewshot' in metrics:
