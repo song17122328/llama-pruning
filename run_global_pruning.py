@@ -10,6 +10,7 @@
 """
 
 import os
+import gc
 import torch
 import argparse
 import time
@@ -984,6 +985,15 @@ def main():
     # ========== Step 11: 运行评估测试（可选）==========
     if args.run_evaluation:
         logger.log(f"\n[Step 11] 运行评估测试...")
+
+        # 清理显存：释放剪枝后的模型，为评估腾出空间
+        logger.log(f"  清理显存...")
+        del model
+        del tokenizer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        logger.log(f"  ✓ 显存已清理")
 
         # 解析评估类型
         eval_types = [t.strip() for t in args.run_evaluation.split(',')]
