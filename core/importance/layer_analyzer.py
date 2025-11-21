@@ -431,7 +431,5 @@ if __name__ == "__main__":
     layer_importance = analyzer.measure_layer_importance_by_removal(
         eval_texts, num_layers = 32
     )
-    print(layer_importance)
-    # importance_values = list(layer_importance.values())
     for layer_id, importance in layer_importance.items():
         print(f"  Layer {layer_id}: {importance:.6f}")
