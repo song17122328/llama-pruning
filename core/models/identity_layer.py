@@ -67,3 +67,82 @@ class IdentityDecoderLayer(nn.Module):
     def __repr__(self):
         """字符串表示"""
         return f"{self.__class__.__name__}()"
+
+
+class ZeroAttention(nn.Module):
+    """
+    Zero Attention：输出全零的 Attention 模块
+
+    用于替换被完全剪空的 Attention block。
+    在残差连接中：hidden = hidden + 0 = hidden（相当于跳过 Attention）
+
+    这比保留1个head更优：
+    - 真正删除所有参数
+    - 不会因为维度0导致forward崩溃
+    - 利用残差连接的特性
+    """
+
+    def __init__(self):
+        """初始化 Zero Attention（无参数）"""
+        super().__init__()
+
+    def forward(self, hidden_states, *args, **kwargs):
+        """
+        前向传播：返回全零tensor
+
+        Args:
+            hidden_states: 输入 [batch_size, seq_len, hidden_dim]
+
+        Returns:
+            全零tensor，shape与输入相同
+        """
+        # 返回全零（在残差连接中等效于跳过）
+        output = torch.zeros_like(hidden_states)
+
+        # 兼容 HuggingFace 接口
+        output_attentions = kwargs.get('output_attentions', False)
+        use_cache = kwargs.get('use_cache', False)
+
+        if output_attentions or use_cache:
+            outputs = (output,)
+            if output_attentions:
+                outputs += (None,)  # attention_weights = None
+            if use_cache:
+                outputs += (None,)  # past_key_value = None
+            return outputs
+        else:
+            return output
+
+    def __repr__(self):
+        """字符串表示"""
+        return f"{self.__class__.__name__}()"
+
+
+class ZeroMLP(nn.Module):
+    """
+    Zero MLP：输出全零的 MLP 模块
+
+    用于替换被完全剪空的 MLP block。
+    在残差连接中：hidden = hidden + 0 = hidden（相当于跳过 MLP）
+    """
+
+    def __init__(self):
+        """初始化 Zero MLP（无参数）"""
+        super().__init__()
+
+    def forward(self, hidden_states):
+        """
+        前向传播：返回全零tensor
+
+        Args:
+            hidden_states: 输入 [batch_size, seq_len, hidden_dim]
+
+        Returns:
+            全零tensor，shape与输入相同
+        """
+        # 返回全零（在残差连接中等效于跳过）
+        return torch.zeros_like(hidden_states)
+
+    def __repr__(self):
+        """字符串表示"""
+        return f"{self.__class__.__name__}()"
