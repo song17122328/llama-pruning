@@ -396,78 +396,71 @@ def auto_collapse(model, pruning_stats, collapse_threshold=0.15, logger=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='基于全局性价比的混合结构化剪枝')
+    parser = argparse.ArgumentParser(description='H-GSP: Hybrid Global Structural Pruning for LLaMA')
 
-    # 模型参数
+    # 核心参数
     parser.add_argument('--base_model', type=str, required=True,
-                       help='模型路径')
-    parser.add_argument('--save_ckpt_log_name', type=str, default='llama_global_prune',
-                       help='实验名称')
+                       help='基础模型路径')
+    parser.add_argument('--output_name', type=str, required=True,
+                       help='输出目录名称，所有结果保存在 results/{output_name}/ 下')
 
     # 剪枝参数
-    parser.add_argument('--pruning_ratio', type=float, default=0.25,
-                       help='目标剪枝率（相对于模型总参数）')
+    parser.add_argument('--pruning_ratio', type=float, default=0.5,
+                       help='目标剪枝率（默认: 0.5）')
     parser.add_argument('--importance_method', type=str, default='taylor',
                        choices=['taylor', 'wanda', 'taylor_2nd'],
-                       help='重要性计算方法: taylor(一阶), wanda(权重×激活), taylor_2nd(二阶)')
+                       help='重要性计算方法（默认: taylor）')
     parser.add_argument('--dataset', type=str, default='wikitext2',
                        choices=['wikitext2', 'ptb', 'c4'],
-                       help='数据集选择（用于所有重要性计算和评估）')
+                       help='数据集选择（默认: wikitext2）')
     parser.add_argument('--gradient_batch_size', type=int, default=4,
-                       help='梯度计算时的批次大小（用于节省内存）')
+                       help='梯度计算批次大小（默认: 4）')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',
-                       help='使用梯度检查点（节省显存但会慢一些）')
-    parser.add_argument('--remove_empty_layers', action='store_true',
-                       help='是否移除被完全剪空的层（自动深度剪枝）')
+                       help='使用梯度检查点节省显存')
 
     # H-GSP 核心参数
     parser.add_argument('--temperature', type=float, default=1.0,
-                       help='H-GSP 温度参数 T：控制敏感度加权强度 (T=0: 纯Taylor, T=1: 推荐平衡, T>1: 激进强化首尾)')
+                       help='H-GSP 温度参数 T（默认: 1.0，推荐范围: 0.5-2.0）')
     parser.add_argument('--tau', type=float, default=None,
-                       help='H-GSP 门控阈值 τ：Layer/Block 模式切换点 (None: 自动计算25分位数, 0: 纯Block, inf: 纯Layer)')
+                       help='H-GSP 门控阈值 τ（默认: None 自动计算）')
     parser.add_argument('--epsilon', type=float, default=0.15,
-                       help='H-GSP 坍缩阈值 ε：层剩余参数率低于此值时自动坍缩整层（默认0.15）')
+                       help='H-GSP 坍缩阈值 ε（默认: 0.15）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
-                       help='Attention head 维度')
+                       help='Attention head 维度（默认: 128）')
     parser.add_argument('--gqa_ratio', type=int, default=4,
-                       help='Q:KV 比例')
+                       help='Q:KV 比例（默认: 4）')
 
     # 评估参数
-    parser.add_argument('--run_evaluation', type=str, default="ppl, zeroshot",
-                       help='剪枝后运行评估测试，多个测试用逗号分隔。支持: ppl, zeroshot, efficiency, all。例如: ppl,zeroshot')
+    parser.add_argument('--run_evaluation', type=str, default="ppl,zeroshot",
+                       help='评估类型: ppl, zeroshot, efficiency, all（多个用逗号分隔）')
     parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2,ptb',
-                       help='PPL评估数据集，多个用逗号分隔。例如: wikitext2,ptb,c4')
+                       help='PPL评估数据集（默认: wikitext2,ptb）')
     parser.add_argument('--eval_zeroshot_tasks', type=str, default='boolq,piqa,hellaswag,winogrande,arc_easy,arc_challenge,openbookqa',
-                       help='Zero-shot评估任务，多个用逗号分隔')
+                       help='Zero-shot评估任务')
     parser.add_argument('--eval_use_custom_zeroshot', action='store_true',
-                       help='使用自定义zero-shot评估器（不依赖lm-eval）')
+                       help='使用自定义zero-shot评估器')
     # 微调参数
     parser.add_argument('--finetune', action='store_true',
-                       help='剪枝后进行微调')
+                       help='剪枝后进行微调恢复')
     parser.add_argument('--finetune_method', type=str, default='lora',
                        choices=['full', 'lora'],
-                       help='微调方法')
+                       help='微调方法（默认: lora）')
     parser.add_argument('--finetune_samples', type=int, default=500,
-                       help='微调样本数')
+                       help='微调样本数（默认: 500）')
     parser.add_argument('--finetune_lr', type=float, default=1e-4,
-                       help='微调学习率')
+                       help='微调学习率（默认: 1e-4）')
     parser.add_argument('--finetune_epochs', type=int, default=1,
-                       help='微调轮数')
+                       help='微调轮数（默认: 1）')
     parser.add_argument('--lora_r', type=int, default=8,
-                       help='LoRA rank')
+                       help='LoRA rank（默认: 8）')
     parser.add_argument('--lora_alpha', type=int, default=16,
-                       help='LoRA alpha')
-
-    # 保存参数
-    parser.add_argument('--output_model', type=str, default=None,
-                       help='保存剪枝后模型的文件名（相对于实验目录）。例如：pruned_model.bin。如果不指定则不保存模型。')
+                       help='LoRA alpha（默认: 16）')
 
     # 其他
     from core.utils.get_best_gpu import get_best_gpu
-    bestDevice = "cuda:"+str(get_best_gpu())  # 自动选择显存最大的GPU
-    # bestDevice = "cpu"  # 如果要用CPU，取消注释这行
+    bestDevice = "cuda:"+str(get_best_gpu())
     parser.add_argument('--device', type=str, default=bestDevice,
                        help='设备')
     parser.add_argument('--layer_start', type=int, default=0,
@@ -477,12 +470,14 @@ def main():
 
     args = parser.parse_args()
 
+    # 设置输出目录为 results/{output_name}
+    output_base_dir = os.path.join('results', args.output_name)
 
     # 设置 logger
     logger = LoggerWithDepth(
-        env_name=args.save_ckpt_log_name,
+        env_name=output_base_dir,
         config=args.__dict__,
-        root_dir='prune_log'
+        root_dir='.'  # 直接使用当前目录，因为路径已经包含 results/
     )
 
     # 创建输出目录结构
@@ -969,25 +964,21 @@ def main():
         'pruning_stats': pruning_stats,
         'pruning_ratio': args.pruning_ratio,
         'actual_ratio': actual_ratio,
-        'method': 'global_pruning',
+        'method': 'H-GSP',
+        'h-gsp_params': {
+            'temperature': args.temperature,
+            'tau': args.tau,
+            'epsilon': args.epsilon
+        },
         'config': args.__dict__
     }
 
-    if args.output_model:
-        logger.log(f"\n[Step 10] 保存剪枝后的模型...")
-
-        # 支持绝对路径或相对于 models 目录的路径
-        if os.path.isabs(args.output_model):
-            save_path = args.output_model
-        else:
-            save_path = os.path.join(output_dirs['models'], args.output_model)
-
-        torch.save(save_dict, save_path)
-        logger.log(f"✓ 模型已保存: {save_path}")
-        logger.log(f"  文件大小: {os.path.getsize(save_path) / (1024**3):.2f} GB")
-    else:
-        logger.log(f"\n[Step 10] 跳过模型保存（未指定 --output_model）")
-        save_path = None
+    # 总是保存模型到 models/ 目录
+    logger.log(f"\n[Step 10] 保存剪枝后的模型...")
+    save_path = os.path.join(output_dirs['models'], 'pruned_model.bin')
+    torch.save(save_dict, save_path)
+    logger.log(f"✓ 模型已保存: {save_path}")
+    logger.log(f"  文件大小: {os.path.getsize(save_path) / (1024**3):.2f} GB")
 
     # ========== Step 11: 运行评估测试（可选）==========
     if args.run_evaluation:
@@ -1003,13 +994,6 @@ def main():
         # 解析数据集和任务
         ppl_datasets = [d.strip() for d in args.eval_ppl_datasets.split(',')] if 'ppl' in eval_types else None
         zeroshot_tasks = [t.strip() for t in args.eval_zeroshot_tasks.split(',')] if 'zeroshot' in eval_types else None
-
-        # 保存当前模型用于评估（临时）
-        if not save_path:
-            logger.log("  保存临时模型用于评估...")
-            save_path = os.path.join(output_dirs['models'], 'temp_pruned_model.bin')
-            torch.save(save_dict, save_path)
-            logger.log(f"  ✓ 临时模型已保存: {save_path}")
 
         # 运行评估
         logger.log(f"\n  开始评估...")
