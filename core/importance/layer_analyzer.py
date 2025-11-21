@@ -55,9 +55,9 @@ class LayerImportanceAnalyzer:
         baseline_ppl = self.compute_perplexity(texts)
         layer_importance = {}
 
-        print(f"基准困惑度: {baseline_ppl:.4f}")
+        print(f"基准困惑度: {baseline_ppl:.4f}\n")
 
-        for layer_idx in tqdm(range(num_layers), desc="分析层重要性"):
+        for layer_idx in tqdm(range(num_layers), desc="分析层重要性", leave=False):
             # 保存原始forward函数
             original_forward = self.model.model.layers[layer_idx].forward
 
@@ -92,7 +92,7 @@ class LayerImportanceAnalyzer:
                 importance = ppl - baseline_ppl  # 困惑度增加越多，该层越重要
                 layer_importance[layer_idx] = importance
 
-                print(f"第 {layer_idx} 层: PPL 变化 = {importance:.4f}")
+                print(f"  Layer {layer_idx:2d}: PPL 增加 = {importance:7.4f}")
             finally:
                 # 无论是否出错，都要恢复该层
                 self.model.model.layers[layer_idx].forward = original_forward
@@ -121,7 +121,7 @@ class LayerImportanceAnalyzer:
         print("\n分析 Attention 块重要性...")
 
         # 评估每层的 Attention 重要性
-        for layer_idx in tqdm(range(num_layers), desc="Attention 块"):
+        for layer_idx in tqdm(range(num_layers), desc="Attention 块", leave=False):
             layer = self.model.model.layers[layer_idx]
 
             # 保存原始 self_attn forward
@@ -140,13 +140,14 @@ class LayerImportanceAnalyzer:
                 ppl = self.compute_perplexity(texts)
                 importance = ppl - baseline_ppl
                 attention_importance[layer_idx] = importance
+                print(f"  Layer {layer_idx:2d} Attention: PPL 增加 = {importance:7.4f}")
             finally:
                 layer.self_attn.forward = original_attn_forward
 
         print("\n分析 MLP 块重要性...")
 
         # 评估每层的 MLP 重要性
-        for layer_idx in tqdm(range(num_layers), desc="MLP 块"):
+        for layer_idx in tqdm(range(num_layers), desc="MLP 块", leave=False):
             layer = self.model.model.layers[layer_idx]
 
             # 保存原始 mlp forward
@@ -163,6 +164,7 @@ class LayerImportanceAnalyzer:
                 ppl = self.compute_perplexity(texts)
                 importance = ppl - baseline_ppl
                 mlp_importance[layer_idx] = importance
+                print(f"  Layer {layer_idx:2d} MLP:       PPL 增加 = {importance:7.4f}")
             finally:
                 layer.mlp.forward = original_mlp_forward
 
@@ -500,17 +502,63 @@ if __name__ == "__main__":
     all_samples = get_examples('wikitext', tokenizer, num_samples=512, seq_len=512, split='test')
     eval_samples = all_samples[:50]
     eval_texts = [tokenizer.decode(sample, skip_special_tokens=True) for sample in eval_samples]
-    # print("层级重要度:")
-    # layer_importance = analyzer.measure_layer_importance_by_removal(
-    #     eval_texts, num_layers = 32
-    # )
-    # for layer_id, importance in layer_importance.items():
-    #     print(f"  Layer {layer_id}: {importance:.6f}")
 
-    print("块级重要度:")
+    # 层级重要度评估
+    print("\n" + "="*60)
+    print("层级重要度评估")
+    print("="*60)
+    layer_importance = analyzer.measure_layer_importance_by_removal(
+        eval_texts, num_layers = 32
+    )
+
+    # 统一展示层级重要度结果
+    print("\n" + "="*60)
+    print("层级重要度汇总")
+    print("="*60)
+    print(f"\n{'Layer':<10} {'PPL 增加':<12}")
+    print("-" * 30)
+
+    for layer_idx in range(32):
+        importance = layer_importance.get(layer_idx, 0.0)
+        print(f"Layer {layer_idx:2d}   {importance:10.4f}")
+
+    # 计算统计信息
+    print("\n" + "-" * 30)
+    layer_avg = sum(layer_importance.values()) / len(layer_importance)
+    layer_total = sum(layer_importance.values())
+    print(f"{'平均值':<10} {layer_avg:10.4f}")
+    print(f"{'总和':<10} {layer_total:10.4f}")
+    print("="*60)
+
+    # 块级重要度评估
+    print("\n" + "="*60)
+    print("块级重要度评估")
+    print("="*60)
     block_importance = analyzer.measure_block_importance_by_removal(
         eval_texts, num_layers = 32
     )
-    for layer_id, importance in block_importance.items():
-        print(f"  Layer {layer_id}: {importance:.6f}")
+
+    # 统一展示结果
+    print("\n" + "="*60)
+    print("块级重要度汇总")
+    print("="*60)
+    print(f"\n{'Layer':<7} {'Attention':<12} {'MLP':<12} {'总和':<12}")
+    print("-" * 60)
+
+    for layer_idx in range(32):
+        attn_imp = block_importance['attention'].get(layer_idx, 0.0)
+        mlp_imp = block_importance['mlp'].get(layer_idx, 0.0)
+        total_imp = attn_imp + mlp_imp
+        print(f"Layer {layer_idx:2d}  {attn_imp:10.4f}   {mlp_imp:10.4f}   {total_imp:10.4f}")
+
+    # 计算统计信息
+    print("\n" + "-" * 60)
+    attn_total = sum(block_importance['attention'].values())
+    mlp_total = sum(block_importance['mlp'].values())
+    attn_avg = attn_total / len(block_importance['attention'])
+    mlp_avg = mlp_total / len(block_importance['mlp'])
+
+    print(f"{'平均值':<7} {attn_avg:10.4f}   {mlp_avg:10.4f}   {(attn_avg + mlp_avg):10.4f}")
+    print(f"{'总和':<7} {attn_total:10.4f}   {mlp_total:10.4f}   {(attn_total + mlp_total):10.4f}")
+    print("="*60)
     
