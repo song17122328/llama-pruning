@@ -9,14 +9,20 @@
 可以作为独立脚本运行，也可以被其他模块导入使用。
 """
 
+import os
+import sys
 import torch
 import torch.nn as nn
 from typing import Dict, List, Tuple, Optional, Union
 from pathlib import Path
 import json
 from collections import OrderedDict
-import sys,os
+
+# 添加项目根目录到 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+# 导入模型加载器
+from evaluation.utils.model_loader import load_model_and_tokenizer
 
 
 class ModelAnalyzer:
@@ -568,38 +574,41 @@ class ModelComparator:
 
 def analyze_model_from_checkpoint(
     checkpoint_path: str,
-    model_name: str = None,
+    device: str = 'cuda',
     verbose: bool = True
 ) -> Dict:
     """
     从检查点文件加载模型并分析
 
+    支持两种格式：
+    1. HuggingFace 模型目录
+    2. .bin 格式的剪枝模型
+
     Args:
-        checkpoint_path: 模型检查点路径
-        model_name: 模型名称
+        checkpoint_path: 模型路径（HF目录或.bin文件）
+        device: 设备（cuda/cpu）
         verbose: 是否打印详细报告
 
     Returns:
         分析结果字典
     """
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    # 使用路径名作为模型名称
+    model_name = os.path.basename(checkpoint_path)
+    if model_name.endswith('.bin'):
+        # 如果是 .bin 文件，使用父目录名
+        model_name = os.path.basename(os.path.dirname(checkpoint_path))
 
-    if model_name is None:
-        model_name = Path(checkpoint_path).name
     print(f"正在加载模型: {checkpoint_path}")
-    if model_path.endswith('.bin'):
-        print("检测到.bin格式，使用自定义加载器...")
-        from evaluation.utils.model_loader import load_model_and_tokenizer
+    print(f"模型名称: {model_name}")
 
-        # 加载剪枝后的模型
-        model, tokenizer = load_model_and_tokenizer(
-            checkpoint_path,
-            device=device,
-            force_single_device=True
-        )
-            
-    else:
-        model = AutoModelForCausalLM.from_pretrained(checkpoint_path, torch_dtype=torch.float16)
+    # 使用统一的加载器，支持 HF 模型和 .bin checkpoint
+    model, tokenizer = load_model_and_tokenizer(
+        model_path=checkpoint_path,
+        device=device,
+        torch_dtype=torch.float16,
+        force_single_device=True
+    )
+
     print(f"✓ 模型加载完成")
 
     analyzer = ModelAnalyzer(model, model_name)
@@ -616,22 +625,24 @@ def main():
     独立运行示例
 
     使用方法:
-        python core/analysis/model_analysis.py
+        python core/analysis/model_analysis.py --model_path <path>
     """
     import argparse
 
-    parser = argparse.ArgumentParser(description="模型参数分析工具")
+    parser = argparse.ArgumentParser(
+        description="模型参数分析工具 - 支持 HuggingFace 模型和 .bin 格式的剪枝模型"
+    )
     parser.add_argument(
         '--model_path',
         type=str,
         required=True,
-        help="模型路径（HuggingFace 模型名或本地路径）"
+        help="模型路径（HuggingFace 模型目录或 .bin 文件）"
     )
     parser.add_argument(
-        '--model_name',
+        '--device',
         type=str,
-        default=None,
-        help="模型名称（用于报告，默认使用路径名）"
+        default='cuda',
+        help="设备 (cuda/cpu，默认: cuda)"
     )
     parser.add_argument(
         '--save_json',
@@ -644,12 +655,6 @@ def main():
         type=str,
         default=None,
         help="对比的模型路径（可选，用于对比剪枝前后）"
-    )
-    parser.add_argument(
-        '--compare_name',
-        type=str,
-        default=None,
-        help="对比模型的名称（可选）"
     )
     parser.add_argument(
         '--verbose',
@@ -666,10 +671,15 @@ def main():
     print(f"{'='*80}\n")
 
     result = analyze_model_from_checkpoint(
-        args.model_path,
-        model_name=args.model_name,
+        checkpoint_path=args.model_path,
+        device=args.device,
         verbose=args.verbose
     )
+
+    # 获取模型名称（从路径）
+    model_name = os.path.basename(args.model_path)
+    if model_name.endswith('.bin'):
+        model_name = os.path.basename(os.path.dirname(args.model_path))
 
     # 保存 JSON 报告
     if args.save_json:
@@ -684,17 +694,22 @@ def main():
         print(f"{'='*80}\n")
 
         compare_result = analyze_model_from_checkpoint(
-            args.compare_with,
-            model_name=args.compare_name,
+            checkpoint_path=args.compare_with,
+            device=args.device,
             verbose=args.verbose
         )
+
+        # 获取对比模型名称（从路径）
+        compare_name = os.path.basename(args.compare_with)
+        if compare_name.endswith('.bin'):
+            compare_name = os.path.basename(os.path.dirname(args.compare_with))
 
         # 生成对比报告
         comparator = ModelComparator(
             original_analysis=result,
             pruned_analysis=compare_result,
-            original_name=args.model_name or Path(args.model_path).name,
-            pruned_name=args.compare_name or Path(args.compare_with).name
+            original_name=model_name,
+            pruned_name=compare_name
         )
 
         comparator.print_report(verbose=args.verbose)
@@ -710,21 +725,29 @@ if __name__ == '__main__':
     print("""
 使用示例:
 
-1. 分析单个模型:
+1. 分析 HuggingFace 模型:
    python core/analysis/model_analysis.py \\
-       --model_path /path/to/model \\
-       --model_name "我的模型" \\
-       --save_json analysis.json
+       --model_path meta-llama/Llama-2-7b-hf \\
+       --save_json llama2_analysis.json
 
-2. 对比两个模型（剪枝前后）:
+2. 分析剪枝后的 .bin 模型:
    python core/analysis/model_analysis.py \\
-       --model_path /path/to/original_model \\
-       --model_name "原始模型" \\
-       --compare_with /path/to/pruned_model \\
-       --compare_name "剪枝后模型" \\
+       --model_path results/my_pruning/models/pruned_model.bin \\
+       --save_json pruned_analysis.json
+
+3. 对比两个模型（剪枝前后）:
+   python core/analysis/model_analysis.py \\
+       --model_path meta-llama/Llama-2-7b-hf \\
+       --compare_with results/my_pruning/models/pruned_model.bin \\
        --save_json comparison.json
 
-3. 在代码中使用:
+4. 指定设备:
+   python core/analysis/model_analysis.py \\
+       --model_path /path/to/model \\
+       --device cuda:0 \\
+       --save_json analysis.json
+
+5. 在代码中使用:
    from core.analysis.model_analysis import ModelAnalyzer, ModelComparator
 
    # 分析单个模型
@@ -735,6 +758,11 @@ if __name__ == '__main__':
    # 对比两个模型
    comparator = ModelComparator(original_analysis, pruned_analysis)
    comparator.print_report(verbose=True)
+
+注意：
+- 模型名称会自动从路径中提取
+- 支持 HuggingFace 模型目录和 .bin 格式的剪枝模型
+- .bin 模型会使用父目录名作为模型名称
 """)
 
     main()
