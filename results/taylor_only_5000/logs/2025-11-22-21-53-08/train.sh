@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --pruning_ratio 0.5 --temperature 0 --epsilon 0 --output_name taylor_only_5000

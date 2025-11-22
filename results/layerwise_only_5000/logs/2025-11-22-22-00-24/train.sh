@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --output_name layerwise_only_5000 --pruning_ratio 0.5 --tau inf --epsilon 0 --temperature 1.0

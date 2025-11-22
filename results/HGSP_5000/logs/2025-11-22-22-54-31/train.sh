@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --output_name HGSP_5000 --pruning_ratio 0.5 --epsilon 0

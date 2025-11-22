@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --output_name blockwise_only_200 --pruning_ratio 0.2 --tau 0 --temperature 1.0 --epsilon 0
