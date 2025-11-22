@@ -613,13 +613,10 @@ class ModelComparator:
         lines.append("")
 
         # 表头
-        header = f"{'Layer':<6} {'总参数(原始)':>15} {'总参数(剪枝)':>15} {'占原模型%':>12} {'剪枝率%':>10} " \
+        header = f"{'Layer':<6} {'总参数(原始)':>15} {'总参数(剪枝)':>15} {'保留比例%':>12} {'剪枝率%':>10} " \
                  f"{'Attn剪枝%':>12} {'MLP剪枝%':>12} {'状态':<15}"
         lines.append(header)
         lines.append("-" * 100)
-
-        # 获取原始模型总参数（用于计算占比）
-        original_total_params = result['total_params']['original']
 
         # 每层数据
         for layer_comp in result['layers']:
@@ -628,8 +625,8 @@ class ModelComparator:
             attn_comp = layer_comp['attention']
             mlp_comp = layer_comp['mlp']
 
-            # 计算该层占原模型总参数的百分比
-            layer_ratio_of_total = (total_comp['original'] / original_total_params * 100) if original_total_params > 0 else 0
+            # 计算该层剪枝后占原始层的百分比（保留比例）
+            layer_retention_ratio = (total_comp['pruned'] / total_comp['original'] * 100) if total_comp['original'] > 0 else 0
 
             # 状态标记
             status = ""
@@ -641,7 +638,7 @@ class ModelComparator:
                 status = "[MLP剪空]"
 
             line = f"{layer_idx:<6} {total_comp['original']:>15,} {total_comp['pruned']:>15,} " \
-                   f"{layer_ratio_of_total:>11.2f}% {total_comp['reduction_ratio']*100:>9.2f}% " \
+                   f"{layer_retention_ratio:>11.2f}% {total_comp['reduction_ratio']*100:>9.2f}% " \
                    f"{attn_comp['reduction_ratio']*100:>11.2f}% {mlp_comp['reduction_ratio']*100:>11.2f}% " \
                    f"{status:<15}"
             lines.append(line)
