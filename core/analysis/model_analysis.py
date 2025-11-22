@@ -15,6 +15,8 @@ from typing import Dict, List, Tuple, Optional, Union
 from pathlib import Path
 import json
 from collections import OrderedDict
+import sys,os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 class ModelAnalyzer:
@@ -584,9 +586,20 @@ def analyze_model_from_checkpoint(
 
     if model_name is None:
         model_name = Path(checkpoint_path).name
-
     print(f"正在加载模型: {checkpoint_path}")
-    model = AutoModelForCausalLM.from_pretrained(checkpoint_path, torch_dtype=torch.float16)
+    if model_path.endswith('.bin'):
+        print("检测到.bin格式，使用自定义加载器...")
+        from evaluation.utils.model_loader import load_model_and_tokenizer
+
+        # 加载剪枝后的模型
+        model, tokenizer = load_model_and_tokenizer(
+            checkpoint_path,
+            device=device,
+            force_single_device=True
+        )
+            
+    else:
+        model = AutoModelForCausalLM.from_pretrained(checkpoint_path, torch_dtype=torch.float16)
     print(f"✓ 模型加载完成")
 
     analyzer = ModelAnalyzer(model, model_name)
