@@ -638,10 +638,12 @@ def main():
         required=True,
         help="模型路径（HuggingFace 模型目录或 .bin 文件）"
     )
+    from core.utils.get_best_gpu import get_best_gpu
+    bestDevice = "cuda:"+str(get_best_gpu())
     parser.add_argument(
         '--device',
         type=str,
-        default='cuda',
+        default=bestDevice,
         help="设备 (cuda/cpu，默认: cuda)"
     )
     parser.add_argument(
