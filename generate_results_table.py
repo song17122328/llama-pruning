@@ -344,8 +344,8 @@ def extract_metrics(all_results: Dict[str, Dict], result_dir: str) -> pd.DataFra
     # 创建DataFrame
     df = pd.DataFrame(rows)
 
-    # 按模型名称排序
-    df = df.sort_values('模型名称').reset_index(drop=True)
+    # 按模型大小降序排序（最大的在上面）
+    df = df.sort_values('模型大小 (GB)', ascending=False).reset_index(drop=True)
 
     return df
 
