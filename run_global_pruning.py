@@ -27,6 +27,7 @@ from core.models import IdentityDecoderLayer, ZeroAttention, ZeroMLP
 from evaluation.metrics.ppl import PPLMetric
 from core.trainer.finetuner import FineTuner
 from core.utils.logger import LoggerWithDepth
+from core.analysis import ModelAnalyzer, ModelComparator
 
 import sys
 # 导入 evaluation 模块
@@ -555,6 +556,12 @@ def main():
         logger.log(f"  GPU 显存: {allocated:.2f}GB / {total_mem:.2f}GB (已分配)")
         logger.log(f"  GPU 显存: {reserved:.2f}GB / {total_mem:.2f}GB (已预留)")
 
+    # 分析原始模型（剪枝前）
+    logger.log(f"\n分析原始模型结构...")
+    original_analyzer = ModelAnalyzer(model, "原始模型")
+    original_analysis = original_analyzer.analyze()
+    logger.log(f"  ✓ 原始模型分析完成")
+
     # 创建数据集管理器（统一管理所有数据集加载）
     logger.log(f"\n✓ 初始化数据集管理器: {args.dataset}")
     dataset_manager = DatasetManager(dataset_name=args.dataset, tokenizer=tokenizer)
@@ -943,6 +950,105 @@ def main():
         logger.log(f"  替换为Identity的层: {pruning_stats['empty_layers']}")
         logger.log(f"  物理层数: {len(model.model.layers)} (保持不变)")
         logger.log(f"  有效层数: {len(model.model.layers) - len(pruning_stats['empty_layers'])}")
+
+    # ========== Step 8.5: 生成详细的模型分析报告 ==========
+    logger.log(f"\n[Step 8.5] 生成详细的模型分析报告...")
+
+    # 分析剪枝后的模型
+    pruned_analyzer = ModelAnalyzer(model, "剪枝后模型")
+    pruned_analysis = pruned_analyzer.analyze()
+    logger.log(f"  ✓ 剪枝后模型分析完成")
+
+    # 生成对比报告
+    comparator = ModelComparator(
+        original_analysis=original_analysis,
+        pruned_analysis=pruned_analysis,
+        original_name="原始模型",
+        pruned_name="剪枝后模型"
+    )
+    comparison_result = comparator.compare()
+    logger.log(f"  ✓ 对比分析完成")
+
+    # 保存分析报告
+    import json
+    analysis_dir = output_dirs['analysis']
+
+    # 保存原始模型分析
+    original_analysis_path = os.path.join(analysis_dir, 'original_model_analysis.json')
+    with open(original_analysis_path, 'w', encoding='utf-8') as f:
+        json.dump(original_analysis, f, indent=2, ensure_ascii=False)
+    logger.log(f"  ✓ 原始模型分析已保存: {original_analysis_path}")
+
+    # 保存剪枝后模型分析
+    pruned_analysis_path = os.path.join(analysis_dir, 'pruned_model_analysis.json')
+    with open(pruned_analysis_path, 'w', encoding='utf-8') as f:
+        json.dump(pruned_analysis, f, indent=2, ensure_ascii=False)
+    logger.log(f"  ✓ 剪枝后模型分析已保存: {pruned_analysis_path}")
+
+    # 保存对比报告
+    comparison_path = os.path.join(analysis_dir, 'model_comparison.json')
+    with open(comparison_path, 'w', encoding='utf-8') as f:
+        json.dump(comparison_result, f, indent=2, ensure_ascii=False)
+    logger.log(f"  ✓ 对比报告已保存: {comparison_path}")
+
+    # 在日志中打印详细的对比报告
+    logger.log(f"\n{'='*60}")
+    logger.log(f"详细对比报告")
+    logger.log(f"{'='*60}")
+
+    total = comparison_result['total_params']
+    logger.log(f"\n总参数量:")
+    logger.log(f"  原始: {total['original']:,}")
+    logger.log(f"  剪枝后: {total['pruned']:,}")
+    logger.log(f"  减少: {total['reduced']:,} ({total['reduction_ratio']*100:.2f}%)")
+
+    layer_params = comparison_result['layer_params']
+    logger.log(f"\nDecoder Layers 参数:")
+    logger.log(f"  原始: {layer_params['original']:,}")
+    logger.log(f"  剪枝后: {layer_params['pruned']:,}")
+    logger.log(f"  减少: {layer_params['reduced']:,} ({layer_params['reduction_ratio']*100:.2f}%)")
+
+    # 统计各层剪枝情况
+    logger.log(f"\n每层剪枝详情:")
+    logger.log(f"{'-'*60}")
+
+    for layer_comp in comparison_result['layers']:
+        layer_idx = layer_comp['layer_idx']
+        total_comp = layer_comp['total']
+        attn_comp = layer_comp['attention']
+        mlp_comp = layer_comp['mlp']
+
+        # 标记特殊层
+        special_marker = ""
+        if layer_comp['is_zero_layer']:
+            special_marker = " [完全剪空]"
+
+        logger.log(f"\nLayer {layer_idx:2d}{special_marker}:")
+        logger.log(f"  总参数: {total_comp['original']:,} → {total_comp['pruned']:,} "
+                  f"(-{total_comp['reduction_ratio']*100:.2f}%)")
+
+        logger.log(f"  Attention: {attn_comp['original']:,} → {attn_comp['pruned']:,} "
+                  f"(-{attn_comp['reduction_ratio']*100:.2f}%)")
+        if 'num_heads' in attn_comp:
+            orig_q = attn_comp['num_heads']['original']
+            pruned_q = attn_comp['num_heads']['pruned']
+            orig_kv = attn_comp['num_kv_heads']['original']
+            pruned_kv = attn_comp['num_kv_heads']['pruned']
+            logger.log(f"    头数: {orig_q}Q:{orig_kv}KV → {pruned_q}Q:{pruned_kv}KV")
+
+        logger.log(f"  MLP: {mlp_comp['original']:,} → {mlp_comp['pruned']:,} "
+                  f"(-{mlp_comp['reduction_ratio']*100:.2f}%)")
+        if 'intermediate_size' in mlp_comp:
+            orig_size = mlp_comp['intermediate_size']['original']
+            pruned_size = mlp_comp['intermediate_size']['pruned']
+            logger.log(f"    中间维度: {orig_size} → {pruned_size}")
+
+    # 统计完全剪空的层
+    zero_layers = [l['layer_idx'] for l in comparison_result['layers'] if l['is_zero_layer']]
+    if zero_layers:
+        logger.log(f"\n完全剪空的层 ({len(zero_layers)}个): {zero_layers}")
+
+    logger.log(f"\n{'='*60}")
 
     # ========== Step 9: 微调恢复（可选）==========
     if args.finetune:
