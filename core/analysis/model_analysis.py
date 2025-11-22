@@ -627,7 +627,7 @@ class ModelComparator:
 
             # 计算该层剪枝后占原始层的百分比（保留比例）
             layer_retention_ratio = (total_comp['pruned'] / total_comp['original'] * 100) if total_comp['original'] > 0 else 0
-
+            
             # 状态标记
             status = ""
             if layer_comp['is_zero_layer']:
@@ -652,21 +652,21 @@ class ModelComparator:
             lines.append("")
         
         # 比例小于5%的层统计
-        zero_layers = [l['layer_idx'] for l in result['layers'] if l['reduction_ratio'] <= 0.05]
-        if zero_layers:
-            lines.append(f"比例小于5%的层 ({len(zero_layers)}个): {zero_layers}")
+        below5_layers = [l['layer_idx'] for l in result['layers'] if l['total']['pruned'] <= l['total']['original']*0.05]
+        if below5_layers:
+            lines.append(f"比例小于5%的层 ({len(below5_layers)}个): {below5_layers}")
             lines.append("")
         
         # 比例小于10%的层统计
-        zero_layers = [l['layer_idx'] for l in result['layers'] if l['reduction_ratio'] <= 0.1]
-        if zero_layers:
-            lines.append(f"比例小于10%的层 ({len(zero_layers)}个): {zero_layers}")
+        below10_layers = [l['layer_idx'] for l in result['layers'] if l['total']['pruned'] <= l['total']['original']*0.1]
+        if below10_layers:
+            lines.append(f"比例小于10%的层 ({len(below10_layers)}个): {below10_layers}")
             lines.append("")
 
         # 比例小于15%的层统计
-        zero_layers = [l['layer_idx'] for l in result['layers'] if l['reduction_ratio'] <= 0.15]
-        if zero_layers:
-            lines.append(f"比例小于15%的层 ({len(zero_layers)}个): {zero_layers}")
+        below15_layers = [l['layer_idx'] for l in result['layers'] if l['total']['pruned'] <= l['total']['original']*0.15]
+        if below15_layers:
+            lines.append(f"比例小于15%的层 ({len(below15_layers)}个): {below15_layers}")
             lines.append("")
 
         # 每层Attention和MLP的详细对比
