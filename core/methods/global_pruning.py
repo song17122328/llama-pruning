@@ -9,6 +9,7 @@
 4. 全局排序，选择 Score 最低的 groups 剪枝
 """
 
+import math
 import torch
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
@@ -303,22 +304,42 @@ def build_global_group_table(
     layer_end=None,
     head_dim=128,
     gqa_ratio=4,
-    device='cuda'
+    device='cuda',
+    layer_removal_ppl=None,
+    block_removal_ppl=None,
+    temperature=1.0,
+    tau=None
 ) -> pd.DataFrame:
     """
-    构建全局 Group 分析表
+    构建全局 Group 分析表（H-GSP 统一算法）
+
+    核心算法：
+    1. 计算动态阈值 τ = 25th percentile(ppl_layer)
+    2. 混合加权：
+       - 如果 ppl_layer < τ: Layer-Dominant Mode, B = ln(1 + ppl_layer)
+       - 如果 ppl_layer >= τ: Block-Dominant Mode, B = ln(1 + ppl_block)
+       - M = B^T (温度调制)
+       - S_final = S_base * M
 
     Args:
         model: LLaMA 模型
         importance_method: 'taylor', 'taylor_2nd' 或 'wanda'
         importance_info: 重要性信息字典
-            - 对于 taylor/taylor_2nd: {'gradients': {...}, 'hessian_diag': {...}}
-            - 对于 wanda: {'activations': {...}}
         layer_start: 起始层
         layer_end: 结束层
         head_dim: head 维度
         gqa_ratio: Q:KV 比例
         device: 设备
+        layer_removal_ppl: 层级重要度 Dict[int, float]
+        block_removal_ppl: 块级重要度 Dict[str, Dict[int, float]]
+        temperature: 温度参数 T
+            - T=0: 退化为纯 Taylor
+            - T=1: 推荐，平衡 Taylor 与全局先验
+            - T>1: 激进模式，强化首尾保护
+        tau: 门控阈值（None则自动计算为25分位数）
+            - tau=0: 纯 Block-wise
+            - tau=inf: 纯 Layer-wise
+            - tau=None: 自动计算（推荐）
 
     Returns:
         DataFrame with columns: layer_idx, group_type, group_idx, importance, cost, score
@@ -344,13 +365,55 @@ def build_global_group_table(
                 if hessian_diag is None:
                     raise ValueError("Second-order Taylor requires 'hessian_diag' in importance_info")
 
+    # ========== Step A: 动态阈值计算 (τ) ==========
+    computed_tau = tau
+    if tau is None and layer_removal_ppl is not None:
+        # 自动计算 25 分位数
+        import numpy as np
+        ppl_values = list(layer_removal_ppl.values())
+        computed_tau = np.percentile(ppl_values, 25)
+        print(f"\n[H-GSP] 自动计算门控阈值 τ = {computed_tau:.4f} (25th percentile)")
+    elif tau is not None:
+        computed_tau = tau
+        print(f"\n[H-GSP] 使用指定门控阈值 τ = {computed_tau:.4f}")
+    else:
+        computed_tau = None
+        print(f"\n[H-GSP] 未提供层级重要度数据，使用基础 Taylor 评分")
+
     print(f"\n{'='*60}")
-    print(f"构建全局 Group 分析表")
+    print(f"构建全局 Group 分析表 (H-GSP)")
     print(f"{'='*60}")
     print(f"重要性方法: {importance_method}")
     if importance_method == 'taylor_2nd':
-        print(f"  使用二阶泰勒展开（包含 Hessian 对角线）")
-    print(f"层范围: [{layer_start}, {layer_end})")
+        print(f"  使用二阶泰勒展开")
+
+    # 打印 H-GSP 配置
+    if computed_tau is not None and layer_removal_ppl is not None:
+        print(f"\nH-GSP 配置:")
+        print(f"  温度 T = {temperature}")
+        if temperature == 0:
+            print(f"    → 退化为纯 Taylor (无先验)")
+        elif temperature == 1:
+            print(f"    → 推荐模式 (平衡)")
+        else:
+            print(f"    → 激进模式 (强化首尾保护)")
+
+        print(f"  门控阈值 τ = {computed_tau:.4f}")
+        if computed_tau == 0:
+            print(f"    → 纯 Block-wise 模式")
+        elif computed_tau == float('inf'):
+            print(f"    → 纯 Layer-wise 模式")
+        else:
+            # 统计会触发 Layer-Dominant 的层数
+            layer_dominant_count = sum(1 for ppl in layer_removal_ppl.values() if ppl < computed_tau)
+            print(f"    → 混合模式: {layer_dominant_count}/{num_layers} 层触发 Layer-Dominant")
+
+        if block_removal_ppl is not None:
+            print(f"  块级数据: ✓ Attention + MLP")
+        else:
+            print(f"  块级数据: ✗ 仅使用层级数据")
+
+    print(f"\n层范围: [{layer_start}, {layer_end})")
     print(f"总层数: {num_layers}")
 
     all_groups = []
@@ -376,6 +439,27 @@ def build_global_group_table(
             cost = compute_attention_group_cost(layer, group_idx, head_dim, gqa_ratio)
             score = importance / cost if cost > 0 else 0.0
 
+            # ========== Step B: 混合加权评分 (H-GSP) ==========
+            if computed_tau is not None and layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+                ppl_layer = layer_removal_ppl[layer_idx]
+
+                # 判断模式
+                if ppl_layer < computed_tau:
+                    # Layer-Dominant Mode: 强制压低得分，鼓励整层移除
+                    B = math.log(1 + ppl_layer)
+                else:
+                    # Block-Dominant Mode: 根据 Attention 块具体表现精细评分
+                    if block_removal_ppl is not None and layer_idx in block_removal_ppl.get('attention', {}):
+                        ppl_block = block_removal_ppl['attention'][layer_idx]
+                        B = math.log(1 + ppl_block)
+                    else:
+                        # Fallback: 使用层级数据
+                        B = math.log(1 + ppl_layer)
+
+                # 应用温度调制
+                M = B ** temperature
+                score = score * M
+
             group = GroupInfo(
                 layer_idx=layer_idx,
                 group_type='attention',
@@ -400,6 +484,27 @@ def build_global_group_table(
             importance = mlp_importance[group_idx].item()
             cost = mlp_group_cost  # 每个通道的成本相同
             score = importance / cost if cost > 0 else 0.0
+
+            # ========== Step B: 混合加权评分 (H-GSP) ==========
+            if computed_tau is not None and layer_removal_ppl is not None and layer_idx in layer_removal_ppl:
+                ppl_layer = layer_removal_ppl[layer_idx]
+
+                # 判断模式
+                if ppl_layer < computed_tau:
+                    # Layer-Dominant Mode: 强制压低得分，鼓励整层移除
+                    B = math.log(1 + ppl_layer)
+                else:
+                    # Block-Dominant Mode: 根据 MLP 块具体表现精细评分
+                    if block_removal_ppl is not None and layer_idx in block_removal_ppl.get('mlp', {}):
+                        ppl_block = block_removal_ppl['mlp'][layer_idx]
+                        B = math.log(1 + ppl_block)
+                    else:
+                        # Fallback: 使用层级数据
+                        B = math.log(1 + ppl_layer)
+
+                # 应用温度调制
+                M = B ** temperature
+                score = score * M
 
             group = GroupInfo(
                 layer_idx=layer_idx,

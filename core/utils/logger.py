@@ -19,9 +19,9 @@ class LoggerWithDepth():
                                         "%Y-%m-%d %H:%M:%S")
 
         if not os.path.exists(root_dir):
-            os.mkdir(root_dir)
+            os.makedirs(root_dir)
         if not os.path.exists(self.log_dir):
-            os.mkdir(self.log_dir)
+            os.makedirs(self.log_dir)
         
         # Save Hyperparameters
         self.write_description_to_folder(os.path.join(self.log_dir, 'description.txt'), config)

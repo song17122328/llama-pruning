@@ -27,13 +27,19 @@ class LayerImportanceAnalyzer:
         self.device = device
         self.model.eval()
 
-    def compute_perplexity(self, texts: List[str]) -> float:
-        """计算困惑度"""
+    def compute_perplexity(self, texts: List[str], show_progress: bool = True) -> float:
+        """计算困惑度
+
+        Args:
+            texts: 文本列表
+            show_progress: 是否显示进度条（默认True）
+        """
         total_loss = 0
         total_tokens = 0
 
         with torch.no_grad():
-            for text in tqdm(texts, desc="计算困惑度"):
+            iterator = tqdm(texts, desc="计算困惑度", disable=not show_progress)
+            for text in iterator:
                 inputs = self.tokenizer(text, return_tensors="pt",
                                        truncation=True, max_length=512)
                 # 将inputs移动到模型第一层所在的设备
@@ -52,12 +58,13 @@ class LayerImportanceAnalyzer:
         通过移除层来评估重要性（困惑度变化）
         重要性 = 移除该层后的困惑度增加量
         """
-        baseline_ppl = self.compute_perplexity(texts)
+        baseline_ppl = self.compute_perplexity(texts, show_progress=False)
         layer_importance = {}
 
-        print(f"基准困惑度: {baseline_ppl:.4f}")
+        # 使用单一进度条显示所有信息
+        pbar = tqdm(range(num_layers), desc="分析层重要性", ncols=100)
 
-        for layer_idx in tqdm(range(num_layers), desc="分析层重要性"):
+        for layer_idx in pbar:
             # 保存原始forward函数
             original_forward = self.model.model.layers[layer_idx].forward
 
@@ -88,16 +95,109 @@ class LayerImportanceAnalyzer:
             self.model.model.layers[layer_idx].forward = identity_forward
 
             try:
-                ppl = self.compute_perplexity(texts)
+                ppl = self.compute_perplexity(texts, show_progress=False)
                 importance = ppl - baseline_ppl  # 困惑度增加越多，该层越重要
                 layer_importance[layer_idx] = importance
 
-                # print(f"第 {layer_idx} 层: PPL 变化 = {importance:.4f}")
+                # 在进度条上显示关键信息
+                pbar.set_postfix({
+                    'baseline': f'{baseline_ppl:.2f}',
+                    'current': f'{ppl:.2f}',
+                    'delta': f'+{importance:.2f}'
+                })
             finally:
                 # 无论是否出错，都要恢复该层
                 self.model.model.layers[layer_idx].forward = original_forward
 
+        pbar.close()
         return layer_importance
+
+    def measure_block_importance_by_removal(self, texts: List[str],
+                                           num_layers: int) -> Dict[str, Dict[int, float]]:
+        """
+        通过移除块（Attention或MLP）来评估重要性
+
+        Args:
+            texts: 测试文本列表
+            num_layers: 层数
+
+        Returns:
+            Dict包含两个键:
+            - 'attention': {layer_idx: importance, ...}
+            - 'mlp': {layer_idx: importance, ...}
+        """
+        baseline_ppl = self.compute_perplexity(texts, show_progress=False)
+        attention_importance = {}
+        mlp_importance = {}
+
+        # 评估每层的 Attention 重要性
+        pbar = tqdm(range(num_layers), desc="分析 Attention 块", ncols=100)
+        for layer_idx in pbar:
+            layer = self.model.model.layers[layer_idx]
+
+            # 保存原始 self_attn forward
+            original_attn_forward = layer.self_attn.forward
+
+            # 定义恒等映射（跳过 Attention）
+            def identity_attn_forward(hidden_states, *args, **kwargs):
+                # LlamaAttention.forward 总是返回固定格式：(attn_output, attn_weights)
+                # 我们的恒等映射也返回相同格式
+                return (hidden_states, None)
+
+            # 替换 Attention forward
+            layer.self_attn.forward = identity_attn_forward
+
+            try:
+                ppl = self.compute_perplexity(texts, show_progress=False)
+                importance = ppl - baseline_ppl
+                attention_importance[layer_idx] = importance
+
+                # 在进度条上显示关键信息
+                pbar.set_postfix({
+                    'baseline': f'{baseline_ppl:.2f}',
+                    'current': f'{ppl:.2f}',
+                    'delta': f'+{importance:.2f}'
+                })
+            finally:
+                layer.self_attn.forward = original_attn_forward
+
+        pbar.close()
+
+        # 评估每层的 MLP 重要性
+        pbar = tqdm(range(num_layers), desc="分析 MLP 块", ncols=100)
+        for layer_idx in pbar:
+            layer = self.model.model.layers[layer_idx]
+
+            # 保存原始 mlp forward
+            original_mlp_forward = layer.mlp.forward
+
+            # 定义恒等映射（跳过 MLP）
+            def identity_mlp_forward(hidden_states, *args, **kwargs):
+                return hidden_states
+
+            # 替换 MLP forward
+            layer.mlp.forward = identity_mlp_forward
+
+            try:
+                ppl = self.compute_perplexity(texts, show_progress=False)
+                importance = ppl - baseline_ppl
+                mlp_importance[layer_idx] = importance
+
+                # 在进度条上显示关键信息
+                pbar.set_postfix({
+                    'baseline': f'{baseline_ppl:.2f}',
+                    'current': f'{ppl:.2f}',
+                    'delta': f'+{importance:.2f}'
+                })
+            finally:
+                layer.mlp.forward = original_mlp_forward
+
+        pbar.close()
+
+        return {
+            'attention': attention_importance,
+            'mlp': mlp_importance
+        }
 
     def measure_layer_importance_by_activation(self, texts: List[str]) -> Dict[int, float]:
         """通过激活值统计评估重要性"""
@@ -428,9 +528,63 @@ if __name__ == "__main__":
     all_samples = get_examples('wikitext', tokenizer, num_samples=512, seq_len=512, split='test')
     eval_samples = all_samples[:50]
     eval_texts = [tokenizer.decode(sample, skip_special_tokens=True) for sample in eval_samples]
+
+    # 层级重要度评估
+    print("\n" + "="*60)
+    print("层级重要度评估")
+    print("="*60)
     layer_importance = analyzer.measure_layer_importance_by_removal(
-        eval_texts, num_layers = len(model.model.layers)
+        eval_texts, num_layers = 32
     )
-    importance_values = list(layer_importance.values())
-    for layer_idx, importance in importance_values:
-        print(f"  Layer {layer_idx}: {importance:.6f}")
+
+    # 统一展示层级重要度结果
+    print("\n" + "="*60)
+    print("层级重要度汇总")
+    print("="*60)
+    print(f"\n{'Layer':<10} {'PPL 增加':<12}")
+    print("-" * 30)
+
+    for layer_idx in range(32):
+        importance = layer_importance.get(layer_idx, 0.0)
+        print(f"Layer {layer_idx:2d}   {importance:10.4f}")
+
+    # 计算统计信息
+    print("\n" + "-" * 30)
+    layer_avg = sum(layer_importance.values()) / len(layer_importance)
+    layer_total = sum(layer_importance.values())
+    print(f"{'平均值':<10} {layer_avg:10.4f}")
+    print(f"{'总和':<10} {layer_total:10.4f}")
+    print("="*60)
+
+    # 块级重要度评估
+    print("\n" + "="*60)
+    print("块级重要度评估")
+    print("="*60)
+    block_importance = analyzer.measure_block_importance_by_removal(
+        eval_texts, num_layers = 32
+    )
+
+    # 统一展示结果
+    print("\n" + "="*60)
+    print("块级重要度汇总")
+    print("="*60)
+    print(f"\n{'Layer':<7} {'Attention':<12} {'MLP':<12} {'总和':<12}")
+    print("-" * 60)
+
+    for layer_idx in range(32):
+        attn_imp = block_importance['attention'].get(layer_idx, 0.0)
+        mlp_imp = block_importance['mlp'].get(layer_idx, 0.0)
+        total_imp = attn_imp + mlp_imp
+        print(f"Layer {layer_idx:2d}  {attn_imp:10.4f}   {mlp_imp:10.4f}   {total_imp:10.4f}")
+
+    # 计算统计信息
+    print("\n" + "-" * 60)
+    attn_total = sum(block_importance['attention'].values())
+    mlp_total = sum(block_importance['mlp'].values())
+    attn_avg = attn_total / len(block_importance['attention'])
+    mlp_avg = mlp_total / len(block_importance['mlp'])
+
+    print(f"{'平均值':<7} {attn_avg:10.4f}   {mlp_avg:10.4f}   {(attn_avg + mlp_avg):10.4f}")
+    print(f"{'总和':<7} {attn_total:10.4f}   {mlp_total:10.4f}   {(attn_total + mlp_total):10.4f}")
+    print("="*60)
+    

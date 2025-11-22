@@ -43,6 +43,9 @@ def evaluate_efficiency(
     print(f"评估效率指标,当前的设备是{device}")
     print(f"{'='*60}")
 
+    # 将device转换为字符串（支持 torch.device 对象和字符串）
+    device_str = str(device)
+
     results = {}
 
     # 1. 参数量统计
@@ -84,20 +87,20 @@ def evaluate_efficiency(
 
         # 每次速度测试后清理缓存（只清理当前使用的GPU）
         gc.collect()
-        if device.startswith('cuda'):
-            device_id = int(device.split(':')[1]) if ':' in device else 0
+        if device_str.startswith('cuda'):
+            device_id = int(device_str.split(':')[1]) if ':' in device_str else 0
             with torch.cuda.device(device_id):
                 torch.cuda.empty_cache()
 
     results['speed'] = speed_results
 
     # 3. 显存占用
-    if device.startswith('cuda'):
+    if device_str.startswith('cuda'):
         print(f"\n3. 显存占用:")
 
         # 彻底清理之前测试的残留，确保内存测量准确
         gc.collect()
-        device_id = int(device.split(':')[1]) if ':' in device else 0
+        device_id = int(device_str.split(':')[1]) if ':' in device_str else 0
         with torch.cuda.device(device_id):
             torch.cuda.empty_cache()
 
@@ -142,6 +145,9 @@ def measure_inference_speed(
     """
     model.eval()
 
+    # 将device转换为字符串（支持 torch.device 对象和字符串）
+    device_str = str(device)
+
     # 准备dummy输入
     dummy_text = "This is a test sentence for measuring inference speed. " * 20
     inputs = tokenizer(
@@ -153,7 +159,7 @@ def measure_inference_speed(
     )
 
     # 移动输入到目标设备（支持cuda和cuda:N格式）
-    if device.startswith('cuda'):
+    if device_str.startswith('cuda'):
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
     # Warmup
@@ -167,7 +173,7 @@ def measure_inference_speed(
                 pad_token_id=tokenizer.pad_token_id
             )
 
-    if device.startswith('cuda'):
+    if device_str.startswith('cuda'):
         torch.cuda.synchronize()
 
     # 正式测速
@@ -184,7 +190,7 @@ def measure_inference_speed(
                 pad_token_id=tokenizer.pad_token_id
             )
 
-    if device.startswith('cuda'):
+    if device_str.startswith('cuda'):
         torch.cuda.synchronize()
 
     elapsed_time = time.time() - start_time
@@ -223,14 +229,17 @@ def measure_memory_usage(
             'inference_peak_mb': float  # 推理峰值显存
         }
     """
-    if not device.startswith('cuda'):
+    # 将device转换为字符串（支持 torch.device 对象和字符串）
+    device_str = str(device)
+
+    if not device_str.startswith('cuda'):
         return {
             'model_memory_mb': 0,
             'inference_peak_mb': 0
         }
 
     # 提取GPU编号
-    device_id = int(device.split(':')[1]) if ':' in device else 0
+    device_id = int(device_str.split(':')[1]) if ':' in device_str else 0
 
     # 清空缓存（empty_cache不接受参数，清空所有GPU）
     torch.cuda.empty_cache()

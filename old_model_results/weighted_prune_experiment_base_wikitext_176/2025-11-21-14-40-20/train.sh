@@ -1,0 +1,1 @@
+python global_pruning.py --base_model /newdata/LLMs/Llama-3-8B --dataset wikitext2 --save_ckpt_log_name weighted_prune_experiment_wikitext_176 --pruning_ratio 0.1755 --importance_method taylor --num_samples 128 --use_layer_weighting --layer_weighting_samples 8 --test_after_prune --save_model

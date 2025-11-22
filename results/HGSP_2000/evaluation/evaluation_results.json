@@ -1,0 +1,129 @@
+{
+  "model_path": "results/HGSP_2000/pruned_model.bin",
+  "timestamp": "2025-11-22T22:58:20.818638",
+  "metrics": {
+    "model_info": {
+      "total_params": 6424219648,
+      "trainable_params": 6424219648,
+      "total_params_M": 6424.219648,
+      "total_params_B": 6.424219648,
+      "attention_params": 1059061760,
+      "mlp_params": 4314218496,
+      "attention_params_M": 1059.06176,
+      "mlp_params_M": 4314.218496,
+      "attention_ratio": 0.16485453767598202,
+      "mlp_ratio": 0.6715552599984825,
+      "num_layers": 32,
+      "model_size_mb": 12253.226806640625,
+      "model_size_gb": 11.966041803359985
+    },
+    "ppl": {
+      "wikitext2 (wikitext-2-raw-v1)": 39.87115478515625,
+      "ptb": 70.00041961669922
+    },
+    "zeroshot": {
+      "boolq": {
+        "accuracy": 0.5831804281345566,
+        "full_results": {
+          "alias": "boolq",
+          "acc,none": 0.5831804281345566,
+          "acc_stderr,none": 0.008623192108843674
+        }
+      },
+      "piqa": {
+        "accuracy": 0.719260065288357,
+        "full_results": {
+          "alias": "piqa",
+          "acc,none": 0.7083786724700761,
+          "acc_stderr,none": 0.010604441527428973,
+          "acc_norm,none": 0.719260065288357,
+          "acc_norm_stderr,none": 0.010484325438311801
+        }
+      },
+      "hellaswag": {
+        "accuracy": 0.5118502290380402,
+        "full_results": {
+          "alias": "hellaswag",
+          "acc,none": 0.3866759609639514,
+          "acc_stderr,none": 0.0048599309265002074,
+          "acc_norm,none": 0.5118502290380402,
+          "acc_norm_stderr,none": 0.004988379805261452
+        }
+      },
+      "winogrande": {
+        "accuracy": 0.5548539857932123,
+        "full_results": {
+          "alias": "winogrande",
+          "acc,none": 0.5548539857932123,
+          "acc_stderr,none": 0.01396766295435552
+        }
+      },
+      "arc_easy": {
+        "accuracy": 0.5900673400673401,
+        "full_results": {
+          "alias": "arc_easy",
+          "acc,none": 0.6346801346801347,
+          "acc_stderr,none": 0.009880576614806942,
+          "acc_norm,none": 0.5900673400673401,
+          "acc_norm_stderr,none": 0.010091953527506203
+        }
+      },
+      "arc_challenge": {
+        "accuracy": 0.3174061433447099,
+        "full_results": {
+          "alias": "arc_challenge",
+          "acc,none": 0.29180887372013653,
+          "acc_stderr,none": 0.013284525292403586,
+          "acc_norm,none": 0.3174061433447099,
+          "acc_norm_stderr,none": 0.013602239088038159
+        }
+      },
+      "openbookqa": {
+        "accuracy": 0.322,
+        "full_results": {
+          "alias": "openbookqa",
+          "acc,none": 0.212,
+          "acc_stderr,none": 0.01829703700401386,
+          "acc_norm,none": 0.322,
+          "acc_norm_stderr,none": 0.020916668330019865
+        }
+      }
+    },
+    "avg_zeroshot_acc": 0.5140883130951738,
+    "efficiency": {
+      "model_info": {
+        "total_params": 6424219648,
+        "trainable_params": 6424219648,
+        "total_params_M": 6424.219648,
+        "total_params_B": 6.424219648,
+        "attention_params": 1059061760,
+        "mlp_params": 4314218496,
+        "attention_params_M": 1059.06176,
+        "mlp_params_M": 4314.218496,
+        "attention_ratio": 0.16485453767598202,
+        "mlp_ratio": 0.6715552599984825,
+        "num_layers": 32,
+        "model_size_mb": 12253.226806640625,
+        "model_size_gb": 11.966041803359985
+      },
+      "speed": {
+        "batch_size_1": {
+          "throughput_tokens_per_sec": 30.947477036742423,
+          "latency_ms_per_token": 32.3128117620945,
+          "total_time_sec": 206.80199527740479,
+          "total_tokens": 6400
+        },
+        "batch_size_4": {
+          "throughput_tokens_per_sec": 116.59768186116908,
+          "latency_ms_per_token": 8.576499841486415,
+          "total_time_sec": 52.69401502609253,
+          "total_tokens": 6144
+        }
+      },
+      "memory": {
+        "model_memory_mb": 39882.05615234375,
+        "inference_peak_mb": 39990.54541015625
+      }
+    }
+  }
+}

@@ -133,28 +133,15 @@ class PPLMetric:
 
             # 优先从项目 data/ 目录加载
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            local_path = os.path.join(project_root, "data", "wikitext2")
-
-            if os.path.exists(local_path):
-                print(f"  从本地加载: {local_path}")
-                try:
-                    dataset = load_from_disk(local_path)
-                    dataset = dataset['test']
-                    text_field = 'text'
-                except Exception as e:
-                    print(f"  本地加载失败: {e}，尝试在线下载...")
-                    dataset = None
-            else:
-                dataset = None
-
-            # 如果本地没有，尝试在线加载
-            if dataset is None:
-                print("  本地数据不存在，请先运行: python evaluation/download_datasets.py")
-                try:
-                    dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
-                    text_field = 'text'
-                except Exception as e:
-                    raise ValueError(f"无法加载 WikiText2: {e}")
+            # local_path = os.path.join(project_root, "data", "wikitext2")
+            local_path = "/newdata/DataSets/wikitext2"
+            try:
+                dataset = load_from_disk(local_path)
+                dataset = dataset['test']
+            except Exception as e:
+                print(f"  本地加载失败: {e}，尝试在线下载...")
+                dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
+            text_field = 'text'
 
         # PTB (Penn TreeBank)
         elif dataset_name_lower in ['ptb', 'penn-treebank', 'penn_treebank']:
@@ -163,8 +150,8 @@ class PPLMetric:
 
             # 优先从项目 data/ 目录加载
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            local_path = os.path.join(project_root, "data", "ptb")
-
+            # local_path = os.path.join(project_root, "data", "ptb")
+            local_path = "/newdata/DataSets/ptb"
             if os.path.exists(local_path):
                 print(f"  从本地加载: {local_path}")
                 try:
@@ -193,8 +180,8 @@ class PPLMetric:
 
             # 优先从项目 data/ 目录加载
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            local_path = os.path.join(project_root, "data", "c4")
-
+            # local_path = os.path.join(project_root, "data", "c4")
+            local_path = "/newdata/DataSets/c4"
             if os.path.exists(local_path):
                 print(f"  从本地加载: {local_path}")
                 try:

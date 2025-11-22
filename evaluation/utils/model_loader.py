@@ -9,10 +9,16 @@
 """
 
 import os
+import sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Tuple, Dict, Optional
 import gc
+
+# 导入 IdentityDecoderLayer 以支持加载包含该层的剪枝模型
+# 这个导入必须在 torch.load() 之前，否则 unpickle 会找不到类定义
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from core.models import IdentityDecoderLayer
 
 
 def load_model_and_tokenizer(
@@ -39,10 +45,13 @@ def load_model_and_tokenizer(
     """
     print(f"加载模型: {model_path}")
 
+    # 将device转换为字符串（支持 torch.device 对象和字符串）
+    device_str = str(device)
+
     # 判断是checkpoint还是目录
     if model_path.endswith('.bin'):
         # 剪枝checkpoint - 直接加载到目标设备
-        target_device = device if device.startswith('cuda') and force_single_device else 'cpu'
+        target_device = device_str if device_str.startswith('cuda') and force_single_device else 'cpu'
         print(f"  直接加载checkpoint到 {target_device}...")
         checkpoint = torch.load(model_path, map_location=target_device, weights_only=False)
 
@@ -69,10 +78,10 @@ def load_model_and_tokenizer(
         if force_single_device:
             # 强制单设备：避免PPL计算时的multi-GPU问题
             device_map = None
-            print(f"  使用单设备模式: {device}")
+            print(f"  使用单设备模式: {device_str}")
         else:
             # 自动分布：适合生成任务
-            device_map = 'auto' if device == 'cuda' else None
+            device_map = 'auto' if device_str == 'cuda' else None
             print(f"  使用自动设备分布模式")
 
         model = AutoModelForCausalLM.from_pretrained(
@@ -98,9 +107,9 @@ def load_model_and_tokenizer(
 
     # 移动到设备（仅当没有使用device_map且是HF模型时）
     # 注意：checkpoint已经在上面移动过了
-    if not load_in_8bit and device.startswith('cuda') and force_single_device and not model_path.endswith('.bin'):
-        print(f"  移动HF模型到 {device}...")
-        model = model.to(device)
+    if not load_in_8bit and device_str.startswith('cuda') and force_single_device and not model_path.endswith('.bin'):
+        print(f"  移动HF模型到 {device_str}...")
+        model = model.to(device_str)
 
     model.eval()
 
