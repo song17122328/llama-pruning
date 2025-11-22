@@ -650,6 +650,24 @@ class ModelComparator:
         if zero_layers:
             lines.append(f"完全剪空的层 ({len(zero_layers)}个): {zero_layers}")
             lines.append("")
+        
+        # 比例小于5%的层统计
+        zero_layers = [l['layer_idx'] for l in result['layers'] if l['reduction_ratio'] <= 0.05]
+        if zero_layers:
+            lines.append(f"比例小于5%的层 ({len(zero_layers)}个): {zero_layers}")
+            lines.append("")
+        
+        # 比例小于10%的层统计
+        zero_layers = [l['layer_idx'] for l in result['layers'] if l['reduction_ratio'] <= 0.1]
+        if zero_layers:
+            lines.append(f"比例小于10%的层 ({len(zero_layers)}个): {zero_layers}")
+            lines.append("")
+
+        # 比例小于15%的层统计
+        zero_layers = [l['layer_idx'] for l in result['layers'] if l['reduction_ratio'] <= 0.15]
+        if zero_layers:
+            lines.append(f"比例小于15%的层 ({len(zero_layers)}个): {zero_layers}")
+            lines.append("")
 
         # 每层Attention和MLP的详细对比
         lines.append("=" * 100)
