@@ -569,7 +569,129 @@ class ModelComparator:
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump(self.comparison_result, f, indent=2, ensure_ascii=False)
 
-        print(f"✓ 对比报告已保存至: {save_path}")
+        print(f"✓ JSON 对比报告已保存至: {save_path}")
+
+    def save_table_report(self, save_path: str):
+        """
+        保存表格格式的对比报告为 TXT 文件
+
+        Args:
+            save_path: 保存路径
+        """
+        if self.comparison_result is None:
+            self.compare()
+
+        result = self.comparison_result
+
+        lines = []
+        lines.append("=" * 100)
+        lines.append("模型剪枝对比分析报告")
+        lines.append("=" * 100)
+        lines.append(f"原始模型: {result['original_name']}")
+        lines.append(f"剪枝模型: {result['pruned_name']}")
+        lines.append("")
+
+        # 总体统计
+        total = result['total_params']
+        lines.append("-" * 100)
+        lines.append("总体参数统计")
+        lines.append("-" * 100)
+        lines.append(f"{'项目':<20} {'原始':>20} {'剪枝后':>20} {'减少':>20} {'剪枝比例':>15}")
+        lines.append("-" * 100)
+        lines.append(f"{'总参数量':<20} {total['original']:>20,} {total['pruned']:>20,} "
+                    f"{total['reduced']:>20,} {total['reduction_ratio']*100:>14.2f}%")
+
+        layer_params = result['layer_params']
+        lines.append(f"{'Decoder Layers':<20} {layer_params['original']:>20,} {layer_params['pruned']:>20,} "
+                    f"{layer_params['reduced']:>20,} {layer_params['reduction_ratio']*100:>14.2f}%")
+        lines.append("")
+
+        # 每层详细统计（表格格式）
+        lines.append("=" * 100)
+        lines.append("每层参数详细对比")
+        lines.append("=" * 100)
+        lines.append("")
+
+        # 表头
+        header = f"{'Layer':<6} {'总参数(原始)':>15} {'总参数(剪枝)':>15} {'占原模型%':>12} {'剪枝率%':>10} " \
+                 f"{'Attn剪枝%':>12} {'MLP剪枝%':>12} {'状态':<15}"
+        lines.append(header)
+        lines.append("-" * 100)
+
+        # 获取原始模型总参数（用于计算占比）
+        original_total_params = result['total_params']['original']
+
+        # 每层数据
+        for layer_comp in result['layers']:
+            layer_idx = layer_comp['layer_idx']
+            total_comp = layer_comp['total']
+            attn_comp = layer_comp['attention']
+            mlp_comp = layer_comp['mlp']
+
+            # 计算该层占原模型总参数的百分比
+            layer_ratio_of_total = (total_comp['original'] / original_total_params * 100) if original_total_params > 0 else 0
+
+            # 状态标记
+            status = ""
+            if layer_comp['is_zero_layer']:
+                status = "[完全剪空]"
+            elif attn_comp['reduction_ratio'] >= 0.99:
+                status = "[Attn剪空]"
+            elif mlp_comp['reduction_ratio'] >= 0.99:
+                status = "[MLP剪空]"
+
+            line = f"{layer_idx:<6} {total_comp['original']:>15,} {total_comp['pruned']:>15,} " \
+                   f"{layer_ratio_of_total:>11.2f}% {total_comp['reduction_ratio']*100:>9.2f}% " \
+                   f"{attn_comp['reduction_ratio']*100:>11.2f}% {mlp_comp['reduction_ratio']*100:>11.2f}% " \
+                   f"{status:<15}"
+            lines.append(line)
+
+        lines.append("")
+
+        # 完全剪空的层统计
+        zero_layers = [l['layer_idx'] for l in result['layers'] if l['is_zero_layer']]
+        if zero_layers:
+            lines.append(f"完全剪空的层 ({len(zero_layers)}个): {zero_layers}")
+            lines.append("")
+
+        # 每层Attention和MLP的详细对比
+        lines.append("=" * 100)
+        lines.append("每层 Attention 和 MLP 详细对比")
+        lines.append("=" * 100)
+        lines.append("")
+
+        for layer_comp in result['layers']:
+            layer_idx = layer_comp['layer_idx']
+            attn_comp = layer_comp['attention']
+            mlp_comp = layer_comp['mlp']
+
+            lines.append(f"Layer {layer_idx}:")
+            lines.append(f"  Attention:")
+            lines.append(f"    参数: {attn_comp['original']:,} → {attn_comp['pruned']:,} "
+                        f"(-{attn_comp['reduction_ratio']*100:.2f}%)")
+            if 'num_heads' in attn_comp:
+                orig_q = attn_comp['num_heads']['original']
+                pruned_q = attn_comp['num_heads']['pruned']
+                orig_kv = attn_comp['num_kv_heads']['original']
+                pruned_kv = attn_comp['num_kv_heads']['pruned']
+                lines.append(f"    头数: {orig_q}Q:{orig_kv}KV → {pruned_q}Q:{pruned_kv}KV")
+
+            lines.append(f"  MLP:")
+            lines.append(f"    参数: {mlp_comp['original']:,} → {mlp_comp['pruned']:,} "
+                        f"(-{mlp_comp['reduction_ratio']*100:.2f}%)")
+            if 'intermediate_size' in mlp_comp:
+                orig_size = mlp_comp['intermediate_size']['original']
+                pruned_size = mlp_comp['intermediate_size']['pruned']
+                lines.append(f"    中间维度: {orig_size} → {pruned_size}")
+            lines.append("")
+
+        lines.append("=" * 100)
+
+        # 写入文件
+        with open(save_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+
+        print(f"✓ 表格对比报告已保存至: {save_path}")
 
 
 def analyze_model_from_checkpoint(
@@ -625,7 +747,7 @@ def main():
     独立运行示例
 
     使用方法:
-        python core/analysis/model_analysis.py --model_path <path>
+        python core/analysis/model_analysis.py --model_path <path> --compare_with <path>
     """
     import argparse
 
@@ -636,7 +758,13 @@ def main():
         '--model_path',
         type=str,
         required=True,
-        help="模型路径（HuggingFace 模型目录或 .bin 文件）"
+        help="原始模型路径（HuggingFace 模型目录或 .bin 文件）"
+    )
+    parser.add_argument(
+        '--compare_with',
+        type=str,
+        default=None,
+        help="剪枝后模型路径（用于对比，推荐使用）"
     )
     from core.utils.get_best_gpu import get_best_gpu
     bestDevice = "cuda:"+str(get_best_gpu())
@@ -647,16 +775,10 @@ def main():
         help="设备 (cuda/cpu，默认: cuda)"
     )
     parser.add_argument(
-        '--save_json',
+        '--output_dir',
         type=str,
         default=None,
-        help="保存 JSON 报告的路径（可选）"
-    )
-    parser.add_argument(
-        '--compare_with',
-        type=str,
-        default=None,
-        help="对比的模型路径（可选，用于对比剪枝前后）"
+        help="输出目录（可选，默认自动选择为 compare_with 的父目录/analysis/）"
     )
     parser.add_argument(
         '--verbose',
@@ -667,59 +789,96 @@ def main():
 
     args = parser.parse_args()
 
-    # 分析主模型
-    print(f"\n{'='*80}")
-    print(f"开始分析模型...")
-    print(f"{'='*80}\n")
-
-    result = analyze_model_from_checkpoint(
-        checkpoint_path=args.model_path,
-        device=args.device,
-        verbose=args.verbose
-    )
-
-    # 获取模型名称（从路径）
-    model_name = os.path.basename(args.model_path)
-    if model_name.endswith('.bin'):
-        model_name = os.path.basename(os.path.dirname(args.model_path))
-
-    # 保存 JSON 报告
-    if args.save_json:
-        with open(args.save_json, 'w', encoding='utf-8') as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-        print(f"✓ 分析报告已保存至: {args.save_json}")
-
-    # 如果指定了对比模型
+    # 如果指定了对比模型（推荐用法）
     if args.compare_with:
+        # 分析原始模型
         print(f"\n{'='*80}")
-        print(f"开始分析对比模型...")
+        print(f"正在分析原始模型...")
         print(f"{'='*80}\n")
 
-        compare_result = analyze_model_from_checkpoint(
+        original_result = analyze_model_from_checkpoint(
+            checkpoint_path=args.model_path,
+            device=args.device,
+            verbose=False  # 原始模型不打印详细信息
+        )
+
+        # 获取原始模型名称
+        original_name = os.path.basename(args.model_path)
+        if original_name.endswith('.bin'):
+            original_name = os.path.basename(os.path.dirname(args.model_path))
+
+        # 分析剪枝后模型
+        print(f"\n{'='*80}")
+        print(f"正在分析剪枝后模型...")
+        print(f"{'='*80}\n")
+
+        pruned_result = analyze_model_from_checkpoint(
             checkpoint_path=args.compare_with,
+            device=args.device,
+            verbose=False  # 剪枝模型也不打印详细信息（稍后打印对比）
+        )
+
+        # 获取剪枝后模型名称
+        pruned_name = os.path.basename(args.compare_with)
+        if pruned_name.endswith('.bin'):
+            pruned_name = os.path.basename(os.path.dirname(args.compare_with))
+
+        # 生成对比报告
+        comparator = ModelComparator(
+            original_analysis=original_result,
+            pruned_analysis=pruned_result,
+            original_name=original_name,
+            pruned_name=pruned_name
+        )
+
+        # 打印对比报告
+        comparator.print_report(verbose=args.verbose)
+
+        # 确定输出目录
+        if args.output_dir:
+            output_dir = args.output_dir
+        else:
+            # 自动选择：compare_with 的父目录/analysis/
+            if args.compare_with.endswith('.bin'):
+                # 如果是 .bin 文件，父目录就是模型目录
+                model_dir = os.path.dirname(args.compare_with)
+            else:
+                # 如果是目录，就使用该目录
+                model_dir = args.compare_with
+
+            # 在模型目录下创建 analysis 子目录
+            output_dir = os.path.join(model_dir, 'analysis')
+
+        # 创建输出目录（如果不存在）
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"\n输出目录: {output_dir}")
+
+        # 保存 JSON 格式报告
+        json_path = os.path.join(output_dir, 'pruning_comparison.json')
+        comparator.save_report(json_path)
+
+        # 保存表格格式报告（TXT）
+        txt_path = os.path.join(output_dir, 'pruning_comparison.txt')
+        comparator.save_table_report(txt_path)
+
+        print(f"\n✓ 对比分析完成！")
+        print(f"  - JSON 报告: {json_path}")
+        print(f"  - TXT 报告: {txt_path}")
+
+    else:
+        # 仅分析单个模型（不推荐，但仍支持）
+        print(f"\n{'='*80}")
+        print(f"正在分析模型...")
+        print(f"{'='*80}\n")
+
+        result = analyze_model_from_checkpoint(
+            checkpoint_path=args.model_path,
             device=args.device,
             verbose=args.verbose
         )
 
-        # 获取对比模型名称（从路径）
-        compare_name = os.path.basename(args.compare_with)
-        if compare_name.endswith('.bin'):
-            compare_name = os.path.basename(os.path.dirname(args.compare_with))
-
-        # 生成对比报告
-        comparator = ModelComparator(
-            original_analysis=result,
-            pruned_analysis=compare_result,
-            original_name=model_name,
-            pruned_name=compare_name
-        )
-
-        comparator.print_report(verbose=args.verbose)
-
-        # 保存对比报告
-        if args.save_json:
-            compare_json_path = args.save_json.replace('.json', '_comparison.json')
-            comparator.save_report(compare_json_path)
+        print(f"\n提示: 建议使用 --compare_with 参数对比剪枝前后的模型")
+        print(f"示例: python {__file__} --model_path <原始模型> --compare_with <剪枝模型>")
 
 
 if __name__ == '__main__':
@@ -727,29 +886,32 @@ if __name__ == '__main__':
     print("""
 使用示例:
 
-1. 分析 HuggingFace 模型:
+【推荐用法】对比剪枝前后的模型（自动保存到剪枝模型的 analysis/ 目录）:
    python core/analysis/model_analysis.py \\
-       --model_path meta-llama/Llama-2-7b-hf \\
-       --save_json llama2_analysis.json
+       --model_path /path/to/original_model \\
+       --compare_with /path/to/pruned_model.bin
 
-2. 分析剪枝后的 .bin 模型:
+   # 示例：
    python core/analysis/model_analysis.py \\
-       --model_path results/my_pruning/models/pruned_model.bin \\
-       --save_json pruned_analysis.json
+       --model_path /newdata/LLMs/Llama-3-8B-Instruct \\
+       --compare_with ~/llama-pruning/results/layerwise_only_1948/pruned_model.bin
 
-3. 对比两个模型（剪枝前后）:
-   python core/analysis/model_analysis.py \\
-       --model_path meta-llama/Llama-2-7b-hf \\
-       --compare_with results/my_pruning/models/pruned_model.bin \\
-       --save_json comparison.json
+   # 输出将自动保存到:
+   #   ~/llama-pruning/results/layerwise_only_1948/analysis/pruning_comparison.json
+   #   ~/llama-pruning/results/layerwise_only_1948/analysis/pruning_comparison.txt
 
-4. 指定设备:
-   python core/analysis/model_analysis.py \\
-       --model_path /path/to/model \\
-       --device cuda:0 \\
-       --save_json analysis.json
+【可选参数】:
+   --device cuda:0          # 指定设备（默认: cuda）
+   --output_dir /path/      # 手动指定输出目录（默认自动选择）
+   --verbose                # 显示详细信息（默认开启）
 
-5. 在代码中使用:
+【表格格式说明】:
+   TXT 报告包含:
+   - 总体参数统计表格
+   - 每层详细对比表格（包含"占原模型%"列）
+   - Attention 和 MLP 的头数/维度变化
+
+【在代码中使用】:
    from core.analysis.model_analysis import ModelAnalyzer, ModelComparator
 
    # 分析单个模型
@@ -760,11 +922,12 @@ if __name__ == '__main__':
    # 对比两个模型
    comparator = ModelComparator(original_analysis, pruned_analysis)
    comparator.print_report(verbose=True)
+   comparator.save_table_report("comparison.txt")  # 保存表格格式
 
 注意：
-- 模型名称会自动从路径中提取
 - 支持 HuggingFace 模型目录和 .bin 格式的剪枝模型
-- .bin 模型会使用父目录名作为模型名称
+- 输出目录会自动创建
+- 同时生成 JSON 和 TXT 两种格式的报告
 """)
 
     main()
