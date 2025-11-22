@@ -47,7 +47,8 @@ def setup_output_directories(base_dir):
     """
     dirs = {
         'base': base_dir,
-        'models': os.path.join(base_dir, 'models'),           # 保存模型
+        # 'models': os.path.join(base_dir, 'models'),           # 保存模型
+        'models': base_dir,   
         'analysis': os.path.join(base_dir, 'analysis'),       # 保存中间分析结果
         'evaluation': os.path.join(base_dir, 'evaluation'),   # 保存评估结果
         'logs': os.path.join(base_dir, 'logs'),               # 保存日志
@@ -440,7 +441,7 @@ def main():
                        help='Q:KV 比例（默认: 4）')
 
     # 评估参数
-    parser.add_argument('--run_evaluation', type=str, default="all",
+    parser.add_argument('--run_evaluation', type=str, default="ppl, zeroshot,speed,memory",
                        help='评估类型: ppl, zeroshot, efficiency, all（多个用逗号分隔）')
     parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2,ptb',
                        help='PPL评估数据集（默认: wikitext2,ptb）')
