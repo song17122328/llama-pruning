@@ -613,8 +613,8 @@ class ModelComparator:
         lines.append("")
 
         # 表头
-        header = f"{'Layer':<6} {'总参数(原始)':>15} {'总参数(剪枝)':>15} {'保留比例%':>12} {'剪枝率%':>10} " \
-                 f"{'Attn剪枝%':>12} {'MLP剪枝%':>12} {'状态':<15}"
+        header = f"{'Layer':<6} {'总参数(原始)':>8} {'总参数(剪枝)':>12} {'保留比例%':>10} {'剪枝率%':>8} " \
+                 f"{'Attn剪枝%':>12} {'MLP剪枝%':>10} {'状态':>6}"
         lines.append(header)
         lines.append("-" * 100)
 
@@ -637,10 +637,10 @@ class ModelComparator:
             elif mlp_comp['reduction_ratio'] >= 0.99:
                 status = "[MLP剪空]"
 
-            line = f"{layer_idx:<6} {total_comp['original']:>15,} {total_comp['pruned']:>15,} " \
-                   f"{layer_retention_ratio:>11.2f}% {total_comp['reduction_ratio']*100:>9.2f}% " \
+            line = f"{layer_idx:<6} {total_comp['original']:>12,} {total_comp['pruned']:>16,} " \
+                   f"{layer_retention_ratio:>11.2f}% {total_comp['reduction_ratio']*100:>11.2f}% " \
                    f"{attn_comp['reduction_ratio']*100:>11.2f}% {mlp_comp['reduction_ratio']*100:>11.2f}% " \
-                   f"{status:<15}"
+                   f"{status:>6}"
             lines.append(line)
 
         lines.append("")
