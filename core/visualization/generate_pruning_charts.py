@@ -136,13 +136,13 @@ def plot_pruning_chart(
     # 绘制直方图
     bars = ax.bar(layer_indices, ratios, color=colors, edgecolor='black', linewidth=0.5)
 
-    # 添加数值标签 - 修改：小于5%时不显示
+    # 添加数值标签 - 显示所有柱子的标签
     for i, (bar, ratio) in enumerate(zip(bars, ratios)):
         height = bar.get_height()
-        if ratio >= 5:  # 只在比例 >= 5% 时显示标签
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                   f'{ratio:.1f}%',
-                   ha='center', va='bottom', fontsize=8, rotation=0)
+        # 所有柱子都显示标签
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+               f'{ratio:.1f}%',
+               ha='center', va='bottom', fontsize=8, rotation=0)
 
     # 设置坐标轴
     ax.set_xlabel('层索引', fontsize=12, fontweight='bold')
