@@ -137,7 +137,14 @@ def plot_pruning_chart(
 
     # 颜色方案和标题
     if chart_type == 'pruning':
-        colors = ['#e74c3c' if r > 80 else '#e67e22' if r > 50 else '#3498db' for r in ratios]
+        # 根据层目标比例来着色
+        if layer_target_ratio is not None:
+            # 高于层目标：红色（过度剪枝），低于层目标：蓝色（保守剪枝）
+            colors = ['#e74c3c' if r >= layer_target_ratio else '#3498db' for r in ratios]
+        else:
+            # 默认配色方案
+            colors = ['#e74c3c' if r > 80 else '#e67e22' if r > 50 else '#3498db' for r in ratios]
+
         # 标题包含两个比例
         if total_ratio is not None and layer_target_ratio is not None:
             title = f'{model_name} - 各层剪枝比例 (模型整体: {total_ratio:.1f}%, 层目标: {layer_target_ratio:.1f}%)'
@@ -145,7 +152,14 @@ def plot_pruning_chart(
             title = f'{model_name} - 各层剪枝比例'
         ylabel = '剪枝比例 (%)'
     else:  # retention
-        colors = ['#27ae60' if r > 80 else '#f39c12' if r > 50 else '#e74c3c' for r in ratios]
+        # 根据层目标比例来着色
+        if layer_target_ratio is not None:
+            # 高于层目标：绿色（保留良好），低于层目标：橙色（保留不足）
+            colors = ['#27ae60' if r >= layer_target_ratio else '#e67e22' for r in ratios]
+        else:
+            # 默认配色方案
+            colors = ['#27ae60' if r > 80 else '#f39c12' if r > 50 else '#e74c3c' for r in ratios]
+
         # 标题包含两个比例
         if total_ratio is not None and layer_target_ratio is not None:
             title = f'{model_name} - 各层保留比例 (模型整体: {total_ratio:.1f}%, 层目标: {layer_target_ratio:.1f}%)'
@@ -176,25 +190,13 @@ def plot_pruning_chart(
     for y in [20, 40, 60, 80, 100]:
         ax.axhline(y=y, color='lightgray', linestyle=':', linewidth=0.8, alpha=0.6, zorder=1)
 
-    # 添加参考线
+    # 添加层目标线
     if chart_type == 'pruning':
-        # 50% 参考线（较深虚线）
-        ax.axhline(y=50, color='gray', linestyle='--', linewidth=1.5, alpha=0.7,
-                  label='50% 参考线', zorder=2)
-        # 80% 参考线（醒目红线）
-        ax.axhline(y=80, color='darkred', linestyle='-', linewidth=2, alpha=0.8,
-                  label='80% 阈值线', zorder=2)
         # 层目标剪枝比例（醒目橙色虚线）
         if layer_target_ratio is not None:
             ax.axhline(y=layer_target_ratio, color='#ff8c00', linestyle='--', linewidth=2.5, alpha=0.9,
                       label=f'层目标剪枝: {layer_target_ratio:.1f}%', zorder=3)
     else:
-        # 50% 参考线（较深虚线）
-        ax.axhline(y=50, color='gray', linestyle='--', linewidth=1.5, alpha=0.7,
-                  label='50% 参考线', zorder=2)
-        # 80% 参考线（醒目红线）
-        ax.axhline(y=80, color='darkred', linestyle='-', linewidth=2, alpha=0.8,
-                  label='80% 阈值线', zorder=2)
         # 层目标保留比例（醒目绿色虚线）
         if layer_target_ratio is not None:
             ax.axhline(y=layer_target_ratio, color='#27ae60', linestyle='--', linewidth=2.5, alpha=0.9,
