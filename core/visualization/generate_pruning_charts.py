@@ -106,7 +106,8 @@ def plot_pruning_chart(
     ratios: List[float],
     model_name: str,
     chart_type: str,
-    output_path: str
+    output_path: str,
+    pruning_data: Dict = None
 ):
     """
     绘制剪枝或保留比例的直方图
@@ -117,20 +118,39 @@ def plot_pruning_chart(
         model_name: 模型名称
         chart_type: 'pruning' 或 'retention'
         output_path: 输出文件路径
+        pruning_data: 剪枝对比数据（用于获取整体和层目标比例）
     """
     fig, ax = plt.subplots(figsize=(14, 6))
 
-    # 计算模型平均比例
-    avg_ratio = np.mean(ratios)
+    # 从 pruning_data 中提取两个关键比例
+    total_ratio = None  # 模型整体剪枝/保留比例
+    layer_target_ratio = None  # Transformer层目标剪枝/保留比例
 
-    # 颜色方案
+    if pruning_data:
+        if 'total_params' in pruning_data and 'reduction_ratio' in pruning_data['total_params']:
+            total_reduction = pruning_data['total_params']['reduction_ratio'] * 100
+            total_ratio = total_reduction if chart_type == 'pruning' else (100 - total_reduction)
+
+        if 'layer_params' in pruning_data and 'reduction_ratio' in pruning_data['layer_params']:
+            layer_reduction = pruning_data['layer_params']['reduction_ratio'] * 100
+            layer_target_ratio = layer_reduction if chart_type == 'pruning' else (100 - layer_reduction)
+
+    # 颜色方案和标题
     if chart_type == 'pruning':
         colors = ['#e74c3c' if r > 80 else '#e67e22' if r > 50 else '#3498db' for r in ratios]
-        title = f'{model_name} - 各层剪枝比例'
+        # 标题包含两个比例
+        if total_ratio is not None and layer_target_ratio is not None:
+            title = f'{model_name} - 各层剪枝比例 (模型整体: {total_ratio:.1f}%, 层目标: {layer_target_ratio:.1f}%)'
+        else:
+            title = f'{model_name} - 各层剪枝比例'
         ylabel = '剪枝比例 (%)'
     else:  # retention
         colors = ['#27ae60' if r > 80 else '#f39c12' if r > 50 else '#e74c3c' for r in ratios]
-        title = f'{model_name} - 各层保留比例'
+        # 标题包含两个比例
+        if total_ratio is not None and layer_target_ratio is not None:
+            title = f'{model_name} - 各层保留比例 (模型整体: {total_ratio:.1f}%, 层目标: {layer_target_ratio:.1f}%)'
+        else:
+            title = f'{model_name} - 各层保留比例'
         ylabel = '保留比例 (%)'
 
     # 绘制直方图
@@ -160,23 +180,25 @@ def plot_pruning_chart(
     if chart_type == 'pruning':
         # 50% 参考线（较深虚线）
         ax.axhline(y=50, color='gray', linestyle='--', linewidth=1.5, alpha=0.7,
-                  label='50% 剪枝', zorder=2)
+                  label='50% 参考线', zorder=2)
         # 80% 参考线（醒目红线）
         ax.axhline(y=80, color='darkred', linestyle='-', linewidth=2, alpha=0.8,
-                  label='80% 剪枝', zorder=2)
-        # 模型平均剪枝比例（醒目蓝线）
-        ax.axhline(y=avg_ratio, color='#2980b9', linestyle='-', linewidth=2.5, alpha=0.9,
-                  label=f'平均剪枝比例: {avg_ratio:.1f}%', zorder=3)
+                  label='80% 阈值线', zorder=2)
+        # 层目标剪枝比例（醒目橙色虚线）
+        if layer_target_ratio is not None:
+            ax.axhline(y=layer_target_ratio, color='#ff8c00', linestyle='--', linewidth=2.5, alpha=0.9,
+                      label=f'层目标剪枝: {layer_target_ratio:.1f}%', zorder=3)
     else:
         # 50% 参考线（较深虚线）
         ax.axhline(y=50, color='gray', linestyle='--', linewidth=1.5, alpha=0.7,
-                  label='50% 保留', zorder=2)
+                  label='50% 参考线', zorder=2)
         # 80% 参考线（醒目红线）
         ax.axhline(y=80, color='darkred', linestyle='-', linewidth=2, alpha=0.8,
-                  label='80% 保留', zorder=2)
-        # 模型平均保留比例（醒目绿线）
-        ax.axhline(y=avg_ratio, color='#16a085', linestyle='-', linewidth=2.5, alpha=0.9,
-                  label=f'平均保留比例: {avg_ratio:.1f}%', zorder=3)
+                  label='80% 阈值线', zorder=2)
+        # 层目标保留比例（醒目绿色虚线）
+        if layer_target_ratio is not None:
+            ax.axhline(y=layer_target_ratio, color='#27ae60', linestyle='--', linewidth=2.5, alpha=0.9,
+                      label=f'层目标保留: {layer_target_ratio:.1f}%', zorder=3)
 
     ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
 
@@ -230,7 +252,8 @@ def generate_charts_for_model(
         pruning_ratios,
         model_name,
         'pruning',
-        str(pruning_chart_path)
+        str(pruning_chart_path),
+        pruning_data
     )
 
     # 生成保留比例图
@@ -240,7 +263,8 @@ def generate_charts_for_model(
         retention_ratios,
         model_name,
         'retention',
-        str(retention_chart_path)
+        str(retention_chart_path),
+        pruning_data
     )
 
 
