@@ -11,9 +11,42 @@ import os
 import json
 import argparse
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+# 配置中文字体
+def setup_chinese_font():
+    """配置 matplotlib 以支持中文显示"""
+    # 尝试使用系统中可用的中文字体
+    chinese_fonts = [
+        'SimHei',           # 黑体 (Windows)
+        'Microsoft YaHei',  # 微软雅黑 (Windows)
+        'SimSun',           # 宋体 (Windows)
+        'STSong',           # 华文宋体 (Mac)
+        'STHeiti',          # 华文黑体 (Mac)
+        'WenQuanYi Micro Hei',  # 文泉驿微米黑 (Linux)
+        'WenQuanYi Zen Hei',    # 文泉驿正黑 (Linux)
+        'Noto Sans CJK SC',     # 思源黑体 (Linux)
+        'Noto Sans CJK JP',     # 思源黑体日文
+        'DejaVu Sans',          # 默认字体（英文回退）
+    ]
+
+    # 获取系统可用字体
+    available_fonts = set([f.name for f in matplotlib.font_manager.fontManager.ttflist])
+
+    # 找到第一个可用的中文字体
+    for font in chinese_fonts:
+        if font in available_fonts:
+            plt.rcParams['font.sans-serif'] = [font]
+            plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+            return font
+
+    # 如果没有找到中文字体，使用默认字体
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+    return 'DejaVu Sans'
 
 
 def load_pruning_comparison(model_path: Path) -> Dict:
@@ -87,6 +120,9 @@ def plot_pruning_chart(
     """
     fig, ax = plt.subplots(figsize=(14, 6))
 
+    # 计算模型平均比例
+    avg_ratio = np.mean(ratios)
+
     # 颜色方案
     if chart_type == 'pruning':
         colors = ['#e74c3c' if r > 80 else '#e67e22' if r > 50 else '#3498db' for r in ratios]
@@ -100,10 +136,10 @@ def plot_pruning_chart(
     # 绘制直方图
     bars = ax.bar(layer_indices, ratios, color=colors, edgecolor='black', linewidth=0.5)
 
-    # 添加数值标签
+    # 添加数值标签 - 修改：小于5%时不显示
     for i, (bar, ratio) in enumerate(zip(bars, ratios)):
         height = bar.get_height()
-        if ratio > 5:  # 只在高度足够时显示标签
+        if ratio >= 5:  # 只在比例 >= 5% 时显示标签
             ax.text(bar.get_x() + bar.get_width()/2., height,
                    f'{ratio:.1f}%',
                    ha='center', va='bottom', fontsize=8, rotation=0)
@@ -115,17 +151,34 @@ def plot_pruning_chart(
     ax.set_xticks(layer_indices)
     ax.set_xticklabels([str(i) for i in layer_indices], fontsize=9)
     ax.set_ylim(0, 105)
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
+
+    # 添加网格线 - 20%, 40%, 60%, 80%, 100% (浅色虚线)
+    for y in [20, 40, 60, 80, 100]:
+        ax.axhline(y=y, color='lightgray', linestyle=':', linewidth=0.8, alpha=0.6, zorder=1)
 
     # 添加参考线
     if chart_type == 'pruning':
-        ax.axhline(y=50, color='gray', linestyle='--', linewidth=1, alpha=0.5, label='50% 剪枝')
-        ax.axhline(y=80, color='darkred', linestyle='--', linewidth=1, alpha=0.5, label='80% 剪枝')
+        # 50% 参考线（较深虚线）
+        ax.axhline(y=50, color='gray', linestyle='--', linewidth=1.5, alpha=0.7,
+                  label='50% 剪枝', zorder=2)
+        # 80% 参考线（醒目红线）
+        ax.axhline(y=80, color='darkred', linestyle='-', linewidth=2, alpha=0.8,
+                  label='80% 剪枝', zorder=2)
+        # 模型平均剪枝比例（醒目蓝线）
+        ax.axhline(y=avg_ratio, color='#2980b9', linestyle='-', linewidth=2.5, alpha=0.9,
+                  label=f'平均剪枝比例: {avg_ratio:.1f}%', zorder=3)
     else:
-        ax.axhline(y=50, color='gray', linestyle='--', linewidth=1, alpha=0.5, label='50% 保留')
-        ax.axhline(y=20, color='darkred', linestyle='--', linewidth=1, alpha=0.5, label='20% 保留')
+        # 50% 参考线（较深虚线）
+        ax.axhline(y=50, color='gray', linestyle='--', linewidth=1.5, alpha=0.7,
+                  label='50% 保留', zorder=2)
+        # 80% 参考线（醒目红线）
+        ax.axhline(y=80, color='darkred', linestyle='-', linewidth=2, alpha=0.8,
+                  label='80% 保留', zorder=2)
+        # 模型平均保留比例（醒目绿线）
+        ax.axhline(y=avg_ratio, color='#16a085', linestyle='-', linewidth=2.5, alpha=0.9,
+                  label=f'平均保留比例: {avg_ratio:.1f}%', zorder=3)
 
-    ax.legend(loc='upper right', fontsize=10)
+    ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
 
     # 调整布局
     plt.tight_layout()
@@ -220,11 +273,15 @@ def main():
 
     args = parser.parse_args()
 
+    # 配置中文字体
+    font_used = setup_chinese_font()
+
     print(f"\n{'='*80}")
     print(f"生成剪枝比例图表")
     print(f"{'='*80}")
     print(f"结果目录: {args.result_dir}")
     print(f"输出目录: {args.output_dir}")
+    print(f"使用字体: {font_used}")
     print(f"{'='*80}")
 
     result_path = Path(args.result_dir)

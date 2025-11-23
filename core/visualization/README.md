@@ -187,11 +187,16 @@ results/
 
 - **分辨率**: 300 DPI（适合论文发表）
 - **尺寸**: 14×6 英寸
+- **自动中文字体**: 自动检测并使用系统可用的中文字体（无字体警告）
 - **颜色编码**:
   - 剪枝比例图: 红色(>80%) > 橙色(>50%) > 蓝色(≤50%)
   - 保留比例图: 绿色(>80%) > 黄色(>50%) > 红色(≤50%)
-- **标注**: 每个柱子顶部显示精确百分比
-- **参考线**: 50% 和 80% 阈值线
+- **智能标注**: 柱子比例 ≥5% 时显示精确百分比（避免低值柱上文字重叠）
+- **网格线系统**:
+  - 浅色虚线：20%, 40%, 60%, 80%, 100% 标记
+  - 深色虚线：50% 参考线
+  - 醒目红线：80% 阈值线
+  - **醒目彩线**：模型平均剪枝/保留比例（自动计算，保留1位小数）
 
 #### 命令行参数
 
@@ -322,12 +327,18 @@ results/your_model/evaluation/evaluation_results.json
 **问题**: 生成的图表中文字显示为 `□□□`
 
 **解决方法**:
-```bash
-# 安装中文字体（Ubuntu/Debian）
-sudo apt-get install fonts-noto-cjk
+✅ **已自动解决！** 脚本现在会自动检测系统中可用的中文字体，优先使用：
+- Linux: WenQuanYi Zen Hei, WenQuanYi Micro Hei, Noto Sans CJK
+- Windows: SimHei, Microsoft YaHei, SimSun
+- Mac: STHeiti, STSong
 
-# 或使用系统默认字体（脚本会自动回退到英文）
-# 图表功能不受影响
+如仍有问题，可手动安装中文字体：
+```bash
+# Ubuntu/Debian
+sudo apt-get install fonts-wqy-zenhei fonts-wqy-microhei
+
+# CentOS/RHEL
+sudo yum install wqy-zenhei-fonts wqy-microhei-fonts
 ```
 
 ### Q3: 如何修改表格中的指标？
