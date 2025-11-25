@@ -9,11 +9,40 @@
         --metrics all \
         --output results/ours.json
 
-    # 只评估特定指标
+        
+     # 评估微调模型
+    python evaluation/run_evaluation.py \
+        --model_path results/taylor_only_2000_finetuned/pruned_model.bin \
+        --metrics ppl,zeroshot,speed,memory \
+        --output results/taylor_only_2000_finetuned/evaluation/evaluation_results.json 
+
+
+    python evaluation/run_evaluation.py \
+        --model_path results/LLM-Pruner_1937_finetuned/pruned_model.bin \
+        --metrics ppl,zeroshot,speed,memory \
+        --output results/LLM-Pruner_1937_finetuned/evaluation/evaluation_results.json
+    
+    python evaluation/run_evaluation.py \
+        --model_path results/layerwise_only_2000_finetuned/pruned_model.bin \
+        --metrics ppl,zeroshot,speed,memory \
+        --output results/layerwise_only_2000_finetuned/evaluation/evaluation_results.json
+    
+    python evaluation/run_evaluation.py \
+        --model_path results/blockwise_only_2000_finetuned/pruned_model.bin \
+        --metrics ppl,zeroshot,speed,memory \
+        --output results/blockwise_only_2000_finetuned/evaluation/evaluation_results.json 
+   
+    python evaluation/run_evaluation.py \
+        --model_path results/HGSP_2000_finetuned/pruned_model.bin \
+        --metrics ppl,zeroshot,speed,memory \
+        --output results/HGSP_2000_finetuned/evaluation/evaluation_results.json
+    
     python evaluation/run_evaluation.py \
         --model_path /newdata/LLMs/Llama-3-8B-Instruct \
         --metrics ppl,speed \
-        --output results/original.json
+        --output results/original.json \
+        --auto_select_gpu \
+        --lm_eval
 
     # 对比多个模型
     python evaluation/run_evaluation.py \
@@ -326,7 +355,7 @@ def main():
                        help='输出文件路径（.json或.md）')
     parser.add_argument('--device', type=str, default='cuda',
                        help='设备: cuda/cpu 或 cuda:N 指定GPU')
-    parser.add_argument('--auto_select_gpu', action='store_true',
+    parser.add_argument('--auto_select_gpu', action='store_true',default=True,
                        help='自动选择剩余显存最多的GPU（会覆盖--device）')
 
     # 评估配置
@@ -339,7 +368,7 @@ def main():
                        help='速度测试样本数')
     parser.add_argument('--zeroshot_batch_size', type=int, default=8,
                        help='Zero-shot 批处理大小（默认8，仅对自定义评估器有效）')
-    parser.add_argument('--use_lm_eval', action='store_true',
+    parser.add_argument('--use_lm_eval', action='store_true',default=True,
                        help='使用 lm-eval 在线模式（从 HuggingFace 加载数据）。默认使用自定义评估器（从本地加载数据）')
 
     args = parser.parse_args()
