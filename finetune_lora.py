@@ -90,9 +90,15 @@ class Prompter:
 
 
 def main(args):
+    # 确保使用正确的 device
+    # 如果用户没有指定 --device，使用全局的 device (基于 get_best_gpu)
+    if not hasattr(args, 'device') or args.device is None:
+        args.device = device  # 使用全局 device（get_best_gpu）
+
     print(f"\n{'='*80}")
     print(f"LoRA 微调脚本")
     print(f"{'='*80}\n")
+    print(f"使用设备: {args.device}")
 
     # 设置 WandB (可选)
     if args.wandb_project:
@@ -138,7 +144,7 @@ def main(args):
         print(f"DDP 模式: world_size={world_size}")
 
     # 准备模型
-    if device != 'cpu':
+    if 'cuda' in args.device:
         model.half()
         print(f"✓ 模型转换为 FP16")
 
@@ -434,6 +440,10 @@ if __name__ == "__main__":
                        help="WandB 项目名称")
     parser.add_argument('--resume_from_checkpoint', type=str, default=None,
                        help="从检查点恢复训练")
+
+    # 设备选择
+    parser.add_argument('--device', type=str, default=None,
+                       help='设备 (默认: 自动选择最佳GPU)')
 
     # DDP
     parser.add_argument('--local_rank', type=int, default=-1,
