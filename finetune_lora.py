@@ -5,7 +5,8 @@ LoRA 微调脚本 - 基于 LLM-Pruner 改进
 用于对剪枝后的模型进行 LoRA 微调，提升性能
 
 用法:
-    python finetune_lora.py \
+    单GPU训练的时候，必须添加 CUDA_VISIBLE_DEVICES = X,否则会出现数据分配在多GPU的情况,模型在单GPU，导致报错
+    CUDA_VISIBLE_DEVICES=0 python finetune_lora.py \
         --pruned_model results/taylor_only_2000/pruned_model.bin \
         --data_path yahma/alpaca-cleaned \
         --lora_r 8 \
@@ -13,7 +14,9 @@ LoRA 微调脚本 - 基于 LLM-Pruner 改进
         --learning_rate 1e-4 \
         --batch_size 64 \
         --micro_batch_size 4 \
-        --data_path /newdata/DataSets/alpaca-cleaned/alpaca_data.json
+        --data_path /newdata/DataSets/alpaca-cleaned/alpaca_data_cleaned.json \
+        --device cuda:0 \
+        --wandb_project Taylo_only_finetune_lora
 功能:
     1. 加载剪枝后的模型
     2. 使用 LoRA 微调
@@ -110,7 +113,7 @@ def main(args):
 
     # 加载剪枝后的模型
     print(f"\n加载剪枝模型: {args.pruned_model}")
-    pruned_dict = torch.load(args.pruned_model, map_location=args.device,weights_only='False')
+    pruned_dict = torch.load(args.pruned_model, map_location=args.device,weights_only=False)
     tokenizer = pruned_dict['tokenizer']
     model = pruned_dict['model']
     print(f"✓ 模型加载成功")
@@ -279,7 +282,7 @@ def main(args):
             logging_steps=10,
             logging_first_step=True,
             optim="adamw_torch",
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             save_strategy="steps",
             eval_steps=100,
             save_steps=200,
