@@ -28,6 +28,7 @@ import os
 import sys
 import argparse
 import subprocess
+import gc
 from typing import List
 from pathlib import Path
 
@@ -349,6 +350,18 @@ def main(args):
 
     torch.save(save_dict, finetuned_model_path)
     print(f"✓ 微调模型保存到: {finetuned_model_path}")
+
+    # 清理GPU缓存，避免评估时OOM
+    print(f"\n清理GPU缓存...")
+    del model
+    del tokenizer
+    del pruned_dict
+    del save_dict
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    print(f"✓ GPU缓存已清理")
 
     # 自动评估
     if not args.skip_evaluation:
