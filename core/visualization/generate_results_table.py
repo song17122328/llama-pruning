@@ -3,9 +3,10 @@
 汇总和可视化所有剪枝模型的评估结果和剪枝统计
 
 用法:
-    python generate_results_table.py --result_dir results --output summary_table.csv
-    python generate_results_table.py --result_dir results --output summary_table.md --format markdown
-    python generate_results_table.py --result_dir results --output summary_table.html --format html
+python core/visualization/generate_results_table.py --result_dir results --output summary_table.xlsx
+    python core/visualization/generate_results_table.py --result_dir results --output summary_table.csv
+    python core/visualization/generate_results_table.py --result_dir results --output summary_table.md --format markdown
+    python core/visualization/generate_results_table.py --result_dir results --output summary_table.html --format html
 """
 
 import os

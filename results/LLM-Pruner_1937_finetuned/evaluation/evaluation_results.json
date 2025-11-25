@@ -1,0 +1,129 @@
+{
+  "model_path": "results/LLM-Pruner_1937_finetuned/pruned_model.bin",
+  "timestamp": "2025-11-25T20:44:56.866929",
+  "metrics": {
+    "model_info": {
+      "total_params": 6474887168,
+      "trainable_params": 0,
+      "total_params_M": 6474.887168,
+      "total_params_B": 6.474887168,
+      "attention_params": 1069547520,
+      "mlp_params": 4354400256,
+      "attention_params_M": 1069.54752,
+      "mlp_params_M": 4354.400256,
+      "attention_ratio": 0.16518396263117707,
+      "mlp_ratio": 0.672505966979655,
+      "num_layers": 32,
+      "model_size_mb": 12349.867309570312,
+      "model_size_gb": 12.060417294502258
+    },
+    "ppl": {
+      "wikitext2 (wikitext-2-raw-v1)": 26.151809692382812,
+      "ptb": 44.88569259643555
+    },
+    "zeroshot": {
+      "boolq": {
+        "accuracy": 0.7345565749235474,
+        "full_results": {
+          "alias": "boolq",
+          "acc,none": 0.7345565749235474,
+          "acc_stderr,none": 0.007723090983590577
+        }
+      },
+      "piqa": {
+        "accuracy": 0.7535364526659413,
+        "full_results": {
+          "alias": "piqa",
+          "acc,none": 0.7606093579978237,
+          "acc_stderr,none": 0.009955884250291648,
+          "acc_norm,none": 0.7535364526659413,
+          "acc_norm_stderr,none": 0.01005481078967165
+        }
+      },
+      "hellaswag": {
+        "accuracy": 0.6621190997809201,
+        "full_results": {
+          "alias": "hellaswag",
+          "acc,none": 0.5020912168890659,
+          "acc_stderr,none": 0.004989737768749841,
+          "acc_norm,none": 0.6621190997809201,
+          "acc_norm_stderr,none": 0.004720210816161865
+        }
+      },
+      "winogrande": {
+        "accuracy": 0.6069455406471981,
+        "full_results": {
+          "alias": "winogrande",
+          "acc,none": 0.6069455406471981,
+          "acc_stderr,none": 0.01372727624910839
+        }
+      },
+      "arc_easy": {
+        "accuracy": 0.6654040404040404,
+        "full_results": {
+          "alias": "arc_easy",
+          "acc,none": 0.7289562289562289,
+          "acc_stderr,none": 0.009120919741760646,
+          "acc_norm,none": 0.6654040404040404,
+          "acc_norm_stderr,none": 0.009682137724327718
+        }
+      },
+      "arc_challenge": {
+        "accuracy": 0.45563139931740615,
+        "full_results": {
+          "alias": "arc_challenge",
+          "acc,none": 0.4061433447098976,
+          "acc_stderr,none": 0.014351656690097877,
+          "acc_norm,none": 0.45563139931740615,
+          "acc_norm_stderr,none": 0.014553749939306847
+        }
+      },
+      "openbookqa": {
+        "accuracy": 0.376,
+        "full_results": {
+          "alias": "openbookqa",
+          "acc,none": 0.296,
+          "acc_stderr,none": 0.020435342091896222,
+          "acc_norm,none": 0.376,
+          "acc_norm_stderr,none": 0.02168382753928621
+        }
+      }
+    },
+    "avg_zeroshot_acc": 0.6077418725341505,
+    "efficiency": {
+      "model_info": {
+        "total_params": 6474887168,
+        "trainable_params": 0,
+        "total_params_M": 6474.887168,
+        "total_params_B": 6.474887168,
+        "attention_params": 1069547520,
+        "mlp_params": 4354400256,
+        "attention_params_M": 1069.54752,
+        "mlp_params_M": 4354.400256,
+        "attention_ratio": 0.16518396263117707,
+        "mlp_ratio": 0.672505966979655,
+        "num_layers": 32,
+        "model_size_mb": 12349.867309570312,
+        "model_size_gb": 12.060417294502258
+      },
+      "speed": {
+        "batch_size_1": {
+          "throughput_tokens_per_sec": 29.08752953568207,
+          "latency_ms_per_token": 34.37899388372898,
+          "total_time_sec": 220.02556085586548,
+          "total_tokens": 6400
+        },
+        "batch_size_4": {
+          "throughput_tokens_per_sec": 110.30441410508254,
+          "latency_ms_per_token": 9.065820331064364,
+          "total_time_sec": 55.70040011405945,
+          "total_tokens": 6144
+        }
+      },
+      "memory": {
+        "model_memory_mb": 12357.9931640625,
+        "inference_peak_mb": 12467.2646484375
+      }
+    }
+  }
+}
