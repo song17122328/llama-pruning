@@ -25,7 +25,6 @@ from core.methods.gqa_aware import prune_attention_by_gqa_groups
 from core.datasets import DatasetManager
 from core.models import IdentityDecoderLayer, ZeroAttention, ZeroMLP
 from evaluation.metrics.ppl import PPLMetric
-from core.trainer.finetuner import FineTuner
 from core.utils.logger import LoggerWithDepth
 from core.analysis import ModelAnalyzer, ModelComparator
 
@@ -449,22 +448,25 @@ def main():
                        help='Zero-shot评估任务')
     parser.add_argument('--eval_use_custom_zeroshot', action='store_true',
                        help='使用自定义zero-shot评估器')
-    # 微调参数
+    # 微调参数（LoRA）
     parser.add_argument('--finetune', action='store_true',
-                       help='剪枝后进行微调恢复')
-    parser.add_argument('--finetune_method', type=str, default='lora',
-                       choices=['full', 'lora'],
-                       help='微调方法（默认: lora）')
-    parser.add_argument('--finetune_samples', type=int, default=500,
-                       help='微调样本数（默认: 500）')
+                       help='剪枝后进行 LoRA 微调恢复')
+    parser.add_argument('--finetune_data_path', type=str, default='yahma/alpaca-cleaned',
+                       help='微调数据集路径（默认: yahma/alpaca-cleaned）')
+    parser.add_argument('--finetune_epochs', type=int, default=2,
+                       help='微调轮数（默认: 2）')
     parser.add_argument('--finetune_lr', type=float, default=1e-4,
                        help='微调学习率（默认: 1e-4）')
-    parser.add_argument('--finetune_epochs', type=int, default=1,
-                       help='微调轮数（默认: 1）')
+    parser.add_argument('--finetune_batch_size', type=int, default=64,
+                       help='微调 batch size（默认: 64）')
+    parser.add_argument('--finetune_micro_batch_size', type=int, default=4,
+                       help='微调 micro batch size（默认: 4）')
     parser.add_argument('--lora_r', type=int, default=8,
                        help='LoRA rank（默认: 8）')
     parser.add_argument('--lora_alpha', type=int, default=16,
                        help='LoRA alpha（默认: 16）')
+    parser.add_argument('--skip_finetune_evaluation', action='store_true',
+                       help='跳过微调后的自动评估')
 
     # 其他
     from core.utils.get_best_gpu import get_best_gpu
@@ -1051,23 +1053,55 @@ def main():
 
     logger.log(f"\n{'='*60}")
 
-    # ========== Step 9: 微调恢复（可选）==========
+    # ========== Step 9: LoRA 微调恢复（可选）==========
     if args.finetune:
-        logger.log(f"\n[Step 9] 微调恢复...")
+        logger.log(f"\n[Step 9] LoRA 微调恢复...")
+        logger.log(f"  数据集: {args.finetune_data_path}")
+        logger.log(f"  训练轮数: {args.finetune_epochs}")
+        logger.log(f"  学习率: {args.finetune_lr}")
+        logger.log(f"  Batch size: {args.finetune_batch_size} (micro: {args.finetune_micro_batch_size})")
+        logger.log(f"  LoRA r={args.lora_r}, alpha={args.lora_alpha}")
 
-        finetuner = FineTuner(model, tokenizer, device=args.device, logger=logger)
+        # 构建微调脚本命令
+        import subprocess
 
-        finetuner.finetune(
-            dataset_name=args.dataset,
-            num_samples=args.finetune_samples,
-            lr=args.finetune_lr,
-            epochs=args.finetune_epochs,
-            method=args.finetune_method,
-            lora_r=args.lora_r,
-            lora_alpha=args.lora_alpha
-        )
+        finetune_cmd = [
+            "python", "finetune_lora.py",
+            "--pruned_model", save_path,
+            "--data_path", args.finetune_data_path,
+            "--num_epochs", str(args.finetune_epochs),
+            "--learning_rate", str(args.finetune_lr),
+            "--batch_size", str(args.finetune_batch_size),
+            "--micro_batch_size", str(args.finetune_micro_batch_size),
+            "--lora_r", str(args.lora_r),
+            "--lora_alpha", str(args.lora_alpha),
+            "--device", args.device
+        ]
 
-        logger.log(f"✓ 微调完成")
+        # 如果指定跳过评估，添加参数
+        if args.skip_finetune_evaluation:
+            finetune_cmd.append("--skip_evaluation")
+
+        # 执行微调
+        logger.log(f"\n  启动 LoRA 微调...")
+        try:
+            result = subprocess.run(finetune_cmd, check=True, capture_output=False, text=True)
+            logger.log(f"✓ LoRA 微调完成")
+
+            # 微调后的模型保存路径
+            finetuned_output_dir = os.path.join('results', f"{args.output_name}_finetuned")
+            logger.log(f"  微调后的模型保存在: {finetuned_output_dir}")
+
+            # 如果没有跳过微调后评估，评估结果也保存在该目录下
+            if not args.skip_finetune_evaluation:
+                finetuned_eval_path = os.path.join(finetuned_output_dir, 'evaluation', 'evaluation_results.json')
+                logger.log(f"  微调后的评估结果: {finetuned_eval_path}")
+
+        except subprocess.CalledProcessError as e:
+            logger.log(f"⚠️ LoRA 微调失败: {e}")
+            logger.log(f"  继续执行后续步骤...")
+    else:
+        logger.log(f"\n[Step 9] 跳过微调（未指定 --finetune）")
 
     # ========== Step 10: 保存模型 ==========
     # 准备模型字典（无论是否保存，评估都可能需要）
