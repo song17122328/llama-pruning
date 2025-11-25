@@ -5,15 +5,15 @@ LoRA 微调脚本 - 基于 LLM-Pruner 改进
 用于对剪枝后的模型进行 LoRA 微调，提升性能
 
 用法:
-    python finetune_lora.py \\
-        --pruned_model results/HGSP_2000/pruned_model.bin \\
-        --data_path yahma/alpaca-cleaned \\
-        --lora_r 8 \\
-        --num_epochs 2 \\
-        --learning_rate 1e-4 \\
-        --batch_size 64 \\
-        --micro_batch_size 4
-
+    python finetune_lora.py \
+        --pruned_model results/taylor_only_2000/pruned_model.bin \
+        --data_path yahma/alpaca-cleaned \
+        --lora_r 8 \
+        --num_epochs 2 \
+        --learning_rate 1e-4 \
+        --batch_size 64 \
+        --micro_batch_size 4 \
+        --data_path /newdata/DataSets/alpaca-cleaned/alpaca_data.json
 功能:
     1. 加载剪枝后的模型
     2. 使用 LoRA 微调
@@ -47,8 +47,8 @@ except ImportError:
     print("请运行: pip install peft")
     sys.exit(1)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
+from core.utils.get_best_gpu import get_best_gpu
+device = "cuda:"+str(get_best_gpu()) if torch.cuda.is_available() else "cpu"
 
 class Prompter:
     """Alpaca 风格的提示词生成器"""
@@ -104,7 +104,7 @@ def main(args):
 
     # 加载剪枝后的模型
     print(f"\n加载剪枝模型: {args.pruned_model}")
-    pruned_dict = torch.load(args.pruned_model, map_location='cpu')
+    pruned_dict = torch.load(args.pruned_model, map_location=args.device,weights_only='False')
     tokenizer = pruned_dict['tokenizer']
     model = pruned_dict['model']
     print(f"✓ 模型加载成功")
@@ -138,7 +138,7 @@ def main(args):
         print(f"DDP 模式: world_size={world_size}")
 
     # 准备模型
-    if device == 'cuda':
+    if device != 'cpu':
         model.half()
         print(f"✓ 模型转换为 FP16")
 
@@ -219,7 +219,24 @@ def main(args):
 
     # 加载训练数据集
     print(f"\n加载数据集: {args.data_path}")
-    data = load_dataset(args.data_path)
+        # 检查是否是本地 JSON 文件
+
+    if os.path.isfile(args.data_path) and args.data_path.endswith('.json'):
+        print(f"✓ 从本地 JSON 文件加载数据")
+        data = load_dataset('json', data_files=args.data_path)
+
+    elif os.path.isdir(args.data_path):
+        # 本地目录，查找 JSON 文件
+        json_files = list(Path(args.data_path).glob('*.json'))
+        if json_files:
+            print(f"✓ 从本地目录加载数据: {json_files[0]}")
+            data = load_dataset('json', data_files=str(json_files[0]))
+        else:
+            raise ValueError(f"在 {args.data_path} 中未找到 JSON 文件")
+    else:
+        # HuggingFace 数据集
+        print(f"✓ 从 HuggingFace 加载数据")
+        data = load_dataset(args.data_path)
 
     # 划分训练集和验证集
     train_val = data["train"].train_test_split(
