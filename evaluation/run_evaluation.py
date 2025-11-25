@@ -83,6 +83,8 @@ def evaluate_single_model(
     metrics: List[str],
     device: str = 'cuda',
     ppl_datasets: List[str] = None,
+    ppl_seq_len: int = 128,
+    ppl_stride: int = None,
     zeroshot_tasks: List[str] = None,
     speed_samples: int = 50,
     verbose: bool = True,
@@ -97,6 +99,8 @@ def evaluate_single_model(
         metrics: 要评估的指标列表 ['ppl', 'zeroshot', 'speed', 'memory']
         device: 设备
         ppl_datasets: PPL数据集列表
+        ppl_seq_len: PPL评估窗口大小（默认128）
+        ppl_stride: PPL评估步长（默认None，即等于seq_len）
         zeroshot_tasks: Zero-shot任务列表
         speed_samples: 速度测试样本数
         verbose: 是否打印详细信息
@@ -145,6 +149,8 @@ def evaluate_single_model(
         ppl_results = evaluate_ppl(
             model, tokenizer,
             datasets=ppl_datasets,
+            seq_len=ppl_seq_len,
+            stride=ppl_stride,
             device=device
         )
         results['metrics']['ppl'] = ppl_results
@@ -361,6 +367,10 @@ def main():
     # 评估配置
     parser.add_argument('--ppl_datasets', type=str, default='wikitext2,ptb',
                        help='PPL数据集（逗号分隔）')
+    parser.add_argument('--ppl_seq_len', type=int, default=128,
+                       help='PPL评估窗口大小（默认: 128，标准配置: 2048）')
+    parser.add_argument('--ppl_stride', type=int, default=None,
+                       help='PPL评估步长（默认: None即等于seq_len，标准配置: 512）')
     parser.add_argument('--zeroshot_tasks', type=str,
                        default='boolq,piqa,hellaswag,winogrande,arc_easy,arc_challenge,openbookqa',
                        help='Zero-shot任务（逗号分隔）')
@@ -406,6 +416,8 @@ def main():
         metrics=metrics,
         device=args.device,
         ppl_datasets=args.ppl_datasets.split(',') if args.ppl_datasets else None,
+        ppl_seq_len=args.ppl_seq_len,
+        ppl_stride=args.ppl_stride,
         zeroshot_tasks=args.zeroshot_tasks.split(',') if args.zeroshot_tasks else None,
         speed_samples=args.speed_samples,
         use_custom_zeroshot=not args.use_lm_eval,

@@ -22,6 +22,7 @@ def evaluate_ppl(
     tokenizer,
     datasets: List[str] = ['wikitext2', 'ptb', 'c4'],
     seq_len: int = 128,
+    stride: int = None,
     device: str = 'cuda'
 ) -> Dict[str, float]:
     """
@@ -31,7 +32,8 @@ def evaluate_ppl(
         model: 模型
         tokenizer: tokenizer
         datasets: 数据集列表，支持 'wikitext2', 'ptb', 'c4'
-        seq_len: 序列长度
+        seq_len: 序列长度（窗口大小）
+        stride: 滑动窗口步长（None则等于seq_len，即不重叠）
         device: 设备
 
     Returns:
@@ -40,7 +42,7 @@ def evaluate_ppl(
     from evaluation.metrics.ppl import PPLMetric
 
     print(f"\n{'='*60}")
-    print(f"评估 PPL (seq_len={seq_len})")
+    print(f"评估 PPL (seq_len={seq_len}, stride={stride if stride is not None else seq_len})")
     print(f"{'='*60}")
 
     # 直接使用 PPLMetric 评估所有数据集（简化调用）
@@ -49,6 +51,7 @@ def evaluate_ppl(
         tokenizer=tokenizer,
         datasets=datasets,
         seq_len=seq_len,
+        stride=stride,
         device=device
     )
 

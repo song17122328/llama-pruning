@@ -444,6 +444,10 @@ def main():
                        help='评估类型: ppl, zeroshot, efficiency, all（多个用逗号分隔）')
     parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2,ptb',
                        help='PPL评估数据集（默认: wikitext2,ptb）')
+    parser.add_argument('--eval_ppl_seq_len', type=int, default=128,
+                       help='PPL评估窗口大小（默认: 128，标准配置: 2048）')
+    parser.add_argument('--eval_ppl_stride', type=int, default=None,
+                       help='PPL评估步长（默认: None即等于seq_len，标准配置: 512）')
     parser.add_argument('--eval_zeroshot_tasks', type=str, default='boolq,piqa,hellaswag,winogrande,arc_easy,arc_challenge,openbookqa',
                        help='Zero-shot评估任务')
     parser.add_argument('--eval_use_custom_zeroshot', action='store_true',
@@ -1158,6 +1162,8 @@ def main():
             metrics=eval_types,
             device=args.device,
             ppl_datasets=ppl_datasets,
+            ppl_seq_len=args.eval_ppl_seq_len,
+            ppl_stride=args.eval_ppl_stride,
             zeroshot_tasks=zeroshot_tasks,
             speed_samples=50,
             verbose=True,
