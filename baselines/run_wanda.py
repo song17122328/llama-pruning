@@ -61,8 +61,8 @@ def main():
     # H-GSP 参数（可选，用于混合评分）
     parser.add_argument('--temperature', type=float, default=0.0,
                        help='H-GSP 温度参数（默认: 0.0，即纯 Wanda）')
-    parser.add_argument('--epsilon', type=float, default=0.15,
-                       help='H-GSP 坍缩阈值（默认: 0.15）')
+    parser.add_argument('--epsilon', type=float, default=0,
+                       help='H-GSP 坍缩阈值（默认: 0不坍缩）')
 
     # 其他
     parser.add_argument('--device', type=str, default=None,
@@ -72,7 +72,7 @@ def main():
 
     # 设置默认输出名称
     if args.output_name is None:
-        ratio_percent = int(args.pruning_ratio * 100)
+        ratio_percent = int(args.pruning_ratio * 10000)
         args.output_name = f"Wanda_{ratio_percent}"
 
     print(f"\n{'='*80}")

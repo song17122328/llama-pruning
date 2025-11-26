@@ -1,1 +1,0 @@
-python llama3.py --pruning_ratio 0.28 --device cuda --eval_device cuda --base_model /newdata/LLMs/Llama-3-8B-Instruct --block_wise --block_mlp_layer_start 4 --block_mlp_layer_end 30 --block_attention_layer_start 4 --block_attention_layer_end 30 --save_ckpt_log_name LLM-Pruner_300 --pruner_type taylor --taylor param_first --max_seq_len 2048 --save_model

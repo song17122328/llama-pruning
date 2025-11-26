@@ -21,15 +21,17 @@
 ```bash
 # 基础使用
 python baselines/run_magnitude.py \
-    --base_model /path/to/llama \
+    --base_model /newdata/LLMs/Llama-3-8B-Instruct \
     --pruning_ratio 0.2
 
 # 带评估和微调
 python baselines/run_magnitude.py \
-    --base_model /path/to/llama \
+    --base_model /newdata/LLMs/Llama-3-8B-Instruct \
     --pruning_ratio 0.2 \
     --run_evaluation \
     --finetune
+
+
 
 # 自定义输出名称
 python baselines/run_magnitude.py \
