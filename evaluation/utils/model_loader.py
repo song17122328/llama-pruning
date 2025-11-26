@@ -251,7 +251,7 @@ def load_model_and_tokenizer(
 
 def get_model_info(model: torch.nn.Module) -> Dict:
     """
-    获取模型的详细信息
+    获取模型的详细信息，包括所有模块的参数统计
 
     Args:
         model: PyTorch模型
@@ -270,40 +270,90 @@ def get_model_info(model: torch.nn.Module) -> Dict:
     info['total_params_M'] = total_params / 1e6
     info['total_params_B'] = total_params / 1e9
 
-    # 2. Attention和MLP参数（针对LLaMA架构）
-    attention_params = 0
-    mlp_params = 0
+    # 2. 详细的模块参数统计（针对LLaMA架构）
+    module_params = {}
 
     try:
+        # 2.1 Embedding 层
+        if hasattr(model, 'model') and hasattr(model.model, 'embed_tokens'):
+            embedding_params = sum(p.numel() for p in model.model.embed_tokens.parameters())
+            module_params['embedding'] = embedding_params
+        else:
+            module_params['embedding'] = 0
+
+        # 2.2 LM Head (输出层)
+        if hasattr(model, 'lm_head'):
+            lm_head_params = sum(p.numel() for p in model.lm_head.parameters())
+            module_params['lm_head'] = lm_head_params
+        else:
+            module_params['lm_head'] = 0
+
+        # 2.3 Final Norm (最后的归一化层)
+        if hasattr(model, 'model') and hasattr(model.model, 'norm'):
+            final_norm_params = sum(p.numel() for p in model.model.norm.parameters())
+            module_params['final_norm'] = final_norm_params
+        else:
+            module_params['final_norm'] = 0
+
+        # 2.4 Transformer Layers (逐层统计)
+        attention_params = 0
+        mlp_params = 0
+        input_norm_params = 0
+        post_attn_norm_params = 0
+
         if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+            info['num_layers'] = len(model.model.layers)
+
             for layer in model.model.layers:
-                # Attention参数
+                # Attention 参数
                 if hasattr(layer, 'self_attn'):
                     attention_params += sum(p.numel() for p in layer.self_attn.parameters())
-                # MLP参数
+
+                # MLP 参数
                 if hasattr(layer, 'mlp'):
                     mlp_params += sum(p.numel() for p in layer.mlp.parameters())
 
+                # Input LayerNorm (attention 前的归一化)
+                if hasattr(layer, 'input_layernorm'):
+                    input_norm_params += sum(p.numel() for p in layer.input_layernorm.parameters())
+
+                # Post-Attention LayerNorm (MLP 前的归一化)
+                if hasattr(layer, 'post_attention_layernorm'):
+                    post_attn_norm_params += sum(p.numel() for p in layer.post_attention_layernorm.parameters())
+        else:
+            info['num_layers'] = None
+
+        module_params['attention'] = attention_params
+        module_params['mlp'] = mlp_params
+        module_params['input_layernorm'] = input_norm_params
+        module_params['post_attention_layernorm'] = post_attn_norm_params
+
+        # 2.5 验证：所有模块参数之和
+        accounted_params = sum(module_params.values())
+        module_params['total_accounted'] = accounted_params
+        module_params['unaccounted'] = total_params - accounted_params
+        module_params['match'] = (module_params['unaccounted'] == 0)
+
+        # 存储到 info
+        info['module_params'] = module_params
+
+        # 兼容旧代码：保留原有的 attention_params 和 mlp_params
         info['attention_params'] = attention_params
         info['mlp_params'] = mlp_params
         info['attention_params_M'] = attention_params / 1e6
         info['mlp_params_M'] = mlp_params / 1e6
         info['attention_ratio'] = attention_params / total_params if total_params > 0 else 0
         info['mlp_ratio'] = mlp_params / total_params if total_params > 0 else 0
-    except:
+
+    except Exception as e:
+        # 如果发生错误，至少保留基本信息
+        info['module_params'] = None
         info['attention_params'] = None
         info['mlp_params'] = None
-
-    # 3. 层数
-    try:
-        if hasattr(model, 'model') and hasattr(model.model, 'layers'):
-            info['num_layers'] = len(model.model.layers)
-        else:
-            info['num_layers'] = None
-    except:
         info['num_layers'] = None
+        info['error'] = str(e)
 
-    # 4. 模型占用内存（近似）
+    # 3. 模型占用内存（近似）
     param_size = 0
     for param in model.parameters():
         param_size += param.nelement() * param.element_size()
@@ -321,26 +371,74 @@ def get_model_info(model: torch.nn.Module) -> Dict:
 
 def print_model_info(info: Dict, name: str = "Model"):
     """
-    打印模型信息
+    打印模型信息，包括详细的模块参数统计
 
     Args:
         info: 模型信息字典
         name: 模型名称
     """
-    print(f"\n{'='*60}")
-    print(f"{name} 信息:")
-    print(f"{'='*60}")
+    print(f"\n{'='*80}")
+    print(f"{name} 参数统计:")
+    print(f"{'='*80}")
     print(f"总参数量: {info['total_params']:,} ({info['total_params_B']:.2f}B)")
 
-    if info['attention_params'] is not None:
-        print(f"Attention参数: {info['attention_params']:,} ({info['attention_params_M']:.1f}M, {info['attention_ratio']*100:.1f}%)")
-        print(f"MLP参数: {info['mlp_params']:,} ({info['mlp_params_M']:.1f}M, {info['mlp_ratio']*100:.1f}%)")
-
     if info['num_layers'] is not None:
-        print(f"层数: {info['num_layers']}")
+        print(f"Transformer 层数: {info['num_layers']}")
 
-    print(f"模型大小: {info['model_size_mb']:.1f} MB ({info['model_size_gb']:.2f} GB)")
-    print(f"{'='*60}\n")
+    # 详细的模块参数统计
+    if info.get('module_params') is not None:
+        module_params = info['module_params']
+        total_params = info['total_params']
+
+        print(f"\n{'-'*80}")
+        print(f"{'模块':<30} {'参数量':>15} {'百万':>12} {'占比':>10}")
+        print(f"{'-'*80}")
+
+        # 定义模块显示顺序和名称
+        modules = [
+            ('embedding', 'Embedding (词嵌入)'),
+            ('lm_head', 'LM Head (输出层)'),
+            ('attention', 'Self-Attention (所有层)'),
+            ('mlp', 'MLP (所有层)'),
+            ('input_layernorm', 'Input LayerNorm (所有层)'),
+            ('post_attention_layernorm', 'Post-Attn LayerNorm (所有层)'),
+            ('final_norm', 'Final Norm (最后归一化)'),
+        ]
+
+        for key, display_name in modules:
+            if key in module_params and module_params[key] > 0:
+                params = module_params[key]
+                params_m = params / 1e6
+                ratio = (params / total_params * 100) if total_params > 0 else 0
+                print(f"{display_name:<30} {params:>15,} {params_m:>12.2f}M {ratio:>9.2f}%")
+
+        print(f"{'-'*80}")
+
+        # 总计和验证
+        accounted = module_params['total_accounted']
+        accounted_m = accounted / 1e6
+        accounted_ratio = (accounted / total_params * 100) if total_params > 0 else 0
+
+        print(f"{'已统计总计':<30} {accounted:>15,} {accounted_m:>12.2f}M {accounted_ratio:>9.2f}%")
+
+        # 检查是否有未统计的参数
+        if module_params['unaccounted'] != 0:
+            unaccounted = module_params['unaccounted']
+            unaccounted_m = unaccounted / 1e6
+            unaccounted_ratio = (unaccounted / total_params * 100) if total_params > 0 else 0
+            print(f"{'⚠️  未统计参数':<30} {unaccounted:>15,} {unaccounted_m:>12.2f}M {unaccounted_ratio:>9.2f}%")
+            print(f"\n⚠️  警告: 存在未统计的参数！请检查模型结构。")
+        else:
+            print(f"\n✓ 验证通过: 所有参数已统计，总和匹配！")
+
+    else:
+        # 兼容旧版本输出
+        if info['attention_params'] is not None:
+            print(f"Attention参数: {info['attention_params']:,} ({info['attention_params_M']:.1f}M, {info['attention_ratio']*100:.1f}%)")
+            print(f"MLP参数: {info['mlp_params']:,} ({info['mlp_params_M']:.1f}M, {info['mlp_ratio']*100:.1f}%)")
+
+    print(f"\n模型大小: {info['model_size_mb']:.1f} MB ({info['model_size_gb']:.2f} GB)")
+    print(f"{'='*80}\n")
 
 
 def cleanup_model(model, tokenizer=None):
