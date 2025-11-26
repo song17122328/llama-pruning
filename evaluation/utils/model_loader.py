@@ -85,8 +85,27 @@ def load_slicegpt_model(
             base_model = str(sliced_model_dir)
             print(f"  检测到本地模型配置，使用目录: {base_model}")
         else:
-            base_model = model_name
-            print(f"  将尝试从 HuggingFace 加载: {base_model}")
+            # 尝试常见的本地模型路径
+            possible_paths = [
+                f"/newdata/LLMs/{model_name}",
+                f"/data/models/{model_name}",
+                f"./models/{model_name}",
+                f"../{model_name}",
+            ]
+
+            found = False
+            for path in possible_paths:
+                if pathlib.Path(path).exists() and (pathlib.Path(path) / "config.json").exists():
+                    base_model = path
+                    print(f"  找到本地模型: {base_model}")
+                    found = True
+                    break
+
+            if not found:
+                # 最后尝试从 HuggingFace
+                base_model = model_name
+                print(f"  未找到本地模型，将尝试从 HuggingFace 加载: {base_model}")
+                print(f"  如果失败，请使用 --slicegpt_base_model 指定原模型路径")
 
     # 设置 SliceGPT 的 device 和 dtype
     slicegpt_config.device = torch.device(device)
