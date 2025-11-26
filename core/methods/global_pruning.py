@@ -247,6 +247,74 @@ def compute_mlp_group_importance_wanda(layer, activations):
     return channel_importance
 
 
+def compute_attention_group_importance_magnitude(layer, head_dim=128, gqa_ratio=4):
+    """
+    计算 Attention 每个 GQA group 的 Magnitude importance（权重绝对值）
+
+    Args:
+        layer: Transformer层
+        head_dim: head维度
+        gqa_ratio: Q:KV比例
+
+    Returns:
+        group_importance: Tensor [num_kv_heads]
+    """
+    salience = {}
+    for name in ['q_proj', 'k_proj', 'v_proj', 'o_proj']:
+        sub_layer = getattr(layer.self_attn, name)
+        # Magnitude: 只使用权重的绝对值
+        salience[name] = sub_layer.weight.abs()
+
+    # 计算每个输出通道的重要性
+    q_imp = salience['q_proj'].sum(1)
+    k_imp = salience['k_proj'].sum(1)
+    v_imp = salience['v_proj'].sum(1)
+    o_imp = salience['o_proj'].sum(0)
+
+    num_q_heads = q_imp.shape[0] // head_dim
+    num_kv_heads = k_imp.shape[0] // head_dim
+
+    q_head_imp = q_imp.view(num_q_heads, head_dim).sum(1)
+    k_head_imp = k_imp.view(num_kv_heads, head_dim).sum(1)
+    v_head_imp = v_imp.view(num_kv_heads, head_dim).sum(1)
+    o_head_imp = o_imp.view(num_q_heads, head_dim).sum(1)
+
+    group_importance = torch.zeros(num_kv_heads, device=q_imp.device)
+
+    for kv_idx in range(num_kv_heads):
+        q_start = kv_idx * gqa_ratio
+        q_end = q_start + gqa_ratio
+
+        group_imp = 0.0
+        group_imp += q_head_imp[q_start:q_end].sum()
+        group_imp += o_head_imp[q_start:q_end].sum()
+        group_imp += k_head_imp[kv_idx]
+        group_imp += v_head_imp[kv_idx]
+
+        group_importance[kv_idx] = group_imp
+
+    return group_importance
+
+
+def compute_mlp_group_importance_magnitude(layer):
+    """
+    计算 MLP 每个通道的 Magnitude importance（权重绝对值）
+
+    Args:
+        layer: Transformer层
+
+    Returns:
+        channel_importance: Tensor [intermediate_size]
+    """
+    # Magnitude: 只使用权重的绝对值
+    gate_salience = layer.mlp.gate_proj.weight.abs().sum(1)
+    up_salience = layer.mlp.up_proj.weight.abs().sum(1)
+    down_salience = layer.mlp.down_proj.weight.abs().sum(0)
+
+    channel_importance = gate_salience + up_salience + down_salience
+    return channel_importance
+
+
 def compute_attention_group_cost(layer, group_idx, head_dim=128, gqa_ratio=4):
     """
     计算单个 Attention GQA group 的参数量
@@ -323,7 +391,7 @@ def build_global_group_table(
 
     Args:
         model: LLaMA 模型
-        importance_method: 'taylor', 'taylor_2nd' 或 'wanda'
+        importance_method: 'taylor', 'taylor_2nd', 'wanda' 或 'magnitude'
         importance_info: 重要性信息字典
         layer_start: 起始层
         layer_end: 结束层
@@ -333,8 +401,8 @@ def build_global_group_table(
         layer_removal_ppl: 层级重要度 Dict[int, float]
         block_removal_ppl: 块级重要度 Dict[str, Dict[int, float]]
         temperature: 温度参数 T
-            - T=0: 退化为纯 Taylor
-            - T=1: 推荐，平衡 Taylor 与全局先验
+            - T=0: 退化为纯基础方法（Taylor/Magnitude）
+            - T=1: 推荐，平衡基础方法与全局先验
             - T>1: 激进模式，强化首尾保护
         tau: 门控阈值（None则自动计算为25分位数）
             - tau=0: 纯 Block-wise
@@ -426,6 +494,10 @@ def build_global_group_table(
             attn_importance = compute_attention_group_importance_taylor(
                 layer, head_dim, gqa_ratio, hessian_diag=hessian_diag, layer_idx=layer_idx
             )
+        elif importance_method == 'magnitude':
+            attn_importance = compute_attention_group_importance_magnitude(
+                layer, head_dim, gqa_ratio
+            )
         else:  # wanda
             layer_activations = activations.get(layer_idx, {})
             attn_importance = compute_attention_group_importance_wanda(
@@ -473,6 +545,8 @@ def build_global_group_table(
         # ========== MLP Groups ==========
         if importance_method in ['taylor', 'taylor_2nd']:
             mlp_importance = compute_mlp_group_importance_taylor(layer, hessian_diag=hessian_diag, layer_idx=layer_idx)
+        elif importance_method == 'magnitude':
+            mlp_importance = compute_mlp_group_importance_magnitude(layer)
         else:  # wanda
             layer_activations = activations.get(layer_idx, {})
             mlp_importance = compute_mlp_group_importance_wanda(layer, layer_activations)

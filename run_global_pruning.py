@@ -415,7 +415,7 @@ def main():
     parser.add_argument('--pruning_ratio', type=float, default=0.2,
                        help='目标剪枝率（默认: 0.2）')
     parser.add_argument('--importance_method', type=str, default='taylor',
-                       choices=['taylor', 'wanda', 'taylor_2nd'],
+                       choices=['taylor', 'wanda', 'taylor_2nd', 'magnitude'],
                        help='重要性计算方法（默认: taylor）')
     parser.add_argument('--dataset', type=str, default='wikitext2',
                        choices=['wikitext2', 'ptb', 'c4'],
@@ -670,6 +670,11 @@ def main():
 
         if args.importance_method == 'taylor_2nd':
             logger.log(f"  ✓ Hessian 对角线近似计算完成")
+
+    elif args.importance_method == 'magnitude':
+        logger.log(f"\n[Step 3] 使用 Magnitude importance (权重绝对值)...")
+        logger.log(f"  ✓ Magnitude 方法不需要计算梯度或激活值")
+        logger.log(f"  直接使用模型权重进行剪枝")
 
     elif args.importance_method == 'wanda':
         logger.log(f"\n[Step 3] 收集激活值（Wanda importance）...")
