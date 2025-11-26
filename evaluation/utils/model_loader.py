@@ -6,6 +6,7 @@
 1. 原始HuggingFace模型
 2. 剪枝后的checkpoint（pytorch_model.bin）
 3. 微调后的模型
+4. SliceGPT 模型（.pt + .json）
 """
 
 import os
@@ -14,6 +15,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Tuple, Dict, Optional
 import gc
+import pathlib
+import json
 
 # 导入 IdentityDecoderLayer 以支持加载包含该层的剪枝模型
 # 这个导入必须在 torch.load() 之前，否则 unpickle 会找不到类定义
@@ -21,12 +24,109 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from core.models import IdentityDecoderLayer
 
 
+def load_slicegpt_model(
+    model_path: str,
+    device: str,
+    torch_dtype: torch.dtype,
+    base_model: str = None,
+    sparsity: float = None
+) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
+    """
+    加载 SliceGPT 模型 (.pt 格式)
+
+    Args:
+        model_path: .pt 文件路径，例如 path/to/Llama-3-8B-Instruct_0.2.pt
+        device: 设备
+        torch_dtype: 数据类型
+        base_model: 基础模型路径（如果未指定，从文件名推断）
+        sparsity: 稀疏度（如果未指定，从文件名推断）
+
+    Returns:
+        (model, tokenizer)
+    """
+    print(f"  检测到 SliceGPT 模型格式 (.pt)")
+
+    # 尝试导入 SliceGPT
+    try:
+        from slicegpt import hf_utils as slicegpt_hf_utils
+        from slicegpt.config import config as slicegpt_config
+    except ImportError:
+        raise ImportError(
+            "无法导入 slicegpt 包。请先安装 SliceGPT:\n"
+            "  git clone https://github.com/microsoft/TransformerCompression\n"
+            "  cd TransformerCompression\n"
+            "  pip install -e ."
+        )
+
+    # 从文件路径推断信息
+    pt_path = pathlib.Path(model_path)
+    sliced_model_dir = pt_path.parent
+
+    # 从文件名推断 base_model 和 sparsity
+    # 例如: Llama-3-8B-Instruct_0.2.pt -> base_model=Llama-3-8B-Instruct, sparsity=0.2
+    if sparsity is None:
+        try:
+            # 提取 sparsity（假设格式为 <name>_<sparsity>.pt）
+            sparsity = float(pt_path.stem.split('_')[-1])
+            print(f"  从文件名推断 sparsity = {sparsity}")
+        except:
+            raise ValueError(
+                f"无法从文件名推断 sparsity。请手动指定 --slicegpt-sparsity 参数。\n"
+                f"文件名: {pt_path.name}"
+            )
+
+    if base_model is None:
+        # 尝试从文件名推断
+        model_name = pt_path.stem.rsplit('_', 1)[0]  # 移除 _0.2
+        print(f"  从文件名推断 base_model = {model_name}")
+
+        # 检查是否有同目录下的 config.json（说明是本地模型）
+        if (sliced_model_dir / "config.json").exists():
+            base_model = str(sliced_model_dir)
+            print(f"  检测到本地模型配置，使用目录: {base_model}")
+        else:
+            base_model = model_name
+            print(f"  将尝试从 HuggingFace 加载: {base_model}")
+
+    # 设置 SliceGPT 的 device 和 dtype
+    slicegpt_config.device = torch.device(device)
+    slicegpt_config.dtype = torch_dtype
+
+    print(f"  使用 SliceGPT 加载器...")
+    print(f"    - Base model: {base_model}")
+    print(f"    - Sparsity: {sparsity}")
+    print(f"    - Model path: {sliced_model_dir}")
+
+    # 使用 SliceGPT 的加载函数
+    model_adapter, tokenizer = slicegpt_hf_utils.load_sliced_model(
+        base_model,
+        str(sliced_model_dir),
+        sparsity=sparsity,
+        round_interval=8,  # 默认值
+        token=None
+    )
+
+    # 提取原始模型（去掉 adapter）
+    model = model_adapter.model
+    model.eval()
+
+    # 移动到指定设备
+    if device.startswith('cuda'):
+        print(f"  移动模型到 {device}...")
+        model = model.to(device)
+
+    print(f"✓ SliceGPT 模型加载完成")
+    return model, tokenizer
+
+
 def load_model_and_tokenizer(
     model_path: str,
     device: str = 'cuda',
     load_in_8bit: bool = False,
     torch_dtype: Optional[torch.dtype] = torch.float16,
-    force_single_device: bool = True
+    force_single_device: bool = True,
+    slicegpt_base_model: str = None,
+    slicegpt_sparsity: float = None
 ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
     """
     加载模型和tokenizer
@@ -35,10 +135,13 @@ def load_model_and_tokenizer(
         model_path: 模型路径
             - HuggingFace模型目录: /path/to/Llama-3-8B-Instruct
             - 剪枝checkpoint: prune_log/xxx/pytorch_model.bin
+            - SliceGPT模型: path/to/Llama-3-8B-Instruct_0.2.pt
         device: 设备 (cuda/cpu)
         load_in_8bit: 是否使用8bit量化加载
         torch_dtype: 数据类型
         force_single_device: 是否强制使用单个设备（避免multi-GPU问题）
+        slicegpt_base_model: SliceGPT 的基础模型路径（仅用于 .pt 模型）
+        slicegpt_sparsity: SliceGPT 的稀疏度（仅用于 .pt 模型）
 
     Returns:
         (model, tokenizer)
@@ -48,8 +151,18 @@ def load_model_and_tokenizer(
     # 将device转换为字符串（支持 torch.device 对象和字符串）
     device_str = str(device)
 
+    # 检测是否是 SliceGPT 模型（.pt 文件）
+    if model_path.endswith('.pt'):
+        return load_slicegpt_model(
+            model_path,
+            device_str,
+            torch_dtype,
+            slicegpt_base_model,
+            slicegpt_sparsity
+        )
+
     # 判断是checkpoint还是目录
-    if model_path.endswith('.bin'):
+    elif model_path.endswith('.bin'):
         # 剪枝checkpoint - 直接加载到目标设备
         target_device = device_str if device_str.startswith('cuda') and force_single_device else 'cpu'
         print(f"  直接加载checkpoint到 {target_device}...")

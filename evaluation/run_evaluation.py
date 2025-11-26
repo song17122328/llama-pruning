@@ -111,7 +111,9 @@ def evaluate_single_model(
     speed_samples: int = 50,
     verbose: bool = True,
     use_custom_zeroshot: bool = True,
-    zeroshot_batch_size: int = 8
+    zeroshot_batch_size: int = 8,
+    slicegpt_base_model: str = None,
+    slicegpt_sparsity: float = None
 ) -> Dict:
     """
     评估单个模型
@@ -154,7 +156,12 @@ def evaluate_single_model(
 
     if need_model:
         # 加载模型
-        model, tokenizer = load_model_and_tokenizer(model_path, device=device)
+        model, tokenizer = load_model_and_tokenizer(
+            model_path,
+            device=device,
+            slicegpt_base_model=slicegpt_base_model,
+            slicegpt_sparsity=slicegpt_sparsity
+        )
 
         # 获取模型信息（所有评估都需要）
         model_info = get_model_info(model)
@@ -442,6 +449,12 @@ def main():
     parser.add_argument('--use_lm_eval', action='store_true',default=True,
                        help='使用 lm-eval 在线模式（从 HuggingFace 加载数据）。默认使用自定义评估器（从本地加载数据）')
 
+    # SliceGPT 专用参数
+    parser.add_argument('--slicegpt_base_model', type=str, default=None,
+                       help='SliceGPT 模型的基础模型路径（仅用于 .pt 模型，如未指定将自动推断）')
+    parser.add_argument('--slicegpt_sparsity', type=float, default=None,
+                       help='SliceGPT 模型的稀疏度（仅用于 .pt 模型，如未指定将从文件名推断）')
+
     args = parser.parse_args()
 
     # 自动选择GPU
@@ -482,7 +495,9 @@ def main():
         zeroshot_tasks=args.zeroshot_tasks.split(',') if args.zeroshot_tasks else None,
         speed_samples=args.speed_samples,
         use_custom_zeroshot=not args.use_lm_eval,
-        zeroshot_batch_size=args.zeroshot_batch_size
+        zeroshot_batch_size=args.zeroshot_batch_size,
+        slicegpt_base_model=args.slicegpt_base_model,
+        slicegpt_sparsity=args.slicegpt_sparsity
     )
 
     # 保存结果
