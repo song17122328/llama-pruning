@@ -96,6 +96,14 @@ def compute_hessian_inv(
     n_samples = X.shape[0]
     hidden_dim = X.shape[1]
 
+    # 保存原始 dtype
+    original_dtype = X.dtype
+
+    # 转换为 FP32 以支持 torch.inverse()
+    # torch.inverse() 不支持 FP16
+    if X.dtype == torch.float16:
+        X = X.float()
+
     # 计算 Hessian: H = 2 * X.T @ X / n
     H = 2 * (X.T @ X) / n_samples
 
@@ -105,11 +113,15 @@ def compute_hessian_inv(
     # 计算逆
     try:
         H_inv = torch.inverse(H)
-    except RuntimeError:
+    except RuntimeError as e:
         # 如果失败，使用更大的阻尼
-        print(f"  Warning: Hessian inversion failed, using larger damping (1e-4)")
+        print(f"  Warning: Hessian inversion failed ({e}), using larger damping (1e-4)")
         H = H + 1e-4 * torch.eye(hidden_dim, device=X.device, dtype=X.dtype)
         H_inv = torch.inverse(H)
+
+    # 转回原始 dtype（如果需要）
+    if original_dtype == torch.float16:
+        H_inv = H_inv.half()
 
     return H_inv
 
@@ -252,15 +264,18 @@ def prune_attention_heads(
             W_head = W[:, start:end]
 
             try:
-                # Cholesky 分解
-                L = torch.linalg.cholesky(H_sub)
+                # Cholesky 分解（需要 FP32）
+                H_sub_fp32 = H_sub.float() if H_sub.dtype == torch.float16 else H_sub
+                L = torch.linalg.cholesky(H_sub_fp32)
                 diag_L = torch.diagonal(L)
 
                 # 计算该 head 的误差
-                error = ((W_head ** 2) / (diag_L ** 2)).sum()
+                W_head_fp32 = W_head.float() if W_head.dtype == torch.float16 else W_head
+                error = ((W_head_fp32 ** 2) / (diag_L ** 2)).sum()
                 head_errors.append(error.item())
-            except RuntimeError:
+            except RuntimeError as e:
                 # Cholesky 失败，跳过
+                # print(f"  Debug: Cholesky failed for head {h}: {e}")
                 head_errors.append(float('inf'))
 
         # 选择误差最小的 head
