@@ -125,7 +125,7 @@ def evaluate_zeroshot(
                 model=lm,
                 tasks=tasks,
                 log_samples=False,
-                verbosity="INFO"  # 显示更多信息
+                # verbosity="INFO"  # 显示更多信息
             )
         # 检查是否是checkpoint文件
         elif model_path and model_path.endswith('.bin'):
@@ -191,8 +191,8 @@ def evaluate_zeroshot(
         return summary
 
     except ImportError:
-        print("✗ lm-eval未安装")
-        print("请安装: pip install lm-eval")
+        print("✗ lm-eval导入错误")
+        print("请安装: pip install lm-eval 或者检查 pip环境")
         return None
 
     except Exception as e:
