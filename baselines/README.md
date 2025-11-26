@@ -178,6 +178,75 @@ python baselines/run_slimgpt.py \
 - 使用对数增长策略：浅层剪得少，深层剪得多
 - 数值稳定性：自动添加阻尼项（1e-6 * I）
 
+---
+
+### 4. Wanda（Weight and Activation）
+
+**论文**: A Simple and Effective Pruning Approach for Large Language Models
+**类型**: 结构化剪枝（宽度剪枝，激活感知）
+
+结合权重和激活值的结构化剪枝方法。
+
+**核心思想：**
+- 重要性 = |W| × ||X||_2（权重绝对值 × 激活值 L2 范数）
+- 激活值大的输入通道更重要（可能包含 Outlier）
+- 通过校准数据集收集激活统计信息
+- 适用于结构化剪枝（attention heads, FFN channels）
+
+**本实现的关键修正：**
+1. ✅ **L2 Norm 而非 Mean**：使用 `sqrt(sum(x^2))` 而非平均值（符合论文）
+2. ✅ **正确的 Hook 位置**：`down_proj` 直接 Hook，获取包含 SwiGLU 作用后的真实输入
+3. ✅ **矩阵乘法优化**：使用 `|W| @ A` 而非广播 `|W| * A`，避免生成巨大中间矩阵
+
+**特点：**
+- ✓ 考虑数据分布（激活值）
+- ✓ 识别重要的输入通道（Outlier 感知）
+- ✓ 内存优化（矩阵乘法）
+- ✗ 需要收集激活值（较慢）
+- ✗ 依赖校准数据集质量
+
+**使用方法：**
+```bash
+# 基础使用
+python baselines/run_wanda.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2
+
+# 自定义校准参数
+python baselines/run_wanda.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2 \
+    --calibration_samples 128 \
+    --dataset wikitext2
+
+# 带评估和微调
+python baselines/run_wanda.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2 \
+    --finetune \
+    --run_evaluation
+```
+
+**参数说明：**
+- `--base_model`: 基础模型路径（必需）
+- `--pruning_ratio`: 剪枝率（必需）
+- `--output_name`: 输出目录名称（默认: Wanda_{pruning_ratio}）
+- `--calibration_samples`: 校准样本数（默认: 128）
+- `--dataset`: 校准数据集（默认: wikitext2）
+- `--run_evaluation`: 运行评估（默认: True）
+- `--eval_metrics`: 评估指标（默认: ppl,zeroshot,speed,memory）
+- `--finetune`: 剪枝后进行 LoRA 微调
+- `--temperature`: H-GSP 温度参数（默认: 0.0，即纯 Wanda）
+
+**推荐配置：**
+- 校准样本数：128（平衡速度和准确性）
+- 校准数据集：wikitext2（与模型训练数据相似）
+- 剪枝率：20-50%
+
+**Wanda vs Magnitude 对比：**
+- Magnitude：只看权重大小，速度快但不考虑数据
+- Wanda：权重 × 激活，考虑数据分布，更准确
+
 ## 对比实验
 
 推荐进行以下对比实验：
@@ -203,36 +272,36 @@ python baselines/run_slimgpt.py \
     --pruning_ratio 0.2 \
     --output_name SlimGPT_20
 
-# 4. ShortGPT baseline (纯深度剪枝)
+# 4. Wanda baseline (宽度剪枝 - 激活感知)
+python baselines/run_wanda.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2 \
+    --output_name Wanda_20
+
+# 5. ShortGPT baseline (纯深度剪枝)
 python baselines/run_shortgpt.py \
     --base_model /path/to/llama \
     --n_remove_layers 6 \
     --output_name ShortGPT_remove_6
-
-# 5. Wanda baseline (可选 - 宽度剪枝，激活感知)
-python run_global_pruning.py \
-    --base_model /path/to/llama \
-    --output_name Wanda_20 \
-    --pruning_ratio 0.2 \
-    --importance_method wanda \
-    --run_evaluation ppl,zeroshot,speed,memory
 ```
 
 ### 实验设计建议
 
 **对于相同的参数剪枝率（例如 20%）：**
 
-1. **Magnitude_20**: 使用 Magnitude 方法剪枝 20% 参数
-2. **ShortGPT_remove_X**: 移除 X 层，使参数剪枝率接近 20%
+1. **Magnitude_20**: 使用 Magnitude 方法剪枝 20% 参数（简单 baseline）
+2. **Wanda_20**: 使用 Wanda 方法剪枝 20% 参数（激活感知）
+3. **SlimGPT_20**: 使用 SlimGPT (OBS) 方法剪枝 20% 参数（权重补偿）
+4. **ShortGPT_remove_X**: 移除 X 层，使参数剪枝率接近 20%（纯深度）
    - 对于 LLaMA-3-8B (32层)：移除约 6-7 层 ≈ 20% 参数
    - 对于 LLaMA-2-7B (32层)：移除约 6-7 层 ≈ 20% 参数
-3. **HGSP_Taylor_20**: 我们的方法，20% 参数剪枝（混合深度+宽度）
+5. **HGSP_Taylor_20**: 我们的方法，20% 参数剪枝（混合深度+宽度）
 
 **完整对比流程：**
 ```bash
 MODEL=/path/to/llama
 
-# 我们的方法
+# 1. 我们的方法 (H-GSP)
 python run_global_pruning.py \
     --base_model $MODEL \
     --output_name HGSP_20 \
@@ -241,14 +310,28 @@ python run_global_pruning.py \
     --finetune \
     --run_evaluation ppl,zeroshot,speed,memory
 
-# Magnitude baseline
+# 2. Magnitude baseline
 python baselines/run_magnitude.py \
     --base_model $MODEL \
     --pruning_ratio 0.2 \
     --finetune \
     --run_evaluation
 
-# ShortGPT baseline (根据层数调整)
+# 3. Wanda baseline
+python baselines/run_wanda.py \
+    --base_model $MODEL \
+    --pruning_ratio 0.2 \
+    --finetune \
+    --run_evaluation
+
+# 4. SlimGPT baseline
+python baselines/run_slimgpt.py \
+    --base_model $MODEL \
+    --pruning_ratio 0.2 \
+    --finetune \
+    --run_evaluation
+
+# 5. ShortGPT baseline (根据层数调整)
 python baselines/run_shortgpt.py \
     --base_model $MODEL \
     --n_remove_layers 6 \
@@ -324,8 +407,9 @@ python evaluation/run_evaluation.py \
 |------|------|----------------|---------------|---------|---------|------|
 | 原始模型 | - | - | - | - | - | Baseline |
 | Magnitude | 宽度剪枝 | - | - | - | - | 简单 baseline |
-| ShortGPT | 深度剪枝 | - | - | - | - | 纯层移除 |
 | Wanda | 宽度剪枝 | - | - | - | - | 激活感知 |
+| SlimGPT | 宽度剪枝 | - | - | - | - | OBS 权重补偿 |
+| ShortGPT | 深度剪枝 | - | - | - | - | 纯层移除 |
 | **H-GSP (Ours)** | 混合剪枝 | - | - | - | - | 深度+宽度 |
 
 ### 实验配置建议
@@ -345,8 +429,9 @@ python evaluation/run_evaluation.py \
 | 方法 | 优势 | 劣势 | 适用场景 |
 |------|------|------|---------|
 | **Magnitude** | 简单快速，无需数据 | 不考虑数据分布，效果较差 | 快速原型、最简 baseline |
+| **Wanda** | 激活感知，识别 Outlier | 需要收集激活，依赖校准数据 | 宽度剪枝，数据驱动 |
+| **SlimGPT** | 理论最优（OBS），权重补偿 | Hessian 计算开销大 | 高质量宽度剪枝 |
 | **ShortGPT** | 专注层级，实现简单 | 无法宽度剪枝，灵活性差 | 纯层移除场景 |
-| **Wanda** | 考虑激活值，较准确 | 需要收集激活，速度慢 | 宽度剪枝 |
-| **H-GSP (Ours)** | 混合剪枝，自动深度+宽度 | 需要梯度计算 | 综合性能最优 |
+| **H-GSP (Ours)** | 混合剪枝，自动深度+宽度平衡 | 需要梯度计算 | 综合性能最优 |
 
 这样可以全面展示我们方法的优势。

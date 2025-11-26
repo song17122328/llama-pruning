@@ -99,12 +99,17 @@ def compute_attention_group_importance_taylor(layer, head_dim=128, gqa_ratio=4, 
 
 def compute_attention_group_importance_wanda(layer, activations, head_dim=128, gqa_ratio=4):
     """
-    计算 Attention 每个 GQA group 的 Wanda importance (weight × activation)
+    计算 Attention 每个 GQA group 的 Wanda importance (优化版：矩阵乘法)
+
+    关键优化：
+    1. 使用矩阵乘法代替广播，避免生成巨大中间矩阵
+    2. Q/K/V 剪行: Score_i = (|W| @ A)_i
+    3. O 剪列: Score_j = A_j * sum_i |W_ij|
 
     Args:
         layer: Attention layer
         activations: Dict with keys 'q_proj', 'k_proj', 'v_proj', 'o_proj'
-                    每个是 Tensor [batch, seq_len, hidden_dim] 或 [hidden_dim]
+                    每个是 Tensor [hidden_dim] (L2 Norm)
         head_dim: head 维度
         gqa_ratio: Q:KV 比例
 
@@ -113,32 +118,49 @@ def compute_attention_group_importance_wanda(layer, activations, head_dim=128, g
     """
     salience = {}
 
-    for name in ['q_proj', 'k_proj', 'v_proj', 'o_proj']:
+    # 计算 Q, K, V (剪掉 Output Rows -> 对应 Head)
+    # Score_Row_i = sum_j (|W_ij| * A_j) = (|W| @ A)_i
+    for name in ['q_proj', 'k_proj', 'v_proj']:
         sub_layer = getattr(layer.self_attn, name)
         act = activations.get(name)
 
         if act is None:
             raise ValueError(f"Missing activation for {name}")
 
-        # 如果 activation 是多维的，取平均
-        if act.dim() > 1:
-            act = act.mean(dim=tuple(range(act.dim() - 1)))
+        # 移动到与 weight 相同的设备
+        act = act.to(sub_layer.weight.device)
 
-        # weight × activation (按输入维度广播)
-        # weight shape: [out_features, in_features]
-        # act shape: [in_features]
-        weight_act = sub_layer.weight.abs() * act.unsqueeze(0)
-        salience[name] = weight_act
+        # 矩阵向量乘法，得到每个 Output Channel 的得分
+        # |W|: [Out, In], act: [In] -> [Out]
+        score = torch.matmul(sub_layer.weight.abs(), act)
+        salience[name] = score
 
-    # 计算每个输出通道的重要性
-    q_imp = salience['q_proj'].sum(1)  # [num_q_heads * head_dim]
-    k_imp = salience['k_proj'].sum(1)  # [num_kv_heads * head_dim]
-    v_imp = salience['v_proj'].sum(1)  # [num_kv_heads * head_dim]
-    o_imp = salience['o_proj'].sum(0)  # [num_q_heads * head_dim]
+    # 计算 O (剪掉 Input Cols -> 对应 Head)
+    # Score_Col_j = sum_i (|W_ij| * A_j) = A_j * sum_i |W_ij|
+    name = 'o_proj'
+    sub_layer = getattr(layer.self_attn, name)
+    act = activations.get(name)
+
+    if act is None:
+        raise ValueError(f"Missing activation for {name}")
+
+    act = act.to(sub_layer.weight.device)
+
+    # 先求权重的列和 [In], 再乘以激活值
+    w_col_sum = sub_layer.weight.abs().sum(dim=0)  # [In]
+    score = w_col_sum * act  # [In]
+    salience[name] = score
+
+    # 聚合到 Heads (逻辑不变)
+    q_imp = salience['q_proj']  # [num_q_heads * head_dim]
+    k_imp = salience['k_proj']  # [num_kv_heads * head_dim]
+    v_imp = salience['v_proj']  # [num_kv_heads * head_dim]
+    o_imp = salience['o_proj']  # [num_q_heads * head_dim]
 
     num_q_heads = q_imp.shape[0] // head_dim
     num_kv_heads = k_imp.shape[0] // head_dim
 
+    # reshape 并求和，得到每个 Head 的总分
     q_head_imp = q_imp.view(num_q_heads, head_dim).sum(1)
     k_head_imp = k_imp.view(num_kv_heads, head_dim).sum(1)
     v_head_imp = v_imp.view(num_kv_heads, head_dim).sum(1)
@@ -150,12 +172,13 @@ def compute_attention_group_importance_wanda(layer, activations, head_dim=128, g
         q_start = kv_idx * gqa_ratio
         q_end = q_start + gqa_ratio
 
-        group_imp = 0.0
-        group_imp += q_head_imp[q_start:q_end].sum()
-        group_imp += o_head_imp[q_start:q_end].sum()
-        group_imp += k_head_imp[kv_idx]
-        group_imp += v_head_imp[kv_idx]
-
+        # 累加一个 GQA Group 内所有相关参数的 Wanda Score
+        group_imp = (
+            q_head_imp[q_start:q_end].sum() +
+            o_head_imp[q_start:q_end].sum() +
+            k_head_imp[kv_idx] +
+            v_head_imp[kv_idx]
+        )
         group_importance[kv_idx] = group_imp
 
     return group_importance
@@ -208,42 +231,46 @@ def compute_mlp_group_importance_taylor(layer, hessian_diag=None, layer_idx=None
 
 def compute_mlp_group_importance_wanda(layer, activations):
     """
-    计算 MLP 每个通道的 Wanda importance (weight × activation)
+    计算 MLP 每个通道的 Wanda importance (优化版：矩阵乘法 + 正确 Hook)
+
+    关键修正：
+    1. 使用矩阵乘法代替广播
+    2. down_proj 使用正确的 Hook 位置（包含 SwiGLU 作用）
 
     Args:
         layer: MLP layer
         activations: Dict with keys 'gate_proj', 'up_proj', 'down_proj'
+                    每个是 Tensor [hidden_dim] (L2 Norm)
 
     Returns:
         channel_importance: Tensor [intermediate_size]
     """
-    # gate_proj 和 up_proj: [intermediate_size, hidden_size]
-    # down_proj: [hidden_size, intermediate_size]
+    # 1. Gate & Up Proj (剪行 -> Output Rows)
+    # 输入是 gate_proj (即 mlp_input)
+    act_in = activations.get('gate_proj')
+    if act_in is None:
+        raise ValueError("Missing gate_proj activation")
 
-    # 输入激活（MLP 的输入）
-    mlp_input_act = activations.get('mlp_input')
-    if mlp_input_act is None:
-        raise ValueError("Missing mlp_input activation")
+    act_in = act_in.to(layer.mlp.gate_proj.weight.device)
 
-    if mlp_input_act.dim() > 1:
-        mlp_input_act = mlp_input_act.mean(dim=tuple(range(mlp_input_act.dim() - 1)))
+    # |W| @ A -> [Intermediate_Size]
+    gate_imp = torch.matmul(layer.mlp.gate_proj.weight.abs(), act_in)
+    up_imp = torch.matmul(layer.mlp.up_proj.weight.abs(), act_in)
 
-    # gate 和 up 的重要性（输入维度）
-    gate_salience = (layer.mlp.gate_proj.weight.abs() * mlp_input_act.unsqueeze(0)).sum(1)
-    up_salience = (layer.mlp.up_proj.weight.abs() * mlp_input_act.unsqueeze(0)).sum(1)
+    # 2. Down Proj (剪列 -> Input Cols)
+    # 【关键】输入是 down_proj (即 intermediate，包含 SwiGLU 作用)
+    act_mid = activations.get('down_proj')
+    if act_mid is None:
+        raise ValueError("Missing down_proj activation")
 
-    # down 的输出激活（中间层激活）
-    intermediate_act = activations.get('intermediate')
-    if intermediate_act is None:
-        raise ValueError("Missing intermediate activation")
+    act_mid = act_mid.to(layer.mlp.down_proj.weight.device)
 
-    if intermediate_act.dim() > 1:
-        intermediate_act = intermediate_act.mean(dim=tuple(range(intermediate_act.dim() - 1)))
+    # A * (|W|.sum(0)) -> [Intermediate_Size]
+    w_col_sum = layer.mlp.down_proj.weight.abs().sum(dim=0)
+    down_imp = w_col_sum * act_mid
 
-    # down 的重要性（输入维度，即 intermediate_size）
-    down_salience = (layer.mlp.down_proj.weight.abs() * intermediate_act.unsqueeze(0)).sum(0)
-
-    channel_importance = gate_salience + up_salience + down_salience
+    # 3. 聚合 (对应同一个神经元)
+    channel_importance = gate_imp + up_imp + down_imp
     return channel_importance
 
 

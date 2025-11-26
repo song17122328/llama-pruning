@@ -62,10 +62,15 @@ def setup_output_directories(base_dir):
 
 def collect_layer_activations(model, input_ids, device='cuda'):
     """
-    收集每层的激活值用于 Wanda 方法
+    收集每层的激活值用于 Wanda 方法 (修正版：L2 Norm + 正确的 Hook 位置)
+
+    关键修正：
+    1. 使用 L2 Norm 而非 Mean (符合 Wanda 论文)
+    2. 直接 Hook down_proj 获取包含 SwiGLU 作用后的真实输入
 
     Returns:
         activations: Dict[layer_idx -> Dict[name -> Tensor]]
+                    每个 Tensor 是 [hidden_dim] 的 L2 Norm
     """
     activations = {}
     hooks = []
@@ -74,15 +79,21 @@ def collect_layer_activations(model, input_ids, device='cuda'):
         def hook(module, input, output):
             if layer_idx not in activations:
                 activations[layer_idx] = {}
-            # 存储输入激活值的平均值（用于 Wanda）
+
+            # 提取输入激活值
             if isinstance(input, tuple):
-                act = input[0].detach()
+                x = input[0].detach()
             else:
-                act = input.detach()
-            # 计算所有维度的平均（除了最后的特征维度）
-            if act.dim() > 1:
-                act = act.abs().mean(dim=tuple(range(act.dim() - 1)))
-            activations[layer_idx][name] = act.cpu()
+                x = input.detach()
+
+            # 展平 Batch 和 Seq 维度 -> [Total_Tokens, Hidden]
+            x = x.reshape(-1, x.shape[-1])
+
+            # Wanda 标准：计算每个 Input Channel 的 L2 Norm
+            # L2 Norm = sqrt(sum(x^2)) over all tokens
+            norm = x.pow(2).sum(dim=0).sqrt().cpu()
+
+            activations[layer_idx][name] = norm
         return hook
 
     # 为每层的关键模块注册 hooks
@@ -97,21 +108,16 @@ def collect_layer_activations(model, input_ids, device='cuda'):
         hooks.append(layer.self_attn.o_proj.register_forward_hook(
             get_activation_hook(layer_idx, 'o_proj')))
 
-        # MLP 的输入激活
+        # MLP 输入激活
         hooks.append(layer.mlp.gate_proj.register_forward_hook(
-            get_activation_hook(layer_idx, 'mlp_input')))
-
-        # MLP 中间激活（用于 down_proj）
-        def get_mlp_intermediate_hook(layer_idx):
-            def hook(module, input, output):
-                if layer_idx not in activations:
-                    activations[layer_idx] = {}
-                act = output.detach().abs().mean(dim=tuple(range(output.dim() - 1)))
-                activations[layer_idx]['intermediate'] = act.cpu()
-            return hook
-
+            get_activation_hook(layer_idx, 'gate_proj')))
         hooks.append(layer.mlp.up_proj.register_forward_hook(
-            get_mlp_intermediate_hook(layer_idx)))
+            get_activation_hook(layer_idx, 'up_proj')))
+
+        # 【关键修正】直接 Hook down_proj，获取包含 Gate 作用后的真实输入
+        # down_proj 的输入是 SiLU(gate_proj(x)) * up_proj(x)
+        hooks.append(layer.mlp.down_proj.register_forward_hook(
+            get_activation_hook(layer_idx, 'down_proj')))
 
     # 执行前向传播
     with torch.no_grad():
