@@ -90,7 +90,13 @@ def create_dataloader(dataset_manager, num_samples, seq_len, batch_size=1):
             return len(self.encodings)
 
         def __getitem__(self, idx):
-            return self.encodings[idx]
+            # 返回 dict 格式，而不是 BatchEncoding 对象
+            # 从 BatchEncoding 中提取 tensor
+            encoding = self.encodings[idx]
+            return {
+                'input_ids': encoding['input_ids'].squeeze(0),  # 移除 batch 维度
+                'attention_mask': encoding['attention_mask'].squeeze(0)
+            }
 
     dataset = SimpleDataset(encodings)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
