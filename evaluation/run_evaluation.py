@@ -146,14 +146,53 @@ def evaluate_single_model(
         if ppl_datasets is None:
             ppl_datasets = ['wikitext2', 'ptb']
 
-        ppl_results = evaluate_ppl(
-            model, tokenizer,
-            datasets=ppl_datasets,
-            seq_len=ppl_seq_len,
-            stride=ppl_stride,
-            device=device
-        )
-        results['metrics']['ppl'] = ppl_results
+        # 检测是否使用默认配置（未显式指定参数）
+        # 如果是默认值，自动测量两组：快速配置（128）和标准配置（2048+512）
+        is_default_config = (ppl_seq_len == 128 and ppl_stride is None)
+
+        if is_default_config:
+            # 自动测量两组配置
+            print(f"\n{'='*60}")
+            print(f"检测到使用默认配置，将自动测量两组 PPL：")
+            print(f"  1. 快速配置: seq_len=128, stride=128")
+            print(f"  2. 标准配置: seq_len=2048, stride=512")
+            print(f"{'='*60}")
+
+            # 快速配置
+            print(f"\n[1/2] 快速配置评估...")
+            ppl_quick = evaluate_ppl(
+                model, tokenizer,
+                datasets=ppl_datasets,
+                seq_len=128,
+                stride=None,  # 等于 seq_len
+                device=device
+            )
+            results['metrics']['ppl_quick_128'] = ppl_quick
+
+            # 标准配置
+            print(f"\n[2/2] 标准配置评估...")
+            ppl_standard = evaluate_ppl(
+                model, tokenizer,
+                datasets=ppl_datasets,
+                seq_len=2048,
+                stride=512,
+                device=device
+            )
+            results['metrics']['ppl_standard_2048_512'] = ppl_standard
+
+            # 为了兼容性，也保存一份默认的 ppl（使用标准配置）
+            results['metrics']['ppl'] = ppl_standard
+        else:
+            # 用户显式指定了参数，只运行一组
+            print(f"\n检测到自定义配置: seq_len={ppl_seq_len}, stride={ppl_stride if ppl_stride is not None else ppl_seq_len}")
+            ppl_results = evaluate_ppl(
+                model, tokenizer,
+                datasets=ppl_datasets,
+                seq_len=ppl_seq_len,
+                stride=ppl_stride,
+                device=device
+            )
+            results['metrics']['ppl'] = ppl_results
 
     # 2. Zero-shot评估
     if 'zeroshot' in metrics:
