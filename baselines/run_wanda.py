@@ -85,19 +85,20 @@ def main():
     print(f"\n配置:")
     print(f"  模型: {args.base_model}")
     print(f"  剪枝率: {args.pruning_ratio:.1%}")
-    print(f"  校准样本: {args.calibration_samples}")
+    print(f"  校准样本: {args.calibration_samples} (注: 实际使用内部固定值 128)")
     print(f"  校准数据集: {args.dataset}")
     print(f"  输出: results/{args.output_name}/")
     print(f"{'='*80}\n")
 
     # 构建命令
+    # 注意: run_global_pruning.py 内部固定使用 TAYLOR_NUM_SAMPLES=128
+    # 不需要传递 --calibration_samples 参数
     cmd = [
         "python", "run_global_pruning.py",
         "--base_model", args.base_model,
         "--output_name", args.output_name,
         "--pruning_ratio", str(args.pruning_ratio),
         "--importance_method", "wanda",
-        "--calibration_samples", str(args.calibration_samples),
         "--dataset", args.dataset,
         "--temperature", str(args.temperature),
         "--epsilon", str(args.epsilon)
