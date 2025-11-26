@@ -456,7 +456,7 @@ def main():
                        help='PPL评估步长（默认: None即等于seq_len，标准配置: 512）')
     parser.add_argument('--eval_zeroshot_tasks', type=str, default='boolq,piqa,hellaswag,winogrande,arc_easy,arc_challenge,openbookqa',
                        help='Zero-shot评估任务')
-    parser.add_argument('--eval_use_custom_zeroshot', action='store_true',
+    parser.add_argument('--eval_use_custom_zeroshot', action='store_true',default='False',
                        help='使用自定义zero-shot评估器')
     # 微调参数（LoRA）
     parser.add_argument('--finetune', action='store_true',

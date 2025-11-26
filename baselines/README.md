@@ -211,15 +211,8 @@ python baselines/run_slimgpt.py \
 ```bash
 # 基础使用
 python baselines/run_wanda.py \
-    --base_model /path/to/llama \
+    --base_model /newdata/LLMs/Llama-3-8B-Instruct \
     --pruning_ratio 0.2
-
-# 自定义校准参数
-python baselines/run_wanda.py \
-    --base_model /path/to/llama \
-    --pruning_ratio 0.2 \
-    --calibration_samples 128 \
-    --dataset wikitext2
 
 # 带评估和微调
 python baselines/run_wanda.py \

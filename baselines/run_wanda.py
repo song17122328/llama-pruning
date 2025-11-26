@@ -15,11 +15,9 @@ Wanda 方法特点：
 3. 矩阵乘法优化：避免生成巨大中间矩阵
 
 使用方法：
-    python baselines/run_wanda.py \
-        --base_model /path/to/llama \
-        --pruning_ratio 0.2 \
-        --output_name Wanda_20 \
-        --calibration_samples 128
+python baselines/run_wanda.py \
+    --base_model /newdata/LLMs/Llama-3-8B-Instruct \
+    --pruning_ratio 0.2
 """
 
 import sys
