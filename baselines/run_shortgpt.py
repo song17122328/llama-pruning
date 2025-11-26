@@ -70,12 +70,12 @@ def main():
     parser.add_argument('--dataset', type=str, default='wikitext2',
                        choices=['wikitext2', 'ptb', 'c4'],
                        help='数据集选择（默认: wikitext2）')
-    parser.add_argument('--num_samples', type=int, default=50,
-                       help='BI 计算样本数（默认: 50）')
-    parser.add_argument('--seq_len', type=int, default=512,
-                       help='序列长度（默认: 512）')
-    parser.add_argument('--stride', type=int, default=256,
-                       help='滑动窗口步长（默认: 256）')
+    parser.add_argument('--num_samples', type=int, default=128,
+                       help='BI 计算样本数（默认: 128，与 H-GSP 一致）')
+    parser.add_argument('--seq_len', type=int, default=128,
+                       help='序列长度（默认: 128，与 H-GSP 一致）')
+    parser.add_argument('--stride', type=int, default=128,
+                       help='滑动窗口步长（默认: 128，与 seq_len 一致）')
 
     # 评估参数
     parser.add_argument('--run_evaluation', action='store_true', default=True,
