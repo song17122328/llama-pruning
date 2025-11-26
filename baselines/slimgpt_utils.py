@@ -77,6 +77,69 @@ def collect_layer_inputs(
     return X.to(device)
 
 
+def collect_mlp_inputs(
+    model,
+    dataloader,
+    layer_idx: int,
+    device: str = 'cuda',
+    max_samples: int = 128
+) -> torch.Tensor:
+    """
+    收集指定层的 MLP 中间激活（down_proj 的输入）
+
+    Args:
+        model: LLaMA 模型
+        dataloader: 数据加载器
+        layer_idx: 层索引
+        device: 设备
+        max_samples: 最大样本数（限制内存）
+
+    Returns:
+        X: MLP 中间激活 [total_tokens, intermediate_dim]
+    """
+    inputs_list = []
+    total_tokens = 0
+
+    def hook_fn(module, input, output):
+        # input[0] shape: [batch, seq_len, intermediate_dim]
+        inp = input[0].detach()
+        # 展平为 [batch * seq_len, intermediate_dim]
+        inp = inp.reshape(-1, inp.shape[-1])
+        inputs_list.append(inp.cpu())
+
+    # 注册 hook 到 down_proj（捕获 SwiGLU 后的激活）
+    layer = model.model.layers[layer_idx]
+    handle = layer.mlp.down_proj.register_forward_hook(hook_fn)
+
+    model.eval()
+    try:
+        with torch.no_grad():
+            for batch in dataloader:
+                if isinstance(batch, dict):
+                    input_ids = batch['input_ids'].to(device)
+                else:
+                    input_ids = batch.to(device)
+
+                model(input_ids)
+
+                # 限制样本数（避免内存爆炸）
+                total_tokens += input_ids.numel()
+                if total_tokens > max_samples * 512:  # 约 max_samples 个序列
+                    break
+    finally:
+        handle.remove()
+
+    # 拼接所有输入
+    X = torch.cat(inputs_list, dim=0)
+
+    # 如果样本太多，随机采样
+    if X.shape[0] > max_samples * 512:
+        indices = torch.randperm(X.shape[0])[:max_samples * 512]
+        X = X[indices]
+
+    return X.to(device)
+
+
 def compute_hessian_inv(
     X: torch.Tensor,
     damping: float = 1e-6

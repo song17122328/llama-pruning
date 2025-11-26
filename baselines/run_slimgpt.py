@@ -32,6 +32,7 @@ from torch.utils.data import DataLoader
 
 from baselines.slimgpt_utils import (
     collect_layer_inputs,
+    collect_mlp_inputs,
     compute_hessian_inv,
     prune_attention_heads,
     prune_ffn_channels,
@@ -170,20 +171,20 @@ def slimgpt_prune_model(
         layer = model.model.layers[layer_idx]
         layer_info = {}
 
-        # Step 1: 收集层输入
-        log(f"  [1/4] 收集层输入...")
-        X = collect_layer_inputs(
+        # Step 1: 收集层输入（用于 Attention）
+        log(f"  [1/5] 收集层输入（用于 Attention）...")
+        X_layer = collect_layer_inputs(
             model, dataloader, layer_idx, device, max_samples
         )
-        log(f"    ✓ 收集到 {X.shape[0]} 个 tokens")
+        log(f"    ✓ 收集到 {X_layer.shape[0]} 个 tokens, 维度 {X_layer.shape[1]}")
 
-        # Step 2: 计算 Hessian 逆
-        log(f"  [2/4] 计算 Hessian 逆...")
-        H_inv = compute_hessian_inv(X, damping=1e-6)
-        log(f"    ✓ Hessian 形状: {H_inv.shape}")
+        # Step 2: 计算 Attention Hessian 逆
+        log(f"  [2/5] 计算 Attention Hessian 逆...")
+        H_inv_attn = compute_hessian_inv(X_layer, damping=1e-6)
+        log(f"    ✓ Hessian 形状: {H_inv_attn.shape}")
 
         # Step 3: 剪枝 Attention
-        log(f"  [3/4] 剪枝 Attention heads...")
+        log(f"  [3/5] 剪枝 Attention heads...")
 
         # 获取 o_proj 权重
         W_o = layer.self_attn.o_proj.weight.data.clone()
@@ -195,7 +196,7 @@ def slimgpt_prune_model(
         # 剪枝
         W_o_pruned, pruned_heads = prune_attention_heads(
             W=W_o,
-            H_inv=H_inv,
+            H_inv=H_inv_attn,
             num_heads=num_heads,
             pruning_ratio=layer_ratios[layer_idx],
             head_dim=head_dim,
@@ -214,8 +215,19 @@ def slimgpt_prune_model(
             'num_pruned': len(pruned_heads)
         }
 
-        # Step 4: 剪枝 FFN
-        log(f"  [4/4] 剪枝 FFN 通道...")
+        # Step 4: 收集 MLP 中间激活（用于 FFN）
+        log(f"  [4/5] 收集 MLP 中间激活（用于 FFN）...")
+        X_mlp = collect_mlp_inputs(
+            model, dataloader, layer_idx, device, max_samples
+        )
+        log(f"    ✓ 收集到 {X_mlp.shape[0]} 个 tokens, 维度 {X_mlp.shape[1]}")
+
+        # 计算 FFN Hessian 逆
+        H_inv_ffn = compute_hessian_inv(X_mlp, damping=1e-6)
+        log(f"    ✓ FFN Hessian 形状: {H_inv_ffn.shape}")
+
+        # Step 5: 剪枝 FFN
+        log(f"  [5/5] 剪枝 FFN 通道...")
 
         # 获取 down_proj 权重
         W_down = layer.mlp.down_proj.weight.data.clone()
@@ -224,7 +236,7 @@ def slimgpt_prune_model(
         # 剪枝
         W_down_pruned, pruned_channels = prune_ffn_channels(
             W=W_down,
-            H_inv=H_inv,
+            H_inv=H_inv_ffn,
             pruning_ratio=layer_ratios[layer_idx]
         )
 
