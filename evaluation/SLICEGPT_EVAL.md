@@ -23,8 +23,8 @@ pip install -e .
 ```bash
 python evaluation/run_evaluation.py \
     --model_path outputs/SliceGPT_2000/Llama-3-8B-Instruct_0.2.pt \
-    --metrics all \
-    --output results/slicegpt_0.2.json
+    --metrics ppl,zeroshot,memery,speed \
+    --output results/SliceGPT_2000/evalutaion/evalutaion_results.json
 ```
 
 自动推断逻辑：
