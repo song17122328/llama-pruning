@@ -13,9 +13,9 @@ SlimGPT Baseline
 
 使用方法：
     python baselines/run_slimgpt.py \
-        --base_model /path/to/llama \
+        --base_model /newdata/LLMs/Llama-3-8B-Instruct \
         --pruning_ratio 0.2 \
-        --output_name SlimGPT_20
+        --output_name SlimGPT_2000
 """
 
 import sys
@@ -291,7 +291,7 @@ def main():
 
     # 设置默认输出名称
     if args.output_name is None:
-        ratio_percent = int(args.pruning_ratio * 100)
+        ratio_percent = int(args.pruning_ratio * 10000)
         args.output_name = f"SlimGPT_{ratio_percent}"
 
     # 设置输出目录
