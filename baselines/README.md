@@ -115,6 +115,69 @@ python baselines/run_shortgpt.py \
 - 对于 24 层模型：移除 3-6 层
 - 建议先从较少的层数开始测试
 
+---
+
+### 3. SlimGPT（Optimal Brain Surgeon）
+
+**论文**: SlimGPT: Layer-wise Structured Pruning for Large Language Models
+**类型**: 结构化剪枝（宽度剪枝，权重补偿）
+
+基于 Hessian 矩阵的最优脑损伤（Optimal Brain Surgeon, OBS）方法。
+
+**核心思想：**
+- 计算 Hessian 矩阵（使用输入特征近似）
+- 计算每列（神经元/head）的剪枝误差：error = sum(W[:, i]^2) / H_inv[i, i]
+- 剪枝时补偿其他权重：delta = -(W[:, i] / H_inv[i, i]) * H_inv[i, :]
+- 最小化输出变化
+
+**特点：**
+- ✓ 理论最优（二阶近似）
+- ✓ 权重补偿，减小剪枝误差
+- ✓ 针对 LLM 优化（分组策略）
+- ✗ 需要计算 Hessian（内存密集）
+- ✗ 计算开销大
+
+**使用方法：**
+```bash
+# 基础使用
+python baselines/run_slimgpt.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2
+
+# 自定义 Hessian 计算参数
+python baselines/run_slimgpt.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2 \
+    --num_samples 128 \
+    --seq_len 128 \
+    --max_samples 256
+
+# 带评估和微调
+python baselines/run_slimgpt.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2 \
+    --finetune \
+    --run_evaluation
+```
+
+**参数说明：**
+- `--base_model`: 基础模型路径（必需）
+- `--pruning_ratio`: 剪枝率（必需）
+- `--output_name`: 输出目录名称（默认: SlimGPT_{pruning_ratio}）
+- `--dataset`: 校准数据集（默认: wikitext2）
+- `--num_samples`: Hessian 计算样本数（默认: 64）
+- `--seq_len`: 序列长度（默认: 128）
+- `--max_samples`: Hessian 最大 token 数（默认: 128k）
+- `--head_dim`: Attention head 维度（默认: 128）
+- `--run_evaluation`: 运行评估（默认: True）
+- `--eval_metrics`: 评估指标（默认: ppl,zeroshot,speed,memory）
+- `--finetune`: 剪枝后进行 LoRA 微调
+
+**注意事项：**
+- Hessian 计算需要较多内存，建议从较小的样本数开始
+- 使用对数增长策略：浅层剪得少，深层剪得多
+- 数值稳定性：自动添加阻尼项（1e-6 * I）
+
 ## 对比实验
 
 推荐进行以下对比实验：
@@ -128,19 +191,25 @@ python run_global_pruning.py \
     --importance_method taylor \
     --run_evaluation ppl,zeroshot,speed,memory
 
-# 2. Magnitude baseline (宽度剪枝)
+# 2. Magnitude baseline (宽度剪枝 - 简单)
 python baselines/run_magnitude.py \
     --base_model /path/to/llama \
     --pruning_ratio 0.2 \
     --output_name Magnitude_20
 
-# 3. ShortGPT baseline (纯深度剪枝)
+# 3. SlimGPT baseline (宽度剪枝 - OBS)
+python baselines/run_slimgpt.py \
+    --base_model /path/to/llama \
+    --pruning_ratio 0.2 \
+    --output_name SlimGPT_20
+
+# 4. ShortGPT baseline (纯深度剪枝)
 python baselines/run_shortgpt.py \
     --base_model /path/to/llama \
-    --n_remove_layers 4 \
-    --output_name ShortGPT_remove_4
+    --n_remove_layers 6 \
+    --output_name ShortGPT_remove_6
 
-# 4. Wanda baseline (可选 - 宽度剪枝)
+# 5. Wanda baseline (可选 - 宽度剪枝，激活感知)
 python run_global_pruning.py \
     --base_model /path/to/llama \
     --output_name Wanda_20 \
