@@ -154,6 +154,11 @@ def evaluate_single_model(
     if 'zeroshot' in metrics and use_custom_zeroshot:
         need_model = True
 
+    # 特殊情况：SliceGPT 模型（.pt 文件）必须预加载
+    # 因为 lm-eval 无法直接加载 .pt 文件
+    if model_path.endswith('.pt') and 'zeroshot' in metrics:
+        need_model = True
+
     if need_model:
         # 加载模型
         model, tokenizer = load_model_and_tokenizer(
