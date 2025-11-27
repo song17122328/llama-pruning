@@ -20,7 +20,7 @@ SliceGPT 模型转换器
     conda activate base
     python evaluation/run_evaluation.py \
         --model_path results/SliceGPT_2000/pruned_model.bin \
-        --metrics all \
+        --metrics zeroshot \
         --output results/SliceGPT_2000/evaluation/evaluation_results.json
 """
 
@@ -40,7 +40,7 @@ def main():
                        help='稀疏度（如不指定，自动从文件名推断）')
     parser.add_argument('--output', type=str, required=True,
                        help='输出路径 (.bin 文件)')
-    parser.add_argument('--device', type=str, default='cpu',
+    parser.add_argument('--device', type=str, default='cuda',
                        help='加载设备（建议使用 cpu 以节省显存）')
 
     args = parser.parse_args()
