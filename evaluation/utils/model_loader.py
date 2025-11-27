@@ -17,6 +17,14 @@ from typing import Tuple, Dict, Optional
 import gc
 import pathlib
 import json
+import pickle
+
+# 尝试导入 dill（用于加载 SliceGPT 序列化的模型）
+try:
+    import dill
+    HAS_DILL = True
+except ImportError:
+    HAS_DILL = False
 
 # 导入 IdentityDecoderLayer 以支持加载包含该层的剪枝模型
 # 这个导入必须在 torch.load() 之前，否则 unpickle 会找不到类定义
@@ -185,7 +193,24 @@ def load_model_and_tokenizer(
         # 剪枝checkpoint - 直接加载到目标设备
         target_device = device_str if device_str.startswith('cuda') and force_single_device else 'cpu'
         print(f"  直接加载checkpoint到 {target_device}...")
-        checkpoint = torch.load(model_path, map_location=target_device, weights_only=False)
+
+        # 尝试使用 torch.load，如果失败则尝试 dill
+        try:
+            checkpoint = torch.load(model_path, map_location=target_device, weights_only=False)
+        except (AttributeError, pickle.UnpicklingError) as e:
+            if HAS_DILL:
+                print(f"  标准 pickle 加载失败，尝试使用 dill...")
+                with open(model_path, 'rb') as f:
+                    checkpoint = dill.load(f)
+                # 移动模型到目标设备
+                if 'model' in checkpoint:
+                    checkpoint['model'] = checkpoint['model'].to(target_device)
+            else:
+                raise ImportError(
+                    f"无法加载模型文件（可能使用 dill 序列化）。\n"
+                    f"原始错误: {str(e)}\n"
+                    f"请安装 dill: pip install dill"
+                )
 
         if isinstance(checkpoint, dict) and 'model' in checkpoint:
             # 完整保存格式（包含model, tokenizer, config等）

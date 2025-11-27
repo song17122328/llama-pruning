@@ -6,29 +6,34 @@ SliceGPT 模型转换器
 
 工作原理：
 - 在 slicegpt 环境中使用 SliceGPT 官方加载器加载模型
-- 直接保存加载后的模型对象（不进行结构转换）
+- 使用 dill 序列化保存模型对象（支持 SliceGPT 的动态类）
 - 保留 SliceGPT 的所有特殊组件（旋转矩阵、融合的 LayerNorm 等）
-- 生成的 .bin 文件可以在 base 环境中使用 torch.load() 直接加载
+- 生成的 .bin 文件可以在 base 环境中使用 dill 加载
 
 注意：
+- 需要安装 dill 包：pip install dill
 - 不会将 SliceGPT 模型转换为标准 Llama 结构（无法实现）
 - 保存的模型包含 SliceGPT 特有的结构修改
 - 生成的 .bin 文件可能比其他剪枝方法的文件略大
 
 使用场景：
 1. 在 slicegpt 环境中运行此脚本保存模型
-2. 在 base 环境中使用保存的模型进行评估（无需 slicegpt 包）
+2. 在 base 环境中使用保存的模型进行评估（需要 dill，但无需 slicegpt 包）
 
 使用方法：
-    # 在 slicegpt 环境中运行
+    # 步骤 0: 安装 dill
     conda activate slicegpt
+    pip install dill
+
+    # 步骤 1: 在 slicegpt 环境中转换
     python evaluation/convert_slicegpt_model.py \
         --slicegpt_model results/SliceGPT_2000/Llama-3-8B-Instruct_0.2.pt \
         --base_model /newdata/LLMs/Llama-3-8B-Instruct \
         --output results/SliceGPT_2000/pruned_model.bin
 
-    # 然后在 base 环境中评估
+    # 步骤 2: 在 base 环境中评估（也需要 dill）
     conda activate base
+    pip install dill
     python evaluation/run_evaluation.py \
         --model_path results/SliceGPT_2000/pruned_model.bin \
         --metrics all \
@@ -41,6 +46,15 @@ import os
 import sys
 import pathlib
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# 尝试导入 dill（用于序列化动态创建的类）
+try:
+    import dill
+    HAS_DILL = True
+except ImportError:
+    HAS_DILL = False
+    print("⚠️  警告: 未安装 dill 包，将使用标准 pickle")
+    print("  如果遇到序列化错误，请安装: pip install dill")
 
 def main():
     parser = argparse.ArgumentParser(description='将 SliceGPT 模型转换为标准格式')
@@ -206,7 +220,20 @@ def main():
         }
     }
 
-    torch.save(save_dict, args.output)
+    # 尝试使用 dill 保存（支持动态创建的类）
+    if HAS_DILL:
+        print(f"  使用 dill 序列化（支持 SliceGPT 的动态类）...")
+        try:
+            with open(args.output, 'wb') as f:
+                dill.dump(save_dict, f)
+            print(f"  ✓ 使用 dill 保存成功")
+        except Exception as e:
+            print(f"  ✗ dill 序列化失败: {str(e)[:200]}")
+            print(f"  回退到标准 pickle...")
+            torch.save(save_dict, args.output)
+    else:
+        print(f"  使用标准 pickle 序列化...")
+        torch.save(save_dict, args.output)
 
     # 检查文件大小
     file_size_gb = os.path.getsize(args.output) / (1024**3)

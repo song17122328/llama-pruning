@@ -77,6 +77,15 @@ torch.save(save_dict, output_path)
 
 ## 使用流程
 
+### 前置要求
+
+转换脚本需要 `dill` 包来序列化 SliceGPT 的动态类：
+
+```bash
+conda activate slicegpt
+pip install dill
+```
+
 ### 步骤 1：转换模型（在 slicegpt 环境）
 
 ```bash
@@ -88,10 +97,15 @@ python evaluation/convert_slicegpt_model.py \
     --output results/SliceGPT_2000/pruned_model.bin
 ```
 
+**注意**：脚本会自动使用 `dill` 序列化（如果已安装）。如果未安装 dill，会回退到标准 pickle，但可能会失败。
+
 ### 步骤 2：评估模型（在 base 环境）
+
+base 环境也需要安装 `dill` 来加载转换后的模型：
 
 ```bash
 conda activate base
+pip install dill
 
 python evaluation/run_evaluation.py \
     --model_path results/SliceGPT_2000/pruned_model.bin \
@@ -132,13 +146,17 @@ python evaluation/run_evaluation.py \
 
 ## 常见问题
 
+**Q: 为什么需要 dill？**
+
+A: SliceGPT 在加载时动态创建模型类（`UninitializedLlamaForCausalLM`），这是一个局部类，无法被 Python 标准的 pickle 序列化。`dill` 是 pickle 的扩展，支持序列化局部定义的类和更复杂的 Python 对象。
+
 **Q: 为什么不像 Wanda/Magnitude 那样真正"转换"模型？**
 
 A: Wanda 和 Magnitude 是简单的权重剪枝（置零或删除），可以转换为标准结构。SliceGPT 使用旋转和融合，改变了模型的计算图，无法还原为标准结构。
 
 **Q: .bin 文件能在没有 slicegpt 包的环境中使用吗？**
 
-A: 可以！生成的 .bin 文件是标准的 PyTorch 序列化格式，只需 `torch.load()` 即可加载。模型对象是标准的 `nn.Module`，不依赖 slicegpt 包。
+A: 可以！生成的 .bin 文件使用 dill 序列化，可以在任何安装了 `dill` 的 Python 环境中加载。加载后的模型对象是标准的 `nn.Module`，不需要 slicegpt 包来执行推理。
 
 **Q: 如何验证转换后的模型是否正确？**
 
