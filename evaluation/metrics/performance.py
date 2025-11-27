@@ -105,7 +105,16 @@ def evaluate_zeroshot(
     try:
         # 导入 lm_eval
         import lm_eval
-        from lm_eval.models.huggingface import HFLM
+        try:
+            from lm_eval.models.huggingface import HFLM
+        except AttributeError:
+            # 如果导入失败,尝试直接导入需要的类
+            import sys
+            import importlib
+            
+            # 临时屏蔽有问题的模块
+            sys.modules['lm_eval.models.hf_audiolm'] = type(sys)('dummy')
+            from lm_eval.models.huggingface import HFLM
 
         print("开始评估（从 HuggingFace 在线加载数据集）...")
         print("首次运行可能需要下载数据集，请耐心等待...\n")

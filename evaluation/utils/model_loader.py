@@ -135,6 +135,12 @@ def load_slicegpt_model(
 
     # 提取原始模型（去掉 adapter）
     model = model_adapter.model
+    # ✅ 添加这行: 设置左填充
+    tokenizer.padding_side = 'left'
+    
+    # 确保有 pad_token
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     model.eval()
 
     # 移动到指定设备
@@ -173,7 +179,7 @@ def load_model_and_tokenizer(
     Returns:
         (model, tokenizer)
     """
-    print(f"加载模型: {model_path}")
+    print(f"加载模型: {model_path}, 设备是{device}")
 
     # 将device转换为字符串（支持 torch.device 对象和字符串）
     device_str = str(device)
@@ -198,6 +204,7 @@ def load_model_and_tokenizer(
         try:
             checkpoint = torch.load(model_path, map_location=target_device, weights_only=False)
         except (AttributeError, pickle.UnpicklingError) as e:
+            print("错误是:", str(e))
             if HAS_DILL:
                 print(f"  标准 pickle 加载失败，尝试使用 dill...")
                 with open(model_path, 'rb') as f:

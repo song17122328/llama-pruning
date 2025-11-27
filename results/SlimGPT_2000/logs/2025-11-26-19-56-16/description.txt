@@ -1,0 +1,13 @@
+- Training Parameters: 
+  - base_model: /newdata/LLMs/Llama-3-8B-Instruct
+  - pruning_ratio: 0.2
+  - output_name: SlimGPT_2000
+  - dataset: wikitext2
+  - num_samples: 128
+  - seq_len: 128
+  - max_samples: 128
+  - head_dim: 128
+  - run_evaluation: True
+  - eval_metrics: ppl,zeroshot,speed,memory
+  - finetune: False
+  - device: cuda:3
