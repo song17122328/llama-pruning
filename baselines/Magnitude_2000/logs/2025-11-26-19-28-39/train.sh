@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --output_name Magnitude_2000 --pruning_ratio 0.2 --importance_method magnitude --dataset wikitext2 --temperature 0.0 --epsilon 0 --run_evaluation ppl,zeroshot,speed,memory
