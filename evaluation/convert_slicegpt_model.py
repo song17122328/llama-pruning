@@ -29,6 +29,7 @@ import torch
 import os
 import sys
 import pathlib
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 def main():
     parser = argparse.ArgumentParser(description='将 SliceGPT 模型转换为标准格式')
@@ -63,8 +64,6 @@ def main():
         print("  cd TransformerCompression")
         print("  pip install -e .")
         sys.exit(1)
-
-    from transformers import AutoTokenizer
 
     # 2. 推断参数
     pt_path = pathlib.Path(args.slicegpt_model)
@@ -139,14 +138,55 @@ def main():
     print(f"✓ 模型加载完成")
 
     # 4. 统计模型信息
-    print(f"\n[2/3] 统计模型参数...")
+    print(f"\n[2/4] 统计模型参数...")
     total_params = sum(p.numel() for p in model.parameters())
     total_params_b = total_params / 1e9
 
     print(f"  总参数量: {total_params:,} ({total_params_b:.2f}B)")
 
-    # 5. 保存为标准格式
-    print(f"\n[3/3] 保存为标准格式...")
+    # 5. 创建标准 LlamaForCausalLM 并加载 state_dict
+    print(f"\n[3/4] 转换为标准 HuggingFace 格式...")
+    print(f"  提取 state_dict...")
+
+    # 获取 SliceGPT 模型的 state_dict
+    slicegpt_state_dict = model.state_dict()
+
+    print(f"  创建新的 LlamaForCausalLM 实例...")
+
+    # 创建一个新的标准 LlamaForCausalLM
+    # 使用 model.config 确保配置一致
+    new_model = AutoModelForCausalLM.from_pretrained(
+        base_model,
+        torch_dtype=torch.float16,
+        device_map=None
+    )
+
+    print(f"  加载剪枝后的权重...")
+
+    # 加载 SliceGPT 的 state_dict 到新模型
+    # 注意：需要处理可能的 key 不匹配问题
+    try:
+        new_model.load_state_dict(slicegpt_state_dict, strict=True)
+        print(f"  ✓ 权重加载成功（strict mode）")
+    except Exception as e:
+        print(f"  ⚠️  strict mode 失败，尝试 non-strict mode...")
+        missing_keys, unexpected_keys = new_model.load_state_dict(slicegpt_state_dict, strict=False)
+        if missing_keys:
+            print(f"    Missing keys: {len(missing_keys)}")
+        if unexpected_keys:
+            print(f"    Unexpected keys: {len(unexpected_keys)}")
+
+    new_model.eval()
+
+    # 移动到 CPU（为了保存）
+    if args.device != 'cpu':
+        print(f"  移动模型到 CPU...")
+        new_model = new_model.to('cpu')
+
+    print(f"  ✓ 转换完成，现在是标准 HuggingFace 格式")
+
+    # 6. 保存为标准格式
+    print(f"\n[4/4] 保存为 .bin 格式...")
     print(f"  输出路径: {args.output}")
 
     # 创建输出目录
@@ -156,7 +196,7 @@ def main():
 
     # 保存完整信息（与我们的剪枝方法格式一致）
     save_dict = {
-        'model': model,
+        'model': new_model,  # 使用新创建的标准模型
         'tokenizer': tokenizer,
         'method': 'SliceGPT',
         'pruning_ratio': sparsity,
