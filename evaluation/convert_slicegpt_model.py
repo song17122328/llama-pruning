@@ -144,37 +144,59 @@ def main():
 
     print(f"  总参数量: {total_params:,} ({total_params_b:.2f}B)")
 
-    # 5. 创建标准 LlamaForCausalLM 并加载 state_dict
-    print(f"\n[3/4] 转换为标准 HuggingFace 格式...")
+    # 5. 提取 state_dict 和 config
+    print(f"\n[3/4] 提取模型权重和配置...")
     print(f"  提取 state_dict...")
 
     # 获取 SliceGPT 模型的 state_dict
     slicegpt_state_dict = model.state_dict()
 
-    print(f"  创建新的 LlamaForCausalLM 实例...")
+    print(f"  提取 config（剪枝后的维度）...")
 
-    # 创建一个新的标准 LlamaForCausalLM
-    # 使用 model.config 确保配置一致
-    new_model = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        torch_dtype=torch.float16,
-        device_map=None
-    )
+    # 获取剪枝后的 config
+    slicegpt_config = model.config
+
+    # 打印关键维度信息
+    print(f"    - hidden_size: {slicegpt_config.hidden_size}")
+    print(f"    - intermediate_size: {slicegpt_config.intermediate_size}")
+    print(f"    - num_attention_heads: {slicegpt_config.num_attention_heads}")
+    print(f"    - num_key_value_heads: {slicegpt_config.num_key_value_heads}")
+
+    # 检查是否真的被剪枝了
+    from transformers import AutoConfig
+    original_config = AutoConfig.from_pretrained(base_model)
+
+    if slicegpt_config.hidden_size != original_config.hidden_size:
+        print(f"  ✓ 检测到结构化剪枝:")
+        print(f"    原始 hidden_size: {original_config.hidden_size}")
+        print(f"    剪枝后 hidden_size: {slicegpt_config.hidden_size}")
+        print(f"    实际剪枝率: {(1 - slicegpt_config.hidden_size / original_config.hidden_size) * 100:.2f}%")
+    else:
+        print(f"  ⚠️  警告: hidden_size 未改变，可能不是结构化剪枝")
+
+    print(f"\n  创建符合剪枝后维度的新模型...")
+
+    # 使用剪枝后的 config 创建新模型（不加载权重）
+    from transformers import LlamaForCausalLM, LlamaConfig
+
+    # 使用 SliceGPT 的 config（已经是剪枝后的维度）
+    new_model = LlamaForCausalLM(slicegpt_config)
 
     print(f"  加载剪枝后的权重...")
 
     # 加载 SliceGPT 的 state_dict 到新模型
-    # 注意：需要处理可能的 key 不匹配问题
+    # 现在维度应该完全匹配
     try:
         new_model.load_state_dict(slicegpt_state_dict, strict=True)
         print(f"  ✓ 权重加载成功（strict mode）")
     except Exception as e:
-        print(f"  ⚠️  strict mode 失败，尝试 non-strict mode...")
+        print(f"  ⚠️  strict mode 失败: {str(e)[:100]}")
+        print(f"  尝试 non-strict mode...")
         missing_keys, unexpected_keys = new_model.load_state_dict(slicegpt_state_dict, strict=False)
         if missing_keys:
-            print(f"    Missing keys: {len(missing_keys)}")
+            print(f"    Missing keys ({len(missing_keys)}): {missing_keys[:3]}...")
         if unexpected_keys:
-            print(f"    Unexpected keys: {len(unexpected_keys)}")
+            print(f"    Unexpected keys ({len(unexpected_keys)}): {unexpected_keys[:3]}...")
 
     new_model.eval()
 
@@ -183,7 +205,15 @@ def main():
         print(f"  移动模型到 CPU...")
         new_model = new_model.to('cpu')
 
-    print(f"  ✓ 转换完成，现在是标准 HuggingFace 格式")
+    # 验证参数数量
+    new_total_params = sum(p.numel() for p in new_model.parameters())
+    print(f"  ✓ 转换完成")
+    print(f"    新模型参数: {new_total_params:,} ({new_total_params/1e9:.2f}B)")
+
+    if new_total_params != total_params:
+        print(f"  ⚠️  警告: 参数数量不匹配")
+        print(f"    原模型: {total_params:,}")
+        print(f"    新模型: {new_total_params:,}")
 
     # 6. 保存为标准格式
     print(f"\n[4/4] 保存为 .bin 格式...")
