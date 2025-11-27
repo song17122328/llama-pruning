@@ -241,6 +241,12 @@ def analyze_standard_models(
                 json.dump(comparison_result, f, indent=2, ensure_ascii=False)
             print(f"✓ 对比结果已保存: {comparison_json_path}")
 
+            # 2.1 同时保存为 pruning_comparison.json（兼容可视化工具）
+            pruning_comparison_path = analysis_dir / "pruning_comparison.json"
+            with open(pruning_comparison_path, 'w', encoding='utf-8') as f:
+                json.dump(comparison_result, f, indent=2, ensure_ascii=False)
+            print(f"✓ 剪枝对比已保存: {pruning_comparison_path}")
+
             # 3. 保存摘要（TXT）
             summary_path = analysis_dir / "structure_summary.txt"
             with open(summary_path, 'w', encoding='utf-8') as f:
