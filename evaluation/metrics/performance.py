@@ -147,22 +147,47 @@ def evaluate_zeroshot(
             )
 
             # 使用包装后的模型进行评估
-            results = lm_eval.simple_evaluate(
-                model=lm,
-                tasks=tasks,
-                log_samples=False,
-                verbosity="INFO"  # 显示更多信息
-            )
+            # 尝试使用 verbosity 参数（新版本），如果失败则不使用（旧版本）
+            try:
+                results = lm_eval.simple_evaluate(
+                    model=lm,
+                    tasks=tasks,
+                    log_samples=False,
+                    verbosity="INFO"
+                )
+            except TypeError as e:
+                if "verbosity" in str(e):
+                    print("  注意: lm-eval 版本不支持 verbosity 参数，使用默认设置")
+                    results = lm_eval.simple_evaluate(
+                        model=lm,
+                        tasks=tasks,
+                        log_samples=False
+                    )
+                else:
+                    raise
         elif model_path:
             # HF格式，直接使用路径
-            results = lm_eval.simple_evaluate(
-                model="hf",
-                model_args=f"pretrained={model_path},dtype=float16,device={device}",
-                tasks=tasks,
-                batch_size=batch_size,
-                log_samples=False,
-                verbosity="INFO"  # 显示更多信息
-            )
+            try:
+                results = lm_eval.simple_evaluate(
+                    model="hf",
+                    model_args=f"pretrained={model_path},dtype=float16,device={device}",
+                    tasks=tasks,
+                    batch_size=batch_size,
+                    log_samples=False,
+                    verbosity="INFO"
+                )
+            except TypeError as e:
+                if "verbosity" in str(e):
+                    print("  注意: lm-eval 版本不支持 verbosity 参数，使用默认设置")
+                    results = lm_eval.simple_evaluate(
+                        model="hf",
+                        model_args=f"pretrained={model_path},dtype=float16,device={device}",
+                        tasks=tasks,
+                        batch_size=batch_size,
+                        log_samples=False
+                    )
+                else:
+                    raise
         else:
             raise ValueError("必须提供 model_path 或 model/tokenizer")
 
