@@ -3,6 +3,6 @@
 包含模型微调等功能
 """
 
-from .finetuner import FineTuner
+from .lora_finetuner import LoRAFineTuner
 
-__all__ = ['FineTuner']
+__all__ = ['LoRAFineTuner']

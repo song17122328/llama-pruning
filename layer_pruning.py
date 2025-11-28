@@ -33,7 +33,7 @@ from core import (
     get_examples,
     get_examples_from_text,
     # 训练
-    FineTuner,
+    LoRAFineTuner,
     # 工具
     LoggerWithDepth,
 )
@@ -956,19 +956,15 @@ def main():
         logger.log("步骤9: 微调剪枝后的模型")
         logger.log("=" * 60)
 
-        # 创建微调器
-        use_lora = (args.finetune_method == 'lora')
-        finetuner = FineTuner(
+        # 创建 LoRA 微调器（只支持 LoRA 微调）
+        finetuner = LoRAFineTuner(
             model,
             tokenizer,
             device=args.device,
             logger=logger,
-            use_lora=use_lora,
-            lora_r=args.lora_r if use_lora else 8,
-            lora_alpha=args.lora_alpha if use_lora else 16,
-            lora_dropout=args.lora_dropout if use_lora else 0.05,
-            lora_target_attention=args.lora_target_attention if use_lora else True,
-            lora_target_mlp=args.lora_target_mlp if use_lora else True
+            lora_r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            lora_dropout=args.lora_dropout
         )
 
         # 执行微调
@@ -997,7 +993,7 @@ def main():
 
         finetuned_path = logger.best_checkpoint_path.replace('.bin', '_finetuned.bin')
 
-        # 使用 FineTuner 的保存方法
+        # 使用 LoRAFineTuner 的保存方法
         extra_info = args.__dict__.copy()
         extra_info.update({
             'attention_pruning_rates': attn_layer_pruning_rates,

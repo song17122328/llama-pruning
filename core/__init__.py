@@ -37,7 +37,7 @@ from .datasets import (
 )
 
 # 训练
-from .trainer.finetuner import FineTuner
+from .trainer.lora_finetuner import LoRAFineTuner
 
 # 工具
 from .utils.logger import LoggerWithDepth
@@ -75,7 +75,7 @@ __all__ = [
     'create_dataset_manager',
 
     # 训练
-    'FineTuner',
+    'LoRAFineTuner',
 
     # 工具
     'LoggerWithDepth',
