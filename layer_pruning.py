@@ -18,7 +18,7 @@ import json
 import torch
 import argparse
 import numpy as np
-from transformers import AutoTokenizer, LlamaForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from core import (
     # 剪枝方法
@@ -37,6 +37,35 @@ from core import (
     # 工具
     LoggerWithDepth,
 )
+
+
+def get_model_gqa_config(model):
+    """
+    自动检测模型的 GQA 配置
+
+    支持 LLaMA、Mistral、Qwen 等模型的自动配置检测
+
+    Args:
+        model: HuggingFace model
+
+    Returns:
+        tuple: (num_attention_heads, num_key_value_heads, gqa_ratio, head_dim)
+    """
+    config = model.config
+
+    # 获取 attention heads 数量
+    num_attention_heads = config.num_attention_heads
+    # 有些模型可能没有 num_key_value_heads 字段（如旧的 MHA 模型）
+    num_key_value_heads = getattr(config, 'num_key_value_heads', num_attention_heads)
+
+    # 计算 GQA ratio
+    gqa_ratio = num_attention_heads // num_key_value_heads
+
+    # 计算 head_dim
+    hidden_size = config.hidden_size
+    head_dim = hidden_size // num_attention_heads
+
+    return num_attention_heads, num_key_value_heads, gqa_ratio, head_dim
 
 
 def count_attention_params(layer):
@@ -260,7 +289,7 @@ def main():
         tokenizer.pad_token_id = tokenizer.eos_token_id
         logger.log("设置 pad_token = eos_token")
 
-    model = LlamaForCausalLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         args.base_model,
         device_map=args.device,
         torch_dtype=torch.float16,
@@ -271,8 +300,29 @@ def main():
     for param in model.parameters():
         param.requires_grad_(True)
 
+    # 自动检测模型的 GQA 配置
+    num_q_heads, num_kv_heads, detected_gqa_ratio, detected_head_dim = get_model_gqa_config(model)
+
+    logger.log(f"\n检测到的模型配置:")
+    logger.log(f"  模型类型: {model.config.model_type}")
+    logger.log(f"  Q Heads: {num_q_heads}")
+    logger.log(f"  KV Heads: {num_kv_heads}")
+    logger.log(f"  GQA Ratio: {detected_gqa_ratio}:1")
+    logger.log(f"  Head Dim: {detected_head_dim}")
+
+    # 自动更新配置（如果与命令行参数不同，使用检测到的值）
+    if args.gqa_ratio != detected_gqa_ratio:
+        logger.log(f"\n⚠️  命令行指定 gqa_ratio={args.gqa_ratio}，但检测到 {detected_gqa_ratio}")
+        logger.log(f"  将使用检测到的值: {detected_gqa_ratio}")
+        args.gqa_ratio = detected_gqa_ratio
+
+    if args.head_dim != detected_head_dim:
+        logger.log(f"\n⚠️  命令行指定 head_dim={args.head_dim}，但检测到 {detected_head_dim}")
+        logger.log(f"  将使用检测到的值: {detected_head_dim}")
+        args.head_dim = detected_head_dim
+
     num_layers = len(model.model.layers)
-    logger.log(f"模型总层数: {num_layers}")
+    logger.log(f"\n模型总层数: {num_layers}")
 
     # 统计剪枝前参数量（所有参数）
     before_pruning_parameters = sum(p.numel() for p in model.parameters())
