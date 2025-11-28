@@ -144,9 +144,18 @@ data/
 *.safetensors
 prune_log/
 wandb/
-__pycache__/
-*.pyc
-__pycache__/
-*.pyc
-*.bin
+
+# Outputs and results
+outputs/
 pruning_charts/
+baselines_analysis/
+*.xlsx
+*.csv
+*.html
+summary_table.*
+
+# Temporary and test files
+test_*.py
+*_test.py
+*.tmp
+*.bak
