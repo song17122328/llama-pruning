@@ -3,7 +3,7 @@
 为每个剪枝模型生成剪枝比例和保留比例的直方图
 
 用法:
-    python generate_pruning_charts.py --result_dir results
+    python /core/visualization/generate_pruning_charts.py --result_dir results
     python generate_pruning_charts.py --result_dir results --output_dir charts
 """
 
