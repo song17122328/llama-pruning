@@ -924,7 +924,7 @@ def main():
 
         total_time = time.time() - start_time
         logger.log(f"✓ 梯度计算完成")
-        logger.log(f"  平均 loss: {total_loss:.4f}")
+        logger.log(f"  平均 loss: {total_loss/num_layers:.4f}")
         logger.log(f"  总耗时: {total_time:.2f}s ({total_time/60:.2f}min)")
         logger.log(f"  平均每批次: {total_time/num_batches:.2f}s")
 
