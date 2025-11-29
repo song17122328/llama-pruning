@@ -403,7 +403,9 @@ def build_global_group_table(
     layer_removal_ppl=None,
     block_removal_ppl=None,
     temperature=1.0,
-    tau=None
+    tau=None,
+    freeze_first_n_layers=0,
+    freeze_last_n_layers=0
 ) -> pd.DataFrame:
     """
     构建全局 Group 分析表（H-GSP 统一算法）
@@ -435,6 +437,8 @@ def build_global_group_table(
             - tau=0: 纯 Block-wise
             - tau=inf: 纯 Layer-wise
             - tau=None: 自动计算（推荐）
+        freeze_first_n_layers: 冻结前N层不剪枝（默认: 0）
+        freeze_last_n_layers: 冻结后N层不剪枝（默认: 0）
 
     Returns:
         DataFrame with columns: layer_idx, group_type, group_idx, importance, cost, score
@@ -511,9 +515,32 @@ def build_global_group_table(
     print(f"\n层范围: [{layer_start}, {layer_end})")
     print(f"总层数: {num_layers}")
 
+    # 打印冻结层信息
+    if freeze_first_n_layers > 0 or freeze_last_n_layers > 0:
+        frozen_layers = []
+        if freeze_first_n_layers > 0:
+            frozen_layers.extend(list(range(layer_start, min(layer_start + freeze_first_n_layers, layer_end))))
+        if freeze_last_n_layers > 0:
+            frozen_layers.extend(list(range(max(layer_end - freeze_last_n_layers, layer_start), layer_end)))
+        print(f"\n冻结层配置:")
+        print(f"  冻结前N层: {freeze_first_n_layers}")
+        print(f"  冻结后N层: {freeze_last_n_layers}")
+        print(f"  冻结的层索引: {sorted(set(frozen_layers))}")
+        print(f"  ✓ 这些层将被保护，不会被剪枝")
+
     all_groups = []
 
     for layer_idx in range(layer_start, layer_end):
+        # 跳过冻结的层
+        is_frozen = False
+        if freeze_first_n_layers > 0 and layer_idx < layer_start + freeze_first_n_layers:
+            is_frozen = True
+        if freeze_last_n_layers > 0 and layer_idx >= layer_end - freeze_last_n_layers:
+            is_frozen = True
+
+        if is_frozen:
+            continue  # 跳过冻结的层
+
         layer = model.model.layers[layer_idx]
 
         # ========== Attention Groups ==========

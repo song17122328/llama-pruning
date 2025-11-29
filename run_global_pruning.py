@@ -649,6 +649,12 @@ def main():
     parser.add_argument('--epsilon', type=float, default=0,
                        help='H-GSP 坍缩阈值 ε（默认: 0）')
 
+    # 层冻结参数
+    parser.add_argument('--freeze_first_n_layers', type=int, default=0,
+                       help='冻结前N层不剪枝（默认: 0）')
+    parser.add_argument('--freeze_last_n_layers', type=int, default=0,
+                       help='冻结后N层不剪枝（默认: 0）')
+
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
                        help='Attention head 维度（默认: 128）')
@@ -1093,7 +1099,9 @@ def main():
         layer_removal_ppl=layer_removal_ppl,    # H-GSP: 层级重要性
         block_removal_ppl=block_removal_ppl,    # H-GSP: 块级重要性
         temperature=args.temperature,           # H-GSP: 温度参数 T
-        tau=args.tau                           # H-GSP: 门控阈值 τ
+        tau=args.tau,                          # H-GSP: 门控阈值 τ
+        freeze_first_n_layers=args.freeze_first_n_layers,  # 冻结前N层
+        freeze_last_n_layers=args.freeze_last_n_layers     # 冻结后N层
     )
 
     logger.log(f"✓ 分析表构建完成")
