@@ -1045,16 +1045,16 @@ def main():
         # 创建分析器
         analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
 
-        # 计算每层的重要性（使用相似度方法，避免兼容性问题）
+        # 计算每层的重要性（使用loss增加值方法）
         num_layers = len(model.model.layers)
-        layer_removal_ppl = analyzer.measure_layer_importance_by_similarity(
+        layer_removal_ppl = analyzer.measure_layer_importance_by_removal(
             texts=layer_texts_list,
             num_layers=num_layers
         )
 
-        logger.log(f"✓ 层重要性计算完成（相似度方法）")
+        logger.log(f"✓ 层重要性计算完成（loss增加值方法）")
         print("\n" + "="*60)
-        print("层级重要度（1 - 余弦相似度）")
+        print("层级重要度（移除层后的loss增加值）")
         print("="*60)
         for layer_idx in range(num_layers):
             importance = layer_removal_ppl.get(layer_idx, 0.0)
@@ -1062,14 +1062,14 @@ def main():
 
         # 保存层重要性到分析目录
         import json
-        layer_importance_path = os.path.join(output_dirs['analysis'], 'layer_importance_similarity.json')
+        layer_importance_path = os.path.join(output_dirs['analysis'], 'layer_importance_loss.json')
         with open(layer_importance_path, 'w') as f:
             json.dump(layer_removal_ppl, f, indent=2)
         logger.log(f"✓ 层重要性已保存: {layer_importance_path}")
 
         # ========== Step 3.6: 计算块重要性（H-GSP Block-wise 重要性）==========
         logger.log(f"\n[Step 3.6] 计算块重要性（H-GSP Block-wise 重要性）...")
-        logger.log(f"  方法: 基于相似度（ShortGPT 方法）")
+        logger.log(f"  方法: 基于loss增加值（移除块后的loss变化）")
         logger.log(f"  样本数: {BLOCK_IMPORTANCE_NUM_SAMPLES}, 序列长度: {BLOCK_IMPORTANCE_SEQ_LEN} (内部固定)")
 
         # 加载用于块重要性分析的样本（文本格式）
@@ -1078,18 +1078,18 @@ def main():
             seq_len=BLOCK_IMPORTANCE_SEQ_LEN
         )
 
-        # 计算每层的 Attention 和 MLP 块重要性（使用相似度方法）
-        block_removal_ppl = analyzer.measure_block_importance_by_similarity(
+        # 计算每层的 Attention 和 MLP 块重要性（使用loss增加值方法）
+        block_removal_ppl = analyzer.measure_block_importance_by_removal(
             texts=block_texts_list,
             num_layers=num_layers
         )
 
-        logger.log(f"✓ 块重要性计算完成（相似度方法）")
+        logger.log(f"✓ 块重要性计算完成（loss增加值方法）")
         logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
         logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
 
         # 保存块重要性到分析目录
-        block_importance_path = os.path.join(output_dirs['analysis'], 'block_importance_similarity.json')
+        block_importance_path = os.path.join(output_dirs['analysis'], 'block_importance_loss.json')
         with open(block_importance_path, 'w') as f:
             json.dump(block_removal_ppl, f, indent=2)
         logger.log(f"✓ 块重要性已保存: {block_importance_path}")

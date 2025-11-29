@@ -27,18 +27,21 @@ class LayerImportanceAnalyzer:
         self.device = device
         self.model.eval()
 
-    def compute_perplexity(self, texts: List[str], show_progress: bool = True) -> float:
-        """计算困惑度
+    def compute_loss(self, texts: List[str], show_progress: bool = True) -> float:
+        """计算平均损失值
 
         Args:
             texts: 文本列表
             show_progress: 是否显示进度条（默认True）
+
+        Returns:
+            float: 平均每token的loss值
         """
         total_loss = 0
         total_tokens = 0
 
         with torch.no_grad():
-            iterator = tqdm(texts, desc="计算困惑度", disable=not show_progress)
+            iterator = tqdm(texts, desc="计算损失", disable=not show_progress)
             for text in iterator:
                 inputs = self.tokenizer(text, return_tensors="pt",
                                        truncation=True, max_length=512)
@@ -50,25 +53,38 @@ class LayerImportanceAnalyzer:
                 total_loss += outputs.loss.item() * inputs["input_ids"].size(1)
                 total_tokens += inputs["input_ids"].size(1)
 
-        return np.exp(total_loss / total_tokens)
+        return total_loss / total_tokens
+
+    def compute_perplexity(self, texts: List[str], show_progress: bool = True) -> float:
+        """计算困惑度（PPL = exp(average_loss)）
+
+        Args:
+            texts: 文本列表
+            show_progress: 是否显示进度条（默认True）
+
+        Returns:
+            float: 困惑度值
+        """
+        avg_loss = self.compute_loss(texts, show_progress)
+        return np.exp(avg_loss)
 
     def measure_layer_importance_by_removal(self, texts: List[str],
                                            num_layers: int) -> Dict[int, float]:
         """
-        通过移除层来评估重要性（困惑度变化）
-        重要性 = 移除该层后的困惑度增加量
+        通过移除层来评估重要性（loss变化）
+        重要性 = 移除该层后的loss增加量
         """
-        baseline_ppl = self.compute_perplexity(texts, show_progress=False)
+        baseline_loss = self.compute_loss(texts, show_progress=False)
         layer_importance = {}
 
         # 使用单一进度条显示所有信息
-        pbar = tqdm(range(num_layers), desc="分析层重要性", ncols=100)
+        pbar = tqdm(range(num_layers), desc="分析层重要性（loss方法）", ncols=100)
 
         for layer_idx in pbar:
             # 保存原始forward函数
             original_forward = self.model.model.layers[layer_idx].forward
 
-            # 定义恒等映射函数
+            # 定义恒等映射函数（跳过该层）
             def identity_forward(hidden_states, *args, **kwargs):
                 # 直接返回输入的hidden_states，跳过该层的计算
                 # Llama 的 DecoderLayer forward 返回格式：
@@ -95,15 +111,15 @@ class LayerImportanceAnalyzer:
             self.model.model.layers[layer_idx].forward = identity_forward
 
             try:
-                ppl = self.compute_perplexity(texts, show_progress=False)
-                importance = ppl - baseline_ppl  # 困惑度增加越多，该层越重要
+                loss = self.compute_loss(texts, show_progress=False)
+                importance = loss - baseline_loss  # loss增加越多，该层越重要
                 layer_importance[layer_idx] = importance
 
                 # 在进度条上显示关键信息
                 pbar.set_postfix({
-                    'baseline': f'{baseline_ppl:.2f}',
-                    'current': f'{ppl:.2f}',
-                    'delta': f'+{importance:.2f}'
+                    'baseline': f'{baseline_loss:.4f}',
+                    'current': f'{loss:.4f}',
+                    'delta': f'+{importance:.4f}'
                 })
             finally:
                 # 无论是否出错，都要恢复该层
@@ -115,7 +131,7 @@ class LayerImportanceAnalyzer:
     def measure_block_importance_by_removal(self, texts: List[str],
                                            num_layers: int) -> Dict[str, Dict[int, float]]:
         """
-        通过移除块（Attention或MLP）来评估重要性
+        通过移除块（Attention或MLP）来评估重要性（loss方法）
 
         Args:
             texts: 测试文本列表
@@ -125,13 +141,14 @@ class LayerImportanceAnalyzer:
             Dict包含两个键:
             - 'attention': {layer_idx: importance, ...}
             - 'mlp': {layer_idx: importance, ...}
+            重要性 = 移除该块后的loss增加量
         """
-        baseline_ppl = self.compute_perplexity(texts, show_progress=False)
+        baseline_loss = self.compute_loss(texts, show_progress=False)
         attention_importance = {}
         mlp_importance = {}
 
         # 评估每层的 Attention 重要性
-        pbar = tqdm(range(num_layers), desc="分析 Attention 块", ncols=100)
+        pbar = tqdm(range(num_layers), desc="分析 Attention 块（loss方法）", ncols=100)
         for layer_idx in pbar:
             layer = self.model.model.layers[layer_idx]
 
@@ -148,15 +165,15 @@ class LayerImportanceAnalyzer:
             layer.self_attn.forward = identity_attn_forward
 
             try:
-                ppl = self.compute_perplexity(texts, show_progress=False)
-                importance = ppl - baseline_ppl
+                loss = self.compute_loss(texts, show_progress=False)
+                importance = loss - baseline_loss  # loss增加越多，该块越重要
                 attention_importance[layer_idx] = importance
 
                 # 在进度条上显示关键信息
                 pbar.set_postfix({
-                    'baseline': f'{baseline_ppl:.2f}',
-                    'current': f'{ppl:.2f}',
-                    'delta': f'+{importance:.2f}'
+                    'baseline': f'{baseline_loss:.4f}',
+                    'current': f'{loss:.4f}',
+                    'delta': f'+{importance:.4f}'
                 })
             finally:
                 layer.self_attn.forward = original_attn_forward
@@ -164,7 +181,7 @@ class LayerImportanceAnalyzer:
         pbar.close()
 
         # 评估每层的 MLP 重要性
-        pbar = tqdm(range(num_layers), desc="分析 MLP 块", ncols=100)
+        pbar = tqdm(range(num_layers), desc="分析 MLP 块（loss方法）", ncols=100)
         for layer_idx in pbar:
             layer = self.model.model.layers[layer_idx]
 
@@ -179,15 +196,15 @@ class LayerImportanceAnalyzer:
             layer.mlp.forward = identity_mlp_forward
 
             try:
-                ppl = self.compute_perplexity(texts, show_progress=False)
-                importance = ppl - baseline_ppl
+                loss = self.compute_loss(texts, show_progress=False)
+                importance = loss - baseline_loss  # loss增加越多，该块越重要
                 mlp_importance[layer_idx] = importance
 
                 # 在进度条上显示关键信息
                 pbar.set_postfix({
-                    'baseline': f'{baseline_ppl:.2f}',
-                    'current': f'{ppl:.2f}',
-                    'delta': f'+{importance:.2f}'
+                    'baseline': f'{baseline_loss:.4f}',
+                    'current': f'{loss:.4f}',
+                    'delta': f'+{importance:.4f}'
                 })
             finally:
                 layer.mlp.forward = original_mlp_forward
