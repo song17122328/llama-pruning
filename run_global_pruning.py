@@ -645,7 +645,10 @@ def main():
     parser.add_argument('--temperature', type=float, default=1.0,
                        help='H-GSP 温度参数 T,当temperature为0时表示只用全局Taylor（默认: 1.0，推荐范围: 0.5-2.0）')
     parser.add_argument('--tau', type=float, default=None,
-                       help='H-GSP 门控阈值 τ（默认: None 自动计算）')
+                       help='H-GSP 门控阈值 τ（默认: None 自动计算25分位数）\n'
+                            '  - tau=0: 纯 Block-wise 模式（只用块级重要性）\n'
+                            '  - tau=inf: 纯 Layer-wise 模式（只用层级重要性）\n'
+                            '  - tau=None: 自动模式（推荐，根据数据自适应）')
     parser.add_argument('--epsilon', type=float, default=0,
                        help='H-GSP 坍缩阈值 ε（默认: 0）')
 

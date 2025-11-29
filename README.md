@@ -142,8 +142,17 @@ python run_global_pruning.py \
 - `--pruning_ratio`: 目标剪枝率（0.2 = 20%）
 - `--importance_method`: taylor（一阶，默认）/ taylor_2nd（二阶）/ wanda / magnitude
 - `--dataset`: 校准数据集（wikitext2 / ptb / c4，默认 wikitext2）
-- `--temperature`: H-GSP 温度参数（默认 0）
-- `--epsilon`: H-GSP 坍缩阈值（默认 0.15）
+- `--temperature`: H-GSP 温度参数 T（默认 1.0）
+  - `T=0`: 纯 Taylor 模式（跳过层/块重要性分析，最快）
+  - `T=1`: 推荐模式（平衡基础方法与层级先验）
+  - `T>1`: 激进模式（强化首尾保护）
+- `--tau`: H-GSP 门控阈值 τ（默认 None 自动计算）
+  - `tau=0`: 纯 Block-wise 模式（只使用块级重要性）
+  - `tau=None`: 自动模式（计算25分位数，推荐）
+  - `tau=inf`: 纯 Layer-wise 模式（只使用层级重要性）
+- `--epsilon`: H-GSP 坍缩阈值 ε（默认 0）
+- `--freeze_first_n_layers`: 冻结前N层不剪枝（默认 0）
+- `--freeze_last_n_layers`: 冻结后N层不剪枝（默认 0）
 
 **典型结果**（LLaMA-3-8B）：
 - 原始模型：WikiText-2 PPL ~12.3
@@ -186,6 +195,121 @@ python finetune_lora.py \
 - `--lora_alpha`: 缩放系数（通常 = 2×r）
 - `--finetune_lr`: 学习率（推荐 3e-4）
 - `--finetune_epochs`: 微调轮数（推荐 3-5）
+
+## 🎯 H-GSP 方法详解
+
+### 核心思想
+
+H-GSP (Hierarchical Global Structural Pruning) 是一种分层次的全局结构化剪枝方法，结合了**全局 Taylor 重要性**和**层级/块级先验知识**。
+
+### 评分公式
+
+```
+基础评分: S_base = Importance / Cost
+
+混合加权: S_final = S_base × M
+
+其中: M = B^T
+      B = ln(1 + importance_prior)
+      T = temperature (温度参数)
+```
+
+### 参数详解
+
+#### 1. Temperature (温度 T)
+
+控制层级先验的影响强度：
+
+- **T=0** (纯 Taylor 模式)
+  ```bash
+  python run_global_pruning.py \
+    --base_model /path/to/model \
+    --pruning_ratio 0.2 \
+    --temperature 0.0  # 最快，跳过层/块重要性分析
+  ```
+  - ✅ 只使用全局 Taylor 重要性
+  - ✅ 最快（跳过 Step 3.5-3.6）
+  - ✅ 适用于所有模型（无兼容性问题）
+  - ⚠️ 不考虑层级结构
+
+- **T=1** (推荐模式)
+  ```bash
+  python run_global_pruning.py \
+    --base_model /path/to/model \
+    --pruning_ratio 0.2 \
+    --temperature 1.0  # 推荐，平衡性能
+  ```
+  - ✅ 平衡基础方法与层级先验
+  - ✅ 自动保护重要层的首尾
+  - ✅ 使用相似度方法（ShortGPT）
+
+- **T>1** (激进模式)
+  - 强化首尾保护，更激进地剪枝中间层
+
+#### 2. Tau (门控阈值 τ)
+
+控制 Layer-wise 和 Block-wise 模式的切换：
+
+- **tau=0** (纯 Block-wise)
+  ```bash
+  python run_global_pruning.py \
+    --base_model /path/to/model \
+    --pruning_ratio 0.2 \
+    --temperature 1.0 \
+    --tau 0  # 强制使用块级重要性
+  ```
+  - 所有层都使用 Attention/MLP 块级重要性
+  - 精细化剪枝策略
+
+- **tau=None** (自动模式，推荐)
+  ```bash
+  python run_global_pruning.py \
+    --base_model /path/to/model \
+    --pruning_ratio 0.2 \
+    --temperature 1.0
+    # tau 默认 None，自动计算
+  ```
+  - 自动计算 τ = 25分位数(层重要性)
+  - 低于 τ 的层 → Layer-Dominant 模式
+  - 高于 τ 的层 → Block-Dominant 模式
+
+- **tau=inf** (纯 Layer-wise)
+  ```bash
+  python run_global_pruning.py \
+    --base_model /path/to/model \
+    --pruning_ratio 0.2 \
+    --temperature 1.0 \
+    --tau inf  # 强制使用层级重要性
+  ```
+  - 所有层都使用层级重要性
+  - 鼓励整层移除
+
+#### 3. 层冻结参数
+
+保护模型的首尾层不被剪枝：
+
+```bash
+python run_global_pruning.py \
+  --base_model /path/to/model \
+  --pruning_ratio 0.2 \
+  --freeze_first_n_layers 2  # 冻结前2层
+  --freeze_last_n_layers 2   # 冻结后2层
+```
+
+### 重要性计算方法
+
+**相似度方法（ShortGPT，默认）**：
+- 层重要性 = 1 - cosine_similarity(层输入, 层输出)
+- 块重要性 = 1 - cosine_similarity(块输入, 块输出)
+- ✅ 对所有模型通用（Qwen、Mistral等）
+- ✅ 无需移除层，避免兼容性问题
+- ✅ 计算高效
+
+### 使用建议
+
+1. **快速实验**：使用 `--temperature 0.0`（纯 Taylor）
+2. **最佳性能**：使用 `--temperature 1.0`（H-GSP，推荐）
+3. **保护首尾**：使用 `--freeze_first_n_layers` 和 `--freeze_last_n_layers`
 
 ## 📈 评估
 
