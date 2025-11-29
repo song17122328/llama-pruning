@@ -37,10 +37,8 @@ results/
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/global_prune_20 \
-  --target_sparsity 0.2 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.2 \
+  --device cuda:0
 ```
 
 #### 30% 稀疏度
@@ -48,10 +46,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/global_prune_30 \
-  --target_sparsity 0.3 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.3 \
+  --device cuda:0
 ```
 
 #### 50% 稀疏度（极端测试）
@@ -59,10 +55,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/global_prune_50 \
-  --target_sparsity 0.5 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.5 \
+  --device cuda:0
 ```
 
 ---
@@ -79,10 +73,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/global_prune_20 \
-  --target_sparsity 0.2 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.2 \
+  --device cuda:0
 ```
 
 #### 30% 稀疏度
@@ -90,10 +82,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/global_prune_30 \
-  --target_sparsity 0.3 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.3 \
+  --device cuda:0
 ```
 
 #### 50% 稀疏度
@@ -101,10 +91,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/global_prune_50 \
-  --target_sparsity 0.5 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.5 \
+  --device cuda:0
 ```
 
 ---
@@ -121,10 +109,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/global_prune_20 \
-  --target_sparsity 0.2 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.2 \
+  --device cuda:0
 ```
 
 #### 30% 稀疏度
@@ -132,10 +118,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/global_prune_30 \
-  --target_sparsity 0.3 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.3 \
+  --device cuda:0
 ```
 
 #### 50% 稀疏度
@@ -143,10 +127,8 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/global_prune_50 \
-  --target_sparsity 0.5 \
-  --nsamples 128 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.5 \
+  --device cuda:0
 ```
 
 ---
@@ -162,7 +144,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/prune_20_finetune \
-  --target_sparsity 0.2 \
+  --pruning_ratio 0.2 \
   --finetune \
   --finetune_data_path yahma/alpaca-cleaned \
   --finetune_epochs 3 \
@@ -171,32 +153,29 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --finetune_micro_batch_size 4 \
   --lora_r 8 \
   --lora_alpha 16 \
-  --device cuda:0 \
-  --save_model
+  --device cuda:0
 
 # Qwen 2.5 7B - 20% 剪枝 + 微调
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/prune_20_finetune \
-  --target_sparsity 0.2 \
+  --pruning_ratio 0.2 \
   --finetune \
   --finetune_data_path yahma/alpaca-cleaned \
   --finetune_epochs 3 \
   --finetune_lr 3e-4 \
-  --device cuda:0 \
-  --save_model
+  --device cuda:0
 
 # Mistral 7B v0.3 - 20% 剪枝 + 微调
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/prune_20_finetune \
-  --target_sparsity 0.2 \
+  --pruning_ratio 0.2 \
   --finetune \
   --finetune_data_path yahma/alpaca-cleaned \
   --finetune_epochs 3 \
   --finetune_lr 3e-4 \
-  --device cuda:0 \
-  --save_model
+  --device cuda:0
 ```
 
 ### 独立微调
@@ -248,10 +227,10 @@ for sparsity in 0.2 0.3 0.5; do
   CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
     --base_model meta-llama/Meta-Llama-3-8B \
     --output_name LLaMA-3-8B/prune_$(echo "$sparsity * 100" | bc | cut -d. -f1) \
-    --target_sparsity $sparsity \
-    --nsamples 128 \
-    --device cuda:0 \
-    --save_model
+    --pruning_ratio $sparsity \
+    
+    --device cuda:0
+    
 done
 
 # Mistral-7B-v0.3
@@ -259,10 +238,10 @@ for sparsity in 0.2 0.3; do
   CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
     --base_model mistralai/Mistral-7B-v0.3 \
     --output_name Mistral-7B-v0.3/prune_$(echo "$sparsity * 100" | bc | cut -d. -f1) \
-    --target_sparsity $sparsity \
-    --nsamples 128 \
-    --device cuda:0 \
-    --save_model
+    --pruning_ratio $sparsity \
+    
+    --device cuda:0
+    
 done
 
 # Qwen2.5-7B
@@ -270,10 +249,10 @@ for sparsity in 0.2 0.3; do
   CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
     --base_model Qwen/Qwen2.5-7B \
     --output_name Qwen2.5-7B/prune_$(echo "$sparsity * 100" | bc | cut -d. -f1) \
-    --target_sparsity $sparsity \
-    --nsamples 128 \
-    --device cuda:0 \
-    --save_model
+    --pruning_ratio $sparsity \
+    
+    --device cuda:0
+    
 done
 ```
 
@@ -284,7 +263,7 @@ done
 ### 必需参数
 - `--base_model`: 模型路径或 HuggingFace 模型 ID
 - `--output_name`: 输出目录名（保存在 `results/{output_name}/`）
-- `--target_sparsity`: 目标稀疏度（0.2 = 20%）
+- `--pruning_ratio`: 目标稀疏度（0.2 = 20%）
 
 ### 剪枝参数
 - `--nsamples`: 校准样本数（推荐 128）
@@ -318,18 +297,16 @@ done
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/quick_test \
-  --target_sparsity 0.1 \
-  --nsamples 32 \
-  --device cuda:0 \
+  --pruning_ratio 0.1 \
+  --device cuda:0
   --skip_evaluation
 
 # 快速测试 Mistral
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/quick_test \
-  --target_sparsity 0.1 \
-  --nsamples 32 \
-  --device cuda:0 \
+  --pruning_ratio 0.1 \
+  --device cuda:0
   --skip_evaluation
 ```
 
@@ -340,17 +317,15 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/prune_20 \
-  --target_sparsity 0.2 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.2 \
+  --device cuda:0
 
 # Mistral
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/prune_20 \
-  --target_sparsity 0.2 \
-  --device cuda:0 \
-  --save_model
+  --pruning_ratio 0.2 \
+  --device cuda:0
 ```
 
 ---

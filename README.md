@@ -110,36 +110,30 @@ pip install -r requirements.txt
 python run_global_pruning.py \
     --base_model meta-llama/Meta-Llama-3-8B \
     --output_name LLaMA-3-8B/prune_20 \
-    --target_sparsity 0.2 \
-    --nsamples 128 \
-    --device cuda:0 \
-    --save_model
+    --pruning_ratio 0.2 \
+    --device cuda:0
 
 # Qwen2.5-7B（自动检测 GQA 7:1）
 python run_global_pruning.py \
     --base_model Qwen/Qwen2.5-7B \
     --output_name Qwen2.5-7B/prune_20 \
-    --target_sparsity 0.2 \
-    --nsamples 128 \
-    --device cuda:0 \
-    --save_model
+    --pruning_ratio 0.2 \
+    --device cuda:0
 
 # Mistral-7B-v0.3（自动检测 GQA 4:1）
 python run_global_pruning.py \
     --base_model mistralai/Mistral-7B-v0.3 \
     --output_name Mistral-7B-v0.3/prune_20 \
-    --target_sparsity 0.2 \
-    --nsamples 128 \
-    --device cuda:0 \
-    --save_model
+    --pruning_ratio 0.2 \
+    --device cuda:0
 ```
 
 **核心参数**：
-- `--target_sparsity`: 目标稀疏度（0.2 = 20%）
-- `--nsamples`: 重要性评估样本数（推荐 128）
-- `--importance_metric`: taylor_fo（一阶）/ taylor_so（二阶）/ magnitude
-- `--auto_remove_layers`: 自动移除剪空的层（深度剪枝）
-- `--auto_collapse`: 自动折叠稀疏层
+- `--pruning_ratio`: 目标剪枝率（0.2 = 20%）
+- `--importance_method`: taylor（一阶，默认）/ taylor_2nd（二阶）/ wanda / magnitude
+- `--dataset`: 校准数据集（wikitext2 / ptb / c4，默认 wikitext2）
+- `--temperature`: H-GSP 温度参数（默认 1.0）
+- `--epsilon`: H-GSP 坍缩阈值（默认 0.15）
 
 **典型结果**（LLaMA-3-8B）：
 - 原始模型：WikiText-2 PPL ~12.3
@@ -156,15 +150,14 @@ python run_global_pruning.py \
 python run_global_pruning.py \
     --base_model Qwen/Qwen2.5-7B \
     --output_name Qwen2.5-7B/prune_20_finetune \
-    --target_sparsity 0.2 \
+    --pruning_ratio 0.2 \
     --finetune \
     --finetune_data_path yahma/alpaca-cleaned \
     --finetune_epochs 3 \
     --finetune_lr 3e-4 \
     --lora_r 8 \
     --lora_alpha 16 \
-    --device cuda:0 \
-    --save_model
+    --device cuda:0
 
 # 或使用独立微调脚本
 python finetune_lora.py \
@@ -237,30 +230,37 @@ results/{output_name}/
 
 ## 🛠️ 高级用法
 
-### 深度剪枝（自动移除空层）
-
-```bash
-python run_global_pruning.py \
-    --target_sparsity 0.30 \
-    --auto_remove_layers \
-    --auto_collapse
-```
-
-### 跳过评估（加速实验）
-
-```bash
-python run_global_pruning.py \
-    --target_sparsity 0.20 \
-    --skip_evaluation \
-    --save_model
-```
-
 ### 使用梯度检查点（节省显存）
 
 ```bash
 python run_global_pruning.py \
-    --target_sparsity 0.20 \
+    --base_model Qwen/Qwen2.5-7B \
+    --output_name Qwen2.5-7B/prune_20 \
+    --pruning_ratio 0.2 \
     --use_gradient_checkpointing \
+    --device cuda:0
+```
+
+### 使用 Taylor 二阶（更精确）
+
+```bash
+python run_global_pruning.py \
+    --base_model Qwen/Qwen2.5-7B \
+    --output_name Qwen2.5-7B/prune_20_taylor2nd \
+    --pruning_ratio 0.2 \
+    --importance_method taylor_2nd \
+    --device cuda:0
+```
+
+### 调整 H-GSP 参数
+
+```bash
+python run_global_pruning.py \
+    --base_model Qwen/Qwen2.5-7B \
+    --output_name Qwen2.5-7B/prune_30 \
+    --pruning_ratio 0.3 \
+    --temperature 1.5 \
+    --epsilon 0.2 \
     --device cuda:0
 ```
 
@@ -268,15 +268,15 @@ python run_global_pruning.py \
 
 **CUDA OOM**：
 ```bash
---nsamples 32                    # 减少样本数
 --use_gradient_checkpointing     # 启用梯度检查点
+--gradient_batch_size 2          # 减小批次大小
 ```
 
 **PPL 过高**：
-- 降低稀疏度（10-20%）
-- 使用 Taylor 二阶（`--importance_metric taylor_so`）
+- 降低剪枝率（10-20%）
+- 使用 Taylor 二阶（`--importance_method taylor_2nd`）
 - 启用微调恢复（`--finetune`）
-- 增加校准样本数（`--nsamples 256`）
+- 调整温度参数（`--temperature 1.5`）
 
 **自动配置检测失败**：
 - 检查模型 config 中是否有 `num_key_value_heads` 字段
