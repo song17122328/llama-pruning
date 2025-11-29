@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Qwen2.5-7B --dataset c4 --pruning_ratio 0.2 --output_name Qwen2.5-7B/Taylor_only_20_c4 --temperature 0 --importance_method taylor
