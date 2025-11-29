@@ -199,6 +199,273 @@ class LayerImportanceAnalyzer:
             'mlp': mlp_importance
         }
 
+    def measure_layer_importance_by_similarity(self, texts: List[str], num_layers: int = None) -> Dict[int, float]:
+        """
+        通过层输出相似度评估重要性（ShortGPT方法）
+
+        核心思想：
+        - 计算跳过某层后的输出与正常输出的相似度
+        - 相似度越高，说明该层的变换越小，重要性越低
+        - 重要性 = 1 - 余弦相似度
+
+        优点：
+        - 不需要移除层，避免兼容性问题
+        - 计算高效，对所有模型通用
+        - 无需重新计算PPL
+
+        Args:
+            texts: 测试文本列表
+            num_layers: 层数（默认自动获取）
+
+        Returns:
+            Dict[int, float]: {layer_idx: importance, ...}
+            importance越大表示该层越重要
+        """
+        if num_layers is None:
+            num_layers = len(self.model.model.layers)
+
+        layer_importance = {}
+
+        print(f"\n{'='*60}")
+        print(f"基于相似度的层重要性分析 (ShortGPT方法)")
+        print(f"{'='*60}")
+        print(f"方法: 计算跳过层后的输出相似度")
+        print(f"指标: 1 - 余弦相似度")
+        print(f"样本数: {len(texts)}")
+        print(f"{'='*60}\n")
+
+        pbar = tqdm(range(num_layers), desc="分析层重要性", ncols=100)
+
+        for layer_idx in pbar:
+            similarities = []
+
+            with torch.no_grad():
+                for text in texts:
+                    inputs = self.tokenizer(text, return_tensors="pt",
+                                           truncation=True, max_length=512)
+                    first_device = next(self.model.parameters()).device
+                    inputs = {k: v.to(first_device) for k, v in inputs.items()}
+
+                    # 1. 正常前向传播，收集该层的输入和输出
+                    layer_outputs = {}
+
+                    def hook_fn(module, input, output):
+                        if isinstance(input, tuple):
+                            layer_outputs['input'] = input[0].clone()
+                        else:
+                            layer_outputs['input'] = input.clone()
+
+                        if isinstance(output, tuple):
+                            layer_outputs['output'] = output[0].clone()
+                        else:
+                            layer_outputs['output'] = output.clone()
+
+                    # 注册hook
+                    hook = self.model.model.layers[layer_idx].register_forward_hook(hook_fn)
+
+                    try:
+                        # 正常前向传播
+                        _ = self.model(**inputs)
+
+                        # 获取层的输入和输出
+                        if 'input' in layer_outputs and 'output' in layer_outputs:
+                            layer_input = layer_outputs['input']
+                            layer_output = layer_outputs['output']
+
+                            # 2. 计算相似度：如果跳过该层（输入直接作为输出），与实际输出的相似度
+                            # 使用余弦相似度
+                            cos_sim = torch.nn.functional.cosine_similarity(
+                                layer_input.view(-1),
+                                layer_output.view(-1),
+                                dim=0
+                            ).item()
+
+                            similarities.append(cos_sim)
+                    finally:
+                        hook.remove()
+
+            # 计算平均相似度
+            if similarities:
+                avg_similarity = np.mean(similarities)
+                # 重要性 = 1 - 相似度
+                # 相似度越高（层变换越小），重要性越低
+                importance = 1.0 - avg_similarity
+                layer_importance[layer_idx] = importance
+
+                pbar.set_postfix({
+                    'sim': f'{avg_similarity:.4f}',
+                    'imp': f'{importance:.4f}'
+                })
+            else:
+                layer_importance[layer_idx] = 0.0
+
+        pbar.close()
+
+        # 打印统计信息
+        print(f"\n层重要性统计:")
+        print(f"  最高重要性: {max(layer_importance.values()):.4f} (层 {max(layer_importance, key=layer_importance.get)})")
+        print(f"  最低重要性: {min(layer_importance.values()):.4f} (层 {min(layer_importance, key=layer_importance.get)})")
+        print(f"  平均重要性: {np.mean(list(layer_importance.values())):.4f}")
+
+        return layer_importance
+
+    def measure_block_importance_by_similarity(self, texts: List[str], num_layers: int = None) -> Dict[str, Dict[int, float]]:
+        """
+        通过块输出相似度评估Attention和MLP的重要性（ShortGPT方法）
+
+        核心思想：
+        - 分别计算跳过Attention块和MLP块后的输出相似度
+        - 相似度越高，说明该块的变换越小，重要性越低
+        - 重要性 = 1 - 余弦相似度
+
+        Args:
+            texts: 测试文本列表
+            num_layers: 层数（默认自动获取）
+
+        Returns:
+            Dict包含两个键:
+            - 'attention': {layer_idx: importance, ...}
+            - 'mlp': {layer_idx: importance, ...}
+        """
+        if num_layers is None:
+            num_layers = len(self.model.model.layers)
+
+        attention_importance = {}
+        mlp_importance = {}
+
+        print(f"\n{'='*60}")
+        print(f"基于相似度的块重要性分析 (ShortGPT方法)")
+        print(f"{'='*60}")
+        print(f"方法: 计算跳过块后的输出相似度")
+        print(f"指标: 1 - 余弦相似度")
+        print(f"样本数: {len(texts)}")
+        print(f"{'='*60}\n")
+
+        # 评估 Attention 块重要性
+        pbar = tqdm(range(num_layers), desc="分析 Attention 块", ncols=100)
+        for layer_idx in pbar:
+            similarities = []
+            layer = self.model.model.layers[layer_idx]
+
+            with torch.no_grad():
+                for text in texts:
+                    inputs = self.tokenizer(text, return_tensors="pt",
+                                           truncation=True, max_length=512)
+                    first_device = next(self.model.parameters()).device
+                    inputs = {k: v.to(first_device) for k, v in inputs.items()}
+
+                    # 收集 Attention 块的输入和输出
+                    attn_outputs = {}
+
+                    def hook_fn(module, input, output):
+                        if isinstance(input, tuple):
+                            attn_outputs['input'] = input[0].clone()
+                        else:
+                            attn_outputs['input'] = input.clone()
+
+                        if isinstance(output, tuple):
+                            attn_outputs['output'] = output[0].clone()
+                        else:
+                            attn_outputs['output'] = output.clone()
+
+                    hook = layer.self_attn.register_forward_hook(hook_fn)
+
+                    try:
+                        _ = self.model(**inputs)
+
+                        if 'input' in attn_outputs and 'output' in attn_outputs:
+                            attn_input = attn_outputs['input']
+                            attn_output = attn_outputs['output']
+
+                            cos_sim = torch.nn.functional.cosine_similarity(
+                                attn_input.view(-1),
+                                attn_output.view(-1),
+                                dim=0
+                            ).item()
+
+                            similarities.append(cos_sim)
+                    finally:
+                        hook.remove()
+
+            if similarities:
+                avg_similarity = np.mean(similarities)
+                importance = 1.0 - avg_similarity
+                attention_importance[layer_idx] = importance
+                pbar.set_postfix({'sim': f'{avg_similarity:.4f}', 'imp': f'{importance:.4f}'})
+            else:
+                attention_importance[layer_idx] = 0.0
+
+        pbar.close()
+
+        # 评估 MLP 块重要性
+        pbar = tqdm(range(num_layers), desc="分析 MLP 块", ncols=100)
+        for layer_idx in pbar:
+            similarities = []
+            layer = self.model.model.layers[layer_idx]
+
+            with torch.no_grad():
+                for text in texts:
+                    inputs = self.tokenizer(text, return_tensors="pt",
+                                           truncation=True, max_length=512)
+                    first_device = next(self.model.parameters()).device
+                    inputs = {k: v.to(first_device) for k, v in inputs.items()}
+
+                    # 收集 MLP 块的输入和输出
+                    mlp_outputs = {}
+
+                    def hook_fn(module, input, output):
+                        if isinstance(input, tuple):
+                            mlp_outputs['input'] = input[0].clone()
+                        else:
+                            mlp_outputs['input'] = input.clone()
+
+                        mlp_outputs['output'] = output.clone()
+
+                    hook = layer.mlp.register_forward_hook(hook_fn)
+
+                    try:
+                        _ = self.model(**inputs)
+
+                        if 'input' in mlp_outputs and 'output' in mlp_outputs:
+                            mlp_input = mlp_outputs['input']
+                            mlp_output = mlp_outputs['output']
+
+                            cos_sim = torch.nn.functional.cosine_similarity(
+                                mlp_input.view(-1),
+                                mlp_output.view(-1),
+                                dim=0
+                            ).item()
+
+                            similarities.append(cos_sim)
+                    finally:
+                        hook.remove()
+
+            if similarities:
+                avg_similarity = np.mean(similarities)
+                importance = 1.0 - avg_similarity
+                mlp_importance[layer_idx] = importance
+                pbar.set_postfix({'sim': f'{avg_similarity:.4f}', 'imp': f'{importance:.4f}'})
+            else:
+                mlp_importance[layer_idx] = 0.0
+
+        pbar.close()
+
+        # 打印统计信息
+        print(f"\nAttention 块重要性统计:")
+        print(f"  最高重要性: {max(attention_importance.values()):.4f} (层 {max(attention_importance, key=attention_importance.get)})")
+        print(f"  最低重要性: {min(attention_importance.values()):.4f} (层 {min(attention_importance, key=attention_importance.get)})")
+        print(f"  平均重要性: {np.mean(list(attention_importance.values())):.4f}")
+
+        print(f"\nMLP 块重要性统计:")
+        print(f"  最高重要性: {max(mlp_importance.values()):.4f} (层 {max(mlp_importance, key=mlp_importance.get)})")
+        print(f"  最低重要性: {min(mlp_importance.values()):.4f} (层 {min(mlp_importance, key=mlp_importance.get)})")
+        print(f"  平均重要性: {np.mean(list(mlp_importance.values())):.4f}")
+
+        return {
+            'attention': attention_importance,
+            'mlp': mlp_importance
+        }
+
     def measure_layer_importance_by_activation(self, texts: List[str]) -> Dict[int, float]:
         """通过激活值统计评估重要性"""
         layer_activations = {}
