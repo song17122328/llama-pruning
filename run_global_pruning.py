@@ -16,6 +16,11 @@ import argparse
 import time
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
+import matplotlib
+matplotlib.use('Agg')  # 使用非GUI后端
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
 
 from core.methods.global_pruning import (
     build_global_group_table,
@@ -32,6 +37,140 @@ import sys
 # 导入 evaluation 模块
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'evaluation'))
 from evaluation.run_evaluation import evaluate_single_model
+
+
+def setup_chinese_font():
+    """配置 matplotlib 以支持中文显示"""
+    chinese_fonts = [
+        'SimHei', 'Microsoft YaHei', 'SimSun',  # Windows
+        'STSong', 'STHeiti',  # Mac
+        'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei',  # Linux
+        'Noto Sans CJK SC', 'DejaVu Sans'  # Default
+    ]
+
+    available_fonts = set([f.name for f in matplotlib.font_manager.fontManager.ttflist])
+
+    for font in chinese_fonts:
+        if font in available_fonts:
+            plt.rcParams['font.sans-serif'] = [font]
+            plt.rcParams['axes.unicode_minus'] = False
+            return font
+
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+    return 'DejaVu Sans'
+
+
+def generate_pruning_charts(pruning_data, model_name, output_dir):
+    """
+    生成剪枝直方图（剪枝率和保留率）
+
+    Args:
+        pruning_data: pruning_comparison 数据
+        model_name: 模型名称
+        output_dir: 输出目录路径
+    """
+    if not pruning_data or 'layers' not in pruning_data:
+        return
+
+    layers = pruning_data['layers']
+    if not layers:
+        return
+
+    # 提取每层的剪枝率和保留率
+    pruning_ratios = []
+    retention_ratios = []
+    layer_indices = []
+
+    for layer in layers:
+        if 'total' in layer and 'reduction_ratio' in layer['total']:
+            layer_indices.append(layer['layer_idx'])
+            pruning_ratio = layer['total']['reduction_ratio']
+            pruning_ratios.append(pruning_ratio * 100)
+            retention_ratios.append((1.0 - pruning_ratio) * 100)
+
+    if not pruning_ratios:
+        return
+
+    # 获取整体和层目标比例
+    total_ratio = None
+    layer_target_ratio = None
+
+    if 'total_params' in pruning_data and 'reduction_ratio' in pruning_data['total_params']:
+        total_reduction = pruning_data['total_params']['reduction_ratio'] * 100
+        total_ratio = total_reduction
+
+    if 'layer_params' in pruning_data and 'reduction_ratio' in pruning_data['layer_params']:
+        layer_reduction = pruning_data['layer_params']['reduction_ratio'] * 100
+        layer_target_ratio = layer_reduction
+
+    # 创建输出目录
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # 生成两个图表：剪枝率和保留率
+    for chart_type, ratios in [('pruning', pruning_ratios), ('retention', retention_ratios)]:
+        fig, ax = plt.subplots(figsize=(14, 6))
+
+        # 计算当前图表对应的目标比例
+        if chart_type == 'pruning':
+            target = layer_target_ratio
+            colors = ['#e74c3c' if r >= target else '#3498db' for r in ratios] if target else ['#3498db'] * len(ratios)
+            ylabel = '剪枝比例 (%)'
+            if total_ratio and target:
+                title = f'{model_name} - 各层剪枝比例 (模型整体: {total_ratio:.1f}%, 层目标: {target:.1f}%)'
+            else:
+                title = f'{model_name} - 各层剪枝比例'
+            line_color = '#ff8c00'
+            line_label = f'层目标剪枝: {target:.1f}%' if target else None
+        else:  # retention
+            target = (100 - layer_target_ratio) if layer_target_ratio else None
+            colors = ['#27ae60' if r >= target else '#e67e22' for r in ratios] if target else ['#27ae60'] * len(ratios)
+            ylabel = '保留比例 (%)'
+            total_ret = (100 - total_ratio) if total_ratio else None
+            if total_ret and target:
+                title = f'{model_name} - 各层保留比例 (模型整体: {total_ret:.1f}%, 层目标: {target:.1f}%)'
+            else:
+                title = f'{model_name} - 各层保留比例'
+            line_color = '#27ae60'
+            line_label = f'层目标保留: {target:.1f}%' if target else None
+
+        # 绘制直方图
+        bars = ax.bar(layer_indices, ratios, color=colors, edgecolor='black', linewidth=0.5)
+
+        # 添加数值标签
+        for bar, ratio in zip(bars, ratios):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                   f'{ratio:.1f}%',
+                   ha='center', va='bottom', fontsize=8)
+
+        # 设置坐标轴
+        ax.set_xlabel('层索引', fontsize=12, fontweight='bold')
+        ax.set_ylabel(ylabel, fontsize=12, fontweight='bold')
+        ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+        ax.set_xticks(layer_indices)
+        ax.set_xticklabels([str(i) for i in layer_indices], fontsize=9)
+        ax.set_ylim(0, 105)
+
+        # 添加网格线
+        for y in [20, 40, 60, 80, 100]:
+            ax.axhline(y=y, color='lightgray', linestyle=':', linewidth=0.8, alpha=0.6, zorder=1)
+
+        # 添加目标线
+        if target is not None and line_label:
+            ax.axhline(y=target, color=line_color, linestyle='--', linewidth=2.5, alpha=0.9,
+                      label=line_label, zorder=3)
+            ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
+
+        plt.tight_layout()
+
+        # 保存图表
+        chart_path = output_path / f"{chart_type}_ratio.png"
+        plt.savefig(str(chart_path), dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"  ✓ 已生成: {chart_path}")
 
 
 def get_model_gqa_config(model):
@@ -1085,6 +1224,12 @@ def main():
         json.dump(comparison_result, f, indent=2, ensure_ascii=False)
     logger.log(f"  ✓ 对比报告已保存: {comparison_path}")
 
+    # 同时保存为 pruning_comparison.json（兼容可视化工具）
+    pruning_comparison_path = os.path.join(analysis_dir, 'pruning_comparison.json')
+    with open(pruning_comparison_path, 'w', encoding='utf-8') as f:
+        json.dump(comparison_result, f, indent=2, ensure_ascii=False)
+    logger.log(f"  ✓ 剪枝对比数据已保存: {pruning_comparison_path}")
+
     # 在日志中打印详细的对比报告
     logger.log(f"\n{'='*60}")
     logger.log(f"详细对比报告")
@@ -1143,6 +1288,25 @@ def main():
         logger.log(f"\n完全剪空的层 ({len(zero_layers)}个): {zero_layers}")
 
     logger.log(f"\n{'='*60}")
+
+    # ========== Step 8.5: 生成剪枝可视化图表 ==========
+    logger.log(f"\n[Step 8.5] 生成剪枝可视化图表...")
+    try:
+        # 配置中文字体
+        font_used = setup_chinese_font()
+        logger.log(f"  使用字体: {font_used}")
+
+        # 生成图表
+        charts_dir = os.path.join(base_output_dir, 'charts')
+        generate_pruning_charts(
+            pruning_data=comparison_result,
+            model_name=args.output_name,
+            output_dir=charts_dir
+        )
+        logger.log(f"  ✓ 剪枝图表已保存到: {charts_dir}")
+    except Exception as e:
+        logger.log(f"  ⚠️ 图表生成失败: {e}")
+        logger.log(f"  提示: 请确保安装了 matplotlib: pip install matplotlib")
 
     # ========== Step 9: LoRA 微调恢复（可选）==========
     if args.finetune:
