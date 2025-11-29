@@ -465,8 +465,8 @@ def main():
                        help='H-GSP 温度参数 T（默认: 1.0，推荐范围: 0.5-2.0）')
     parser.add_argument('--tau', type=float, default=None,
                        help='H-GSP 门控阈值 τ（默认: None 自动计算）')
-    parser.add_argument('--epsilon', type=float, default=0.15,
-                       help='H-GSP 坍缩阈值 ε（默认: 0.15）')
+    parser.add_argument('--epsilon', type=float, default=0,
+                       help='H-GSP 坍缩阈值 ε（默认: 0）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
