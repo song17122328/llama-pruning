@@ -272,13 +272,22 @@ class LayerImportanceAnalyzer:
                             layer_input = layer_outputs['input']
                             layer_output = layer_outputs['output']
 
-                            # 2. 计算相似度：如果跳过该层（输入直接作为输出），与实际输出的相似度
-                            # 使用余弦相似度
-                            cos_sim = torch.nn.functional.cosine_similarity(
-                                layer_input.view(-1),
-                                layer_output.view(-1),
-                                dim=0
-                            ).item()
+                            # 2. 计算相似度：使用 token-wise 相似度（ShortGPT 方法）
+                            # Shape: [batch, seq_len, hidden_dim]
+                            batch, seq_len, hidden_dim = layer_input.shape
+
+                            # Reshape to [batch*seq_len, hidden_dim]
+                            input_flat = layer_input.reshape(-1, hidden_dim)
+                            output_flat = layer_output.reshape(-1, hidden_dim)
+
+                            # 计算归一化
+                            norm_input = input_flat.norm(dim=-1, keepdim=True)
+                            norm_output = output_flat.norm(dim=-1, keepdim=True)
+
+                            # 计算相似度矩阵并取对角线（token-wise 相似度）
+                            sim_matrix = (input_flat @ output_flat.T) / (norm_input * norm_output.T + 1e-8)
+                            sim = sim_matrix.diagonal()  # 只取对应位置的相似度
+                            cos_sim = sim.mean().item()  # 平均 token-wise 相似度
 
                             similarities.append(cos_sim)
                     finally:
@@ -383,11 +392,21 @@ class LayerImportanceAnalyzer:
                             attn_input = layer_hidden_states[0]
                             attn_output = attn_outputs_list[0]
 
-                            cos_sim = torch.nn.functional.cosine_similarity(
-                                attn_input.view(-1),
-                                attn_output.view(-1),
-                                dim=0
-                            ).item()
+                            # 使用 token-wise 相似度（ShortGPT 方法）
+                            batch, seq_len, hidden_dim = attn_input.shape
+
+                            # Reshape to [batch*seq_len, hidden_dim]
+                            input_flat = attn_input.reshape(-1, hidden_dim)
+                            output_flat = attn_output.reshape(-1, hidden_dim)
+
+                            # 计算归一化
+                            norm_input = input_flat.norm(dim=-1, keepdim=True)
+                            norm_output = output_flat.norm(dim=-1, keepdim=True)
+
+                            # 计算相似度矩阵并取对角线（token-wise 相似度）
+                            sim_matrix = (input_flat @ output_flat.T) / (norm_input * norm_output.T + 1e-8)
+                            sim = sim_matrix.diagonal()
+                            cos_sim = sim.mean().item()
 
                             similarities.append(cos_sim)
                     finally:
@@ -443,11 +462,21 @@ class LayerImportanceAnalyzer:
                             mlp_input = mlp_inputs_list[0]
                             mlp_output = mlp_outputs_list[0]
 
-                            cos_sim = torch.nn.functional.cosine_similarity(
-                                mlp_input.view(-1),
-                                mlp_output.view(-1),
-                                dim=0
-                            ).item()
+                            # 使用 token-wise 相似度（ShortGPT 方法）
+                            batch, seq_len, hidden_dim = mlp_input.shape
+
+                            # Reshape to [batch*seq_len, hidden_dim]
+                            input_flat = mlp_input.reshape(-1, hidden_dim)
+                            output_flat = mlp_output.reshape(-1, hidden_dim)
+
+                            # 计算归一化
+                            norm_input = input_flat.norm(dim=-1, keepdim=True)
+                            norm_output = output_flat.norm(dim=-1, keepdim=True)
+
+                            # 计算相似度矩阵并取对角线（token-wise 相似度）
+                            sim_matrix = (input_flat @ output_flat.T) / (norm_input * norm_output.T + 1e-8)
+                            sim = sim_matrix.diagonal()
+                            cos_sim = sim.mean().item()
 
                             similarities.append(cos_sim)
                     finally:
