@@ -148,6 +148,10 @@ def prune_attention_by_gqa_groups(layer, keep_kv_indices, head_dim=128, gqa_rati
 
     # o_proj: input channels (它接收concat后的Q heads)
     layer.self_attn.o_proj.weight.data = layer.self_attn.o_proj.weight.data[:, keep_q_channels]
+    # 注意：o_proj 的 bias 不需要剪枝（它的维度是 output_dim，我们只剪了 input_dim）
+    # 但对于 Qwen2.5 等模型，o_proj 可能有 bias，我们需要保留它
+    # if layer.self_attn.o_proj.bias is not None:
+    #     # o_proj.bias 不需要剪枝，因为我们只剪了输入维度
 
     # 4. 更新配置
     # 注意：不同版本的transformers可能有不同的属性名称

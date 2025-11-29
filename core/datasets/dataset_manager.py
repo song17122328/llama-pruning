@@ -31,11 +31,17 @@ class DatasetManager:
         self.tokenizer = tokenizer
 
         # 验证数据集名称
-        supported_datasets = ['wikitext', 'wikitext2', 'ptb', 'penn-treebank', 'c4']
+        supported_datasets = [
+            'wikitext', 'wikitext2', 'ptb', 'penn-treebank', 'c4',
+            'wikitext_zh', 'wikitext-zh', 'wikipedia_zh', 'wikipedia-zh',
+            'c4_zh', 'c4-zh'
+        ]
         if self.dataset_name not in supported_datasets:
             raise ValueError(
                 f"不支持的数据集: {dataset_name}\n"
-                f"支持的数据集: wikitext2, ptb, c4"
+                f"支持的数据集:\n"
+                f"  英文: wikitext2, ptb, c4\n"
+                f"  中文: wikitext_zh, c4_zh"
             )
 
         # 标准化数据集名称
@@ -43,6 +49,10 @@ class DatasetManager:
             self.dataset_name = 'wikitext2'
         elif self.dataset_name in ['ptb', 'penn-treebank']:
             self.dataset_name = 'ptb'
+        elif self.dataset_name in ['wikitext_zh', 'wikitext-zh', 'wikipedia_zh', 'wikipedia-zh']:
+            self.dataset_name = 'wikitext_zh'
+        elif self.dataset_name in ['c4_zh', 'c4-zh']:
+            self.dataset_name = 'c4_zh'
 
         print(f"✓ 数据集管理器初始化: {self.dataset_name}")
 

@@ -450,14 +450,28 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
                 layer.mlp.gate_proj.weight = torch.nn.Parameter(
                     layer.mlp.gate_proj.weight[keep_mlp_indices_tensor, :]
                 )
+                # 剪枝 gate_proj bias（如果存在，用于 Qwen2.5 等模型）
+                if layer.mlp.gate_proj.bias is not None:
+                    layer.mlp.gate_proj.bias = torch.nn.Parameter(
+                        layer.mlp.gate_proj.bias[keep_mlp_indices_tensor]
+                    )
+
                 layer.mlp.up_proj.weight = torch.nn.Parameter(
                     layer.mlp.up_proj.weight[keep_mlp_indices_tensor, :]
                 )
+                # 剪枝 up_proj bias（如果存在）
+                if layer.mlp.up_proj.bias is not None:
+                    layer.mlp.up_proj.bias = torch.nn.Parameter(
+                        layer.mlp.up_proj.bias[keep_mlp_indices_tensor]
+                    )
 
                 # 剪枝 down_proj（保留对应的列）
                 layer.mlp.down_proj.weight = torch.nn.Parameter(
                     layer.mlp.down_proj.weight[:, keep_mlp_indices_tensor]
                 )
+                # down_proj bias 不需要剪枝（只剪了输入维度，输出维度不变）
+                # if layer.mlp.down_proj.bias is not None:
+                #     # down_proj.bias 不需要剪枝
 
                 # 更新 intermediate_size
                 new_intermediate_size = len(keep_mlp_indices)
@@ -634,8 +648,10 @@ def main():
                        choices=['taylor', 'wanda', 'taylor_2nd', 'magnitude'],
                        help='重要性计算方法（默认: taylor）')
     parser.add_argument('--dataset', type=str, default='wikitext2',
-                       choices=['wikitext2', 'ptb', 'c4'],
-                       help='数据集选择（默认: wikitext2）')
+                       choices=['wikitext2', 'ptb', 'c4', 'wikitext_zh', 'c4_zh'],
+                       help='校准数据集选择（默认: wikitext2）\n'
+                            '  英文: wikitext2, ptb, c4\n'
+                            '  中文: wikitext_zh, c4_zh (推荐用于 Qwen/ChatGLM 等中文模型)')
     parser.add_argument('--gradient_batch_size', type=int, default=4,
                        help='梯度计算批次大小（默认: 4）')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',

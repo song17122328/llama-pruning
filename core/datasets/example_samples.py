@@ -20,7 +20,7 @@ def get_examples(
     从指定数据集加载样本数据并进行tokenization
 
     Args:
-        dataset_name: 数据集名称，支持 'wikitext', 'c4', 'ptb' 等
+        dataset_name: 数据集名称，支持 'wikitext', 'c4', 'ptb', 'wikitext_zh', 'c4_zh' 等
         tokenizer: HuggingFace tokenizer实例
         num_samples: 需要的样本数量
         seq_len: 序列长度
@@ -30,7 +30,7 @@ def get_examples(
         torch.Tensor: tokenized input_ids, shape [num_samples, seq_len]
     """
 
-    # 支持 wikitext2 和 c4 数据集
+    # 支持 wikitext2 和 c4 数据集（英文）
     if dataset_name.lower() in ['wikitext', 'wikitext2', 'wikitext-2']:
         try:
             dataset = load_from_disk("/newdata/DataSets/wikitext2")[split]
@@ -55,8 +55,57 @@ def get_examples(
             dataset = load_dataset("c4", "en", split=split, streaming=False)
         text_field = 'text'
 
+    # 中文数据集支持
+    elif dataset_name.lower() in ['wikitext_zh', 'wikitext-zh', 'wikipedia_zh', 'wikipedia-zh']:
+        try:
+            print("尝试从本地加载中文维基百科数据集: /newdata/DataSets/wikipedia_zh/")
+            dataset = load_from_disk("/newdata/DataSets/wikipedia_zh")
+            if hasattr(dataset, split):
+                dataset = dataset[split]
+            elif split == 'train':
+                # 中文维基可能只有一个split，使用前80%作为train
+                total_len = len(dataset)
+                dataset = dataset.select(range(int(total_len * 0.8)))
+            else:
+                # test split 使用后20%
+                total_len = len(dataset)
+                dataset = dataset.select(range(int(total_len * 0.8), total_len))
+            print(f"✓ 成功从本地加载中文维基百科数据集 ({len(dataset)} 样本)")
+        except Exception as e:
+            print(f"⚠️ 中文维基本地加载失败: {e}")
+            print("尝试从 HuggingFace 下载 wikipedia zh...")
+            try:
+                dataset = load_dataset("wikipedia", "20220301.zh", split=split)
+            except:
+                print("⚠️ HuggingFace wikipedia zh 加载失败，尝试备选数据集...")
+                # 备选：使用 CLUECorpus2020
+                dataset = load_dataset("clue", "cluecorpussmall", split=split)
+        text_field = 'text'
+
+    elif dataset_name.lower() in ['c4_zh', 'c4-zh']:
+        try:
+            print("尝试从本地加载 C4 中文数据集: /newdata/DataSets/c4_zh/")
+            dataset = load_from_disk("/newdata/DataSets/c4_zh")
+            if hasattr(dataset, split):
+                dataset = dataset[split]
+            print(f"✓ 成功从本地加载 C4 中文数据集 ({len(dataset)} 样本)")
+        except Exception as e:
+            print(f"⚠️ C4 中文本地加载失败: {e}")
+            print("尝试从 HuggingFace 下载 C4 中文版本...")
+            try:
+                dataset = load_dataset("c4", "zh", split=split, streaming=False)
+            except:
+                print("⚠️ C4 中文加载失败，回退到中文维基百科...")
+                dataset = load_dataset("wikipedia", "20220301.zh", split=split)
+        text_field = 'text'
+
     else:
-        raise ValueError(f"不支持的数据集: {dataset_name}. 当前支持: wikitext2, c4")
+        raise ValueError(
+            f"不支持的数据集: {dataset_name}\n"
+            f"支持的数据集:\n"
+            f"  英文: wikitext2, c4\n"
+            f"  中文: wikitext_zh, c4_zh"
+        )
 
     # 收集文本样本
     texts = []
