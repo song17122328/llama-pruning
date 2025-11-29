@@ -355,27 +355,33 @@ class LayerImportanceAnalyzer:
                     inputs = {k: v.to(first_device) for k, v in inputs.items()}
 
                     # 收集 Attention 块的输入和输出
-                    attn_outputs = {}
+                    # 策略：在 DecoderLayer 级别收集，更通用
+                    layer_hidden_states = []
+                    attn_outputs_list = []
 
-                    def hook_fn(module, input, output):
-                        if isinstance(input, tuple):
-                            attn_outputs['input'] = input[0].clone()
-                        else:
-                            attn_outputs['input'] = input.clone()
+                    def layer_hook(module, input, output):
+                        # DecoderLayer 的输入就是 Attention 的输入
+                        if isinstance(input, tuple) and len(input) > 0:
+                            layer_hidden_states.append(input[0].clone())
+                        elif not isinstance(input, tuple):
+                            layer_hidden_states.append(input.clone())
 
+                    def attn_hook(module, input, output):
+                        # 收集 Attention 的输出
                         if isinstance(output, tuple):
-                            attn_outputs['output'] = output[0].clone()
+                            attn_outputs_list.append(output[0].clone())
                         else:
-                            attn_outputs['output'] = output.clone()
+                            attn_outputs_list.append(output.clone())
 
-                    hook = layer.self_attn.register_forward_hook(hook_fn)
+                    layer_h = layer.register_forward_hook(layer_hook)
+                    attn_h = layer.self_attn.register_forward_hook(attn_hook)
 
                     try:
                         _ = self.model(**inputs)
 
-                        if 'input' in attn_outputs and 'output' in attn_outputs:
-                            attn_input = attn_outputs['input']
-                            attn_output = attn_outputs['output']
+                        if layer_hidden_states and attn_outputs_list:
+                            attn_input = layer_hidden_states[0]
+                            attn_output = attn_outputs_list[0]
 
                             cos_sim = torch.nn.functional.cosine_similarity(
                                 attn_input.view(-1),
@@ -385,7 +391,8 @@ class LayerImportanceAnalyzer:
 
                             similarities.append(cos_sim)
                     finally:
-                        hook.remove()
+                        layer_h.remove()
+                        attn_h.remove()
 
             if similarities:
                 avg_similarity = np.mean(similarities)
@@ -411,24 +418,30 @@ class LayerImportanceAnalyzer:
                     inputs = {k: v.to(first_device) for k, v in inputs.items()}
 
                     # 收集 MLP 块的输入和输出
-                    mlp_outputs = {}
+                    # 使用 pre_forward_hook 和 forward_hook 组合
+                    mlp_inputs_list = []
+                    mlp_outputs_list = []
 
-                    def hook_fn(module, input, output):
-                        if isinstance(input, tuple):
-                            mlp_outputs['input'] = input[0].clone()
-                        else:
-                            mlp_outputs['input'] = input.clone()
+                    def pre_hook(module, input):
+                        # 收集 MLP 的输入
+                        if isinstance(input, tuple) and len(input) > 0:
+                            mlp_inputs_list.append(input[0].clone())
+                        elif not isinstance(input, tuple):
+                            mlp_inputs_list.append(input.clone())
 
-                        mlp_outputs['output'] = output.clone()
+                    def forward_hook(module, input, output):
+                        # 收集 MLP 的输出
+                        mlp_outputs_list.append(output.clone())
 
-                    hook = layer.mlp.register_forward_hook(hook_fn)
+                    pre_h = layer.mlp.register_forward_pre_hook(pre_hook)
+                    forward_h = layer.mlp.register_forward_hook(forward_hook)
 
                     try:
                         _ = self.model(**inputs)
 
-                        if 'input' in mlp_outputs and 'output' in mlp_outputs:
-                            mlp_input = mlp_outputs['input']
-                            mlp_output = mlp_outputs['output']
+                        if mlp_inputs_list and mlp_outputs_list:
+                            mlp_input = mlp_inputs_list[0]
+                            mlp_output = mlp_outputs_list[0]
 
                             cos_sim = torch.nn.functional.cosine_similarity(
                                 mlp_input.view(-1),
@@ -438,7 +451,8 @@ class LayerImportanceAnalyzer:
 
                             similarities.append(cos_sim)
                     finally:
-                        hook.remove()
+                        pre_h.remove()
+                        forward_h.remove()
 
             if similarities:
                 avg_similarity = np.mean(similarities)
