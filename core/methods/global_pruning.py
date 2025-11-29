@@ -462,7 +462,7 @@ def build_global_group_table(
 
     # ========== Step A: 动态阈值计算 (τ) ==========
     computed_tau = tau
-    if tau is None and layer_removal_ppl is not None:
+    if tau is None and layer_removal_ppl is not None and len(layer_removal_ppl) > 0:
         # 自动计算 25 分位数
         import numpy as np
         ppl_values = list(layer_removal_ppl.values())
