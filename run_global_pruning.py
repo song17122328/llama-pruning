@@ -892,6 +892,14 @@ def main():
                     print(f"参数: {name}")
                     hessian_diag[name] = torch.zeros_like(param.data, device='cpu')
 
+        # ✅ 修复：一次性加载所有样本，避免每批次重复获取相同样本
+        logger.log(f"  加载 {TAYLOR_NUM_SAMPLES} 个样本用于梯度计算...")
+        all_gradient_samples = dataset_manager.get_gradient_samples(
+            num_samples=TAYLOR_NUM_SAMPLES,
+            seq_len=TAYLOR_SEQ_LEN
+        )
+        logger.log(f"  ✓ 样本加载完成，shape: {all_gradient_samples.shape}")
+
         # 使用 tqdm 显示进度条
         pbar = tqdm(range(num_batches), desc="计算梯度", ncols=100)
 
@@ -902,12 +910,8 @@ def main():
 
             batch_start_time = time.time()
 
-            # 加载当前批次并计算梯度
-            input_ids = dataset_manager.get_gradient_samples(
-                num_samples=current_batch_size,
-                seq_len=TAYLOR_SEQ_LEN
-            )
-            input_ids = input_ids.to(args.device)
+            # ✅ 修复：从预加载的样本中切片获取当前批次
+            input_ids = all_gradient_samples[start_idx:end_idx].to(args.device)
 
             # 前向传播
             outputs = model(input_ids, labels=input_ids)
@@ -962,6 +966,14 @@ def main():
         num_batches = (TAYLOR_NUM_SAMPLES + batch_size - 1) // batch_size
         logger.log(f"  批次大小: {batch_size}, 总批次数: {num_batches}")
 
+        # ✅ 修复：一次性加载所有样本，避免每批次重复获取相同样本
+        logger.log(f"  加载 {TAYLOR_NUM_SAMPLES} 个样本用于激活收集...")
+        all_gradient_samples = dataset_manager.get_gradient_samples(
+            num_samples=TAYLOR_NUM_SAMPLES,
+            seq_len=TAYLOR_SEQ_LEN
+        )
+        logger.log(f"  ✓ 样本加载完成，shape: {all_gradient_samples.shape}")
+
         all_activations = {}
         start_time = time.time()
 
@@ -974,12 +986,8 @@ def main():
 
             batch_start_time = time.time()
 
-            # 加载当前批次并收集激活
-            input_ids = dataset_manager.get_gradient_samples(
-                num_samples=current_batch_size,
-                seq_len=TAYLOR_SEQ_LEN
-            )
-            input_ids = input_ids.to(args.device)
+            # ✅ 修复：从预加载的样本中切片获取当前批次
+            input_ids = all_gradient_samples[start_idx:end_idx].to(args.device)
 
             # 收集激活
             batch_activations = collect_layer_activations(model, input_ids, args.device)
