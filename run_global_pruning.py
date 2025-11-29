@@ -1289,25 +1289,6 @@ def main():
 
     logger.log(f"\n{'='*60}")
 
-    # ========== Step 8.5: 生成剪枝可视化图表 ==========
-    logger.log(f"\n[Step 8.5] 生成剪枝可视化图表...")
-    try:
-        # 配置中文字体
-        font_used = setup_chinese_font()
-        logger.log(f"  使用字体: {font_used}")
-
-        # 生成图表
-        charts_dir = os.path.join(base_output_dir, 'charts')
-        generate_pruning_charts(
-            pruning_data=comparison_result,
-            model_name=args.output_name,
-            output_dir=charts_dir
-        )
-        logger.log(f"  ✓ 剪枝图表已保存到: {charts_dir}")
-    except Exception as e:
-        logger.log(f"  ⚠️ 图表生成失败: {e}")
-        logger.log(f"  提示: 请确保安装了 matplotlib: pip install matplotlib")
-
     # ========== Step 9: LoRA 微调恢复（可选）==========
     if args.finetune:
         logger.log(f"\n[Step 9] LoRA 微调恢复...")
@@ -1381,6 +1362,25 @@ def main():
     torch.save(save_dict, save_path)
     logger.log(f"✓ 模型已保存: {save_path}")
     logger.log(f"  文件大小: {os.path.getsize(save_path) / (1024**3):.2f} GB")
+
+    # ========== Step 10.5: 生成剪枝可视化图表 ==========
+    logger.log(f"\n[Step 10.5] 生成剪枝可视化图表...")
+    try:
+        # 配置中文字体
+        font_used = setup_chinese_font()
+        logger.log(f"  使用字体: {font_used}")
+
+        # 生成图表
+        charts_dir = os.path.join(base_output_dir, 'charts')
+        generate_pruning_charts(
+            pruning_data=comparison_result,
+            model_name=args.output_name,
+            output_dir=charts_dir
+        )
+        logger.log(f"  ✓ 剪枝图表已保存到: {charts_dir}")
+    except Exception as e:
+        logger.log(f"  ⚠️ 图表生成失败: {e}")
+        logger.log(f"  提示: 请确保安装了 matplotlib: pip install matplotlib")
 
     # ========== Step 11: 运行评估测试（可选）==========
     if args.run_evaluation:
