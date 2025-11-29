@@ -38,30 +38,44 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'evaluation'))
 from evaluation.run_evaluation import evaluate_single_model
 
-
 def setup_chinese_font():
     """配置 matplotlib 以支持中文显示"""
+    import matplotlib.font_manager as fm
+    
     chinese_fonts = [
         'SimHei', 'Microsoft YaHei', 'SimSun',  # Windows
         'STSong', 'STHeiti',  # Mac
         'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei',  # Linux
-        'Noto Sans CJK SC', 'DejaVu Sans'  # Default
+        'Noto Sans CJK SC', 'Noto Sans CJK',  # 通用
     ]
-
-    available_fonts = set([f.name for f in matplotlib.font_manager.fontManager.ttflist])
-
+    
+    # 获取系统所有可用字体
+    available_fonts = set([f.name for f in fm.fontManager.ttflist])
+    
+    # 查找第一个可用的中文字体
+    selected_font = None
     for font in chinese_fonts:
         if font in available_fonts:
-            plt.rcParams['font.sans-serif'] = [font]
+            selected_font = font
+            plt.rcParams['font.sans-serif'] = [font, 'DejaVu Sans']
             plt.rcParams['axes.unicode_minus'] = False
             return font
-
+    
+    # 如果没有找到中文字体，尝试查找包含 CJK 的字体
+    for font_obj in fm.fontManager.ttflist:
+        if 'CJK' in font_obj.name or 'Chinese' in font_obj.name:
+            selected_font = font_obj.name
+            plt.rcParams['font.sans-serif'] = [selected_font, 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+            return selected_font
+    
+    # 实在找不到中文字体，返回 None 表示不支持中文
     plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
     plt.rcParams['axes.unicode_minus'] = False
-    return 'DejaVu Sans'
+    return None
 
 
-def generate_pruning_charts(pruning_data, model_name, output_dir):
+def generate_pruning_charts(pruning_data, model_name, output_dir, use_english=False):
     """
     生成剪枝直方图（剪枝率和保留率）
 
@@ -69,6 +83,7 @@ def generate_pruning_charts(pruning_data, model_name, output_dir):
         pruning_data: pruning_comparison 数据
         model_name: 模型名称
         output_dir: 输出目录路径
+        use_english: 是否使用英文标签（当中文字体不可用时）
     """
     if not pruning_data or 'layers' not in pruning_data:
         return
@@ -108,6 +123,32 @@ def generate_pruning_charts(pruning_data, model_name, output_dir):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
+    # 定义标签（中文或英文）
+    if use_english:
+        labels = {
+            'pruning_ylabel': 'Pruning Ratio (%)',
+            'retention_ylabel': 'Retention Ratio (%)',
+            'xlabel': 'Layer Index',
+            'pruning_title': f'{model_name} - Pruning Ratio per Layer',
+            'retention_title': f'{model_name} - Retention Ratio per Layer',
+            'pruning_title_full': f'{model_name} - Pruning Ratio (Overall: {{0:.1f}}%, Layer Target: {{1:.1f}}%)',
+            'retention_title_full': f'{model_name} - Retention Ratio (Overall: {{0:.1f}}%, Layer Target: {{1:.1f}}%)',
+            'pruning_legend': 'Layer Target Pruning: {0:.1f}%',
+            'retention_legend': 'Layer Target Retention: {0:.1f}%',
+        }
+    else:
+        labels = {
+            'pruning_ylabel': '剪枝比例 (%)',
+            'retention_ylabel': '保留比例 (%)',
+            'xlabel': '层索引',
+            'pruning_title': f'{model_name} - 各层剪枝比例',
+            'retention_title': f'{model_name} - 各层保留比例',
+            'pruning_title_full': f'{model_name} - 各层剪枝比例 (模型整体: {{0:.1f}}%, 层目标: {{1:.1f}}%)',
+            'retention_title_full': f'{model_name} - 各层保留比例 (模型整体: {{0:.1f}}%, 层目标: {{1:.1f}}%)',
+            'pruning_legend': '层目标剪枝: {0:.1f}%',
+            'retention_legend': '层目标保留: {0:.1f}%',
+        }
+
     # 生成两个图表：剪枝率和保留率
     for chart_type, ratios in [('pruning', pruning_ratios), ('retention', retention_ratios)]:
         fig, ax = plt.subplots(figsize=(14, 6))
@@ -116,24 +157,24 @@ def generate_pruning_charts(pruning_data, model_name, output_dir):
         if chart_type == 'pruning':
             target = layer_target_ratio
             colors = ['#e74c3c' if r >= target else '#3498db' for r in ratios] if target else ['#3498db'] * len(ratios)
-            ylabel = '剪枝比例 (%)'
+            ylabel = labels['pruning_ylabel']
             if total_ratio and target:
-                title = f'{model_name} - 各层剪枝比例 (模型整体: {total_ratio:.1f}%, 层目标: {target:.1f}%)'
+                title = labels['pruning_title_full'].format(total_ratio, target)
             else:
-                title = f'{model_name} - 各层剪枝比例'
+                title = labels['pruning_title']
             line_color = '#ff8c00'
-            line_label = f'层目标剪枝: {target:.1f}%' if target else None
+            line_label = labels['pruning_legend'].format(target) if target else None
         else:  # retention
             target = (100 - layer_target_ratio) if layer_target_ratio else None
             colors = ['#27ae60' if r >= target else '#e67e22' for r in ratios] if target else ['#27ae60'] * len(ratios)
-            ylabel = '保留比例 (%)'
+            ylabel = labels['retention_ylabel']
             total_ret = (100 - total_ratio) if total_ratio else None
             if total_ret and target:
-                title = f'{model_name} - 各层保留比例 (模型整体: {total_ret:.1f}%, 层目标: {target:.1f}%)'
+                title = labels['retention_title_full'].format(total_ret, target)
             else:
-                title = f'{model_name} - 各层保留比例'
+                title = labels['retention_title']
             line_color = '#27ae60'
-            line_label = f'层目标保留: {target:.1f}%' if target else None
+            line_label = labels['retention_legend'].format(target) if target else None
 
         # 绘制直方图
         bars = ax.bar(layer_indices, ratios, color=colors, edgecolor='black', linewidth=0.5)
@@ -146,7 +187,7 @@ def generate_pruning_charts(pruning_data, model_name, output_dir):
                    ha='center', va='bottom', fontsize=8)
 
         # 设置坐标轴
-        ax.set_xlabel('层索引', fontsize=12, fontweight='bold')
+        ax.set_xlabel(labels['xlabel'], fontsize=12, fontweight='bold')
         ax.set_ylabel(ylabel, fontsize=12, fontweight='bold')
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
         ax.set_xticks(layer_indices)
@@ -219,6 +260,7 @@ def setup_output_directories(base_dir):
         'analysis': os.path.join(base_dir, 'analysis'),       # 保存中间分析结果
         'evaluation': os.path.join(base_dir, 'evaluation'),   # 保存评估结果
         'logs': os.path.join(base_dir, 'logs'),               # 保存日志
+        'visualization': os.path.join(base_dir, 'visualization')  # 保存剪枝可视化结果
     }
 
     # 创建所有目录
@@ -675,6 +717,7 @@ def main():
     logger.log(f"  模型保存: {output_dirs['models']}")
     logger.log(f"  分析结果: {output_dirs['analysis']}")
     logger.log(f"  评估结果: {output_dirs['evaluation']}")
+    logger.log(f"  剪枝可视化结果: {output_dirs['visualization']}")
     logger.log(f"  日志文件: {output_dirs['logs']}")
 
     logger.log("\n" + "="*60)
@@ -1368,16 +1411,23 @@ def main():
     try:
         # 配置中文字体
         font_used = setup_chinese_font()
-        logger.log(f"  使用字体: {font_used}")
+        
+        if font_used:
+            logger.log(f"  使用字体: {font_used}")
+            use_english = False
+        else:
+            logger.log(f"  ⚠️ 未找到中文字体，将使用英文标签")
+            logger.log(f"  提示: 可安装中文字体: sudo apt-get install fonts-wqy-microhei")
+            use_english = True
 
         # 生成图表
-        charts_dir = os.path.join(base_output_dir, 'charts')
         generate_pruning_charts(
             pruning_data=comparison_result,
             model_name=args.output_name,
-            output_dir=charts_dir
+            output_dir=output_dirs['visualization'],
+            use_english=use_english,
         )
-        logger.log(f"  ✓ 剪枝图表已保存到: {charts_dir}")
+        logger.log(f"  ✓ 剪枝图表已保存到: {output_dirs['visualization']}")
     except Exception as e:
         logger.log(f"  ⚠️ 图表生成失败: {e}")
         logger.log(f"  提示: 请确保安装了 matplotlib: pip install matplotlib")

@@ -55,14 +55,15 @@ python evaluation/run_evaluation.py \
     --output results/Mistral-7B-v0.3/LLM-Pruner_Mistral_20/evaluation/evaluation_results.json
 
 python evaluation/run_evaluation.py \
-    --model_path results/Mistral-7B-v0.3/Global_Taylor_20/pruned_model.bin \
+    --model_path results/LLaMA-3-8B/Taylor_only_20/pruned_model.bin \
     --metrics ppl,zeroshot,memeroy,speed \
-    --output results/Mistral-7B-v0.3/Global_Taylor_20/evaluation/evaluation_results.json
+    --output results/LLaMA-3-8B/Taylor_only_20/evaluation/evaluation_results.json
 
 python evaluation/run_evaluation.py \
     --model_path /newdata/LLMs/Mistral-7B-v0.3 \
     --metrics ppl,zeroshot,memeroy,speed \
     --output results/Mistral-7B-v0.3/Base/evaluation/evaluation_results.json
+
 # 使用2040窗口 和512步长评估PPL
 python evaluation/run_evaluation.py \
     --model_path /newdata/LLMs/Llama-3-8B-Instruct \

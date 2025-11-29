@@ -134,6 +134,7 @@ python run_global_pruning.py \
     --base_model /newdata/LLMs/Mistral-7B-v0.3 \
     --output_name Mistral-7B-v0.3/Taylor_only_20 \
     --pruning_ratio 0.2 \
+    --importance_method taylor_2nd \
     --temperature 0.0 
 ```
 
@@ -141,7 +142,7 @@ python run_global_pruning.py \
 - `--pruning_ratio`: 目标剪枝率（0.2 = 20%）
 - `--importance_method`: taylor（一阶，默认）/ taylor_2nd（二阶）/ wanda / magnitude
 - `--dataset`: 校准数据集（wikitext2 / ptb / c4，默认 wikitext2）
-- `--temperature`: H-GSP 温度参数（默认 1.0）
+- `--temperature`: H-GSP 温度参数（默认 0）
 - `--epsilon`: H-GSP 坍缩阈值（默认 0.15）
 
 **典型结果**（LLaMA-3-8B）：
@@ -261,7 +262,6 @@ python run_global_pruning.py \
     --device cuda:0
 ```
 
-### 调整 H-GSP 参数
 
 ```bash
 python run_global_pruning.py \
