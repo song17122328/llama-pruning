@@ -566,7 +566,20 @@ def main():
         device_map=device_map,
         low_cpu_mem_usage=True
     )
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+
+    # 加载 tokenizer，处理 sentencepiece 兼容性问题
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(args.base_model, use_fast=True)
+    except (ValueError, OSError) as e:
+        if "sentencepiece" in str(e).lower():
+            logger.log("  ⚠️  Fast tokenizer 需要 sentencepiece，尝试使用 slow tokenizer...")
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(args.base_model, use_fast=False)
+            except Exception as e2:
+                logger.log(f"  ❌ Slow tokenizer 也失败，请安装: pip install sentencepiece")
+                raise e2
+        else:
+            raise e
 
     # 启用梯度检查点（节省显存）
     if args.use_gradient_checkpointing:
