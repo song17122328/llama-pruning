@@ -133,9 +133,25 @@ python run_global_pruning.py \
 # Mistral-7B-v0.3（自动检测 GQA 4:1）
 python run_global_pruning.py \
     --base_model /newdata/LLMs/Mistral-7B-v0.3 \
-    --output_name Mistral-7B-v0.3/Taylor_2nd_only_20 \
+    --output_name Mistral-7B-v0.3/blockwise_20_c4 \
     --pruning_ratio 0.2 \
-    --importance_method taylor_2nd \
+    --importance_method taylor \
+    --temperature 1.0 --tau 0 --dataset c4 
+
+python run_global_pruning.py \
+    --base_model /newdata/LLMs/Mistral-7B-v0.3 \
+    --output_name Mistral-7B-v0.3/Taylor_F3_L2_20_c4 \
+    --pruning_ratio 0.2 \
+    --importance_method taylor \
+    --temperature 0 --dataset c4 --freeze_first_n_layers 3 --freeze_last_n_layers 2
+
+
+python run_global_pruning.py \
+    --base_model /newdata/LLMs/Mistral-7B-v0.3 \
+    --output_name Mistral-7B-v0.3/Taylor_only_20_c4 \
+    --pruning_ratio 0.2 \
+    --importance_method taylor \
+    --dataset c4 \
     --temperature 0.0 
 ```
 
