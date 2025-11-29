@@ -1,14 +1,15 @@
 # LLaMA Pruning Toolkit
 
-高效的LLaMA模型结构化剪枝工具，支持全局剪枝和层级剪枝两种方法。
+高效的 LLaMA / Qwen / Mistral 模型结构化剪枝工具，基于全局性价比优化的剪枝策略。
 
 ## ✨ 特性
 
-- 🎯 **结构化分组剪枝**：基于通道分组的端到端剪枝策略
-- 🔬 **多种重要性度量**：Taylor一阶/二阶、Wanda
-- 🚀 **全局优化**：基于性价比的分数背包剪枝
-- 🔧 **层级控制**：非均衡剪枝策略，保护重要层
-- 💪 **微调恢复**：支持全参数和LoRA微调
+- 🎯 **结构化分组剪枝**：GQA-aware 端到端剪枝策略
+- 🌐 **多模型支持**：LLaMA-3-8B、Qwen2.5-7B、Mistral-7B-v0.3
+- 🔬 **多种重要性度量**：Taylor 一阶/二阶、Magnitude
+- 🚀 **全局优化**：基于性价比的分数背包剪枝算法
+- 🔧 **自动配置检测**：自动识别不同模型的 GQA 架构（4:1 / 7:1）
+- 💪 **微调恢复**：支持 LoRA 微调恢复性能
 
 ## 🧠 核心设计：分组剪枝逻辑
 
@@ -100,88 +101,88 @@ pip install -r requirements.txt
 
 ## 🚀 快速开始
 
-### 方法1：全局剪枝（推荐）
+### 全局剪枝（Global Structural Pruning）
 
 基于性价比得分（Importance/Cost）全局选择最优剪枝策略。
 
 ```bash
+# LLaMA-3-8B
 python run_global_pruning.py \
-    --base_model /path/to/llama-3-8b \
-    --save_ckpt_log_name my_experiment \
-    --pruning_ratio 0.25 \
-    --importance_method taylor \
-    --num_samples 128 \
-    --test_after_prune \
-    --output_model pruned_model.bin
-```
+    --base_model meta-llama/Meta-Llama-3-8B \
+    --output_name LLaMA-3-8B/prune_20 \
+    --target_sparsity 0.2 \
+    --nsamples 128 \
+    --device cuda:0 \
+    --save_model
 
-**核心参数**：
-- `--pruning_ratio`: 剪枝率（0.25 = 25%）
-- `--importance_method`: taylor（一阶）/ taylor_2nd（二阶）/ wanda
-- `--num_samples`: 重要性评估样本数
-- `--remove_empty_layers`: 自动移除剪空的层（深度剪枝）
+# Qwen2.5-7B（自动检测 GQA 7:1）
+python run_global_pruning.py \
+    --base_model Qwen/Qwen2.5-7B \
+    --output_name Qwen2.5-7B/prune_20 \
+    --target_sparsity 0.2 \
+    --nsamples 128 \
+    --device cuda:0 \
+    --save_model
 
-### 方法2：层级剪枝（传统）
-
-先评估层重要性，再为每层分配剪枝率。
-
-```bash
-python layer_pruning.py \
-    --base_model /path/to/llama-3-8b \
-    --save_ckpt_log_name my_experiment \
-    --pruning_ratio 0.25 \
-    --pruning_distribution 2:8 \
-    --pruning_strategy inverse \
-    --test_after_prune \
+# Mistral-7B-v0.3（自动检测 GQA 4:1）
+python run_global_pruning.py \
+    --base_model mistralai/Mistral-7B-v0.3 \
+    --output_name Mistral-7B-v0.3/prune_20 \
+    --target_sparsity 0.2 \
+    --nsamples 128 \
+    --device cuda:0 \
     --save_model
 ```
 
 **核心参数**：
-- `--pruning_distribution`: Attention:MLP剪枝比例（如2:8）
-- `--pruning_strategy`: inverse（重要层少剪）/ uniform（均匀）
-- `--freeze_top_n_layers`: 冻结最重要的N层
+- `--target_sparsity`: 目标稀疏度（0.2 = 20%）
+- `--nsamples`: 重要性评估样本数（推荐 128）
+- `--importance_metric`: taylor_fo（一阶）/ taylor_so（二阶）/ magnitude
+- `--auto_remove_layers`: 自动移除剪空的层（深度剪枝）
+- `--auto_collapse`: 自动折叠稀疏层
 
-## 📊 两种方法对比
-
-| 特性 | 全局剪枝 | 层级剪枝 |
-|------|---------|---------|
-| **优化目标** | 全局最优 | 层级最优 |
-| **Attn:MLP** | 自动平衡 | 需手动指定 |
-| **深度剪枝** | ✅ 自动 | ❌ |
-| **计算时间** | 较慢 | 较快 |
-| **PPL** | 最优 | 良好 |
-| **推荐场景** | 追求极致性能 | 快速原型 |
-
-**典型结果**（LLaMA-3-8B，剪枝25%）：
-- 原始模型：PPL 12.3
-- 全局剪枝（taylor_2nd）：PPL 58.9
-- 层级剪枝（2:8, inverse）：PPL 83.8
-- + LoRA微调：PPL 18.5
+**典型结果**（LLaMA-3-8B）：
+- 原始模型：WikiText-2 PPL ~12.3
+- 20% 剪枝：PPL ~58.9
+- 30% 剪枝：PPL ~83.8
+- + LoRA 微调：PPL ~18.5
 
 ## 🔧 微调恢复
 
-剪枝后使用LoRA微调恢复性能：
+剪枝后使用 LoRA 微调恢复性能：
 
 ```bash
-# 全局剪枝 + LoRA微调
+# 剪枝 + 微调（集成）
 python run_global_pruning.py \
-    --base_model /path/to/llama-3-8b \
-    --pruning_ratio 0.25 \
+    --base_model Qwen/Qwen2.5-7B \
+    --output_name Qwen2.5-7B/prune_20_finetune \
+    --target_sparsity 0.2 \
     --finetune \
-    --finetune_method lora \
-    --lora_r 16 \
-    --lora_alpha 32 \
-    --finetune_samples 1000 \
-    --finetune_lr 1e-4 \
-    --test_after_prune \
-    --output_model finetuned_model.bin
+    --finetune_data_path yahma/alpaca-cleaned \
+    --finetune_epochs 3 \
+    --finetune_lr 3e-4 \
+    --lora_r 8 \
+    --lora_alpha 16 \
+    --device cuda:0 \
+    --save_model
+
+# 或使用独立微调脚本
+python finetune_lora.py \
+    --pruned_model results/Qwen2.5-7B/prune_20/pruned_model.bin \
+    --data_path yahma/alpaca-cleaned \
+    --output_dir results/Qwen2.5-7B/prune_20_finetuned \
+    --num_epochs 3 \
+    --learning_rate 3e-4 \
+    --lora_r 8 \
+    --lora_alpha 16 \
+    --device cuda:0
 ```
 
 **微调参数**：
-- `--finetune_method`: full（全参数）/ lora（推荐）
-- `--lora_r`: LoRA秩（4-16）
-- `--lora_alpha`: 缩放系数（通常=2×r）
-- `--finetune_lr`: 学习率（LoRA建议1e-4，全参数建议1e-5）
+- `--lora_r`: LoRA 秩（推荐 8-16）
+- `--lora_alpha`: 缩放系数（通常 = 2×r）
+- `--finetune_lr`: 学习率（推荐 3e-4）
+- `--finetune_epochs`: 微调轮数（推荐 3-5）
 
 ## 📈 评估
 
@@ -203,86 +204,83 @@ print(ppl)  # {'wikitext2 (wikitext-2-raw-v1)': 58.9}
 运行后生成：
 
 ```
-prune_log/my_experiment/
-├── description.txt              # 实验配置
-├── global_group_table.csv       # 全局分析表（仅全局剪枝）
-├── layer_importance_config.json # 层重要性（仅层级剪枝）
-├── pruning_strategy.png         # 剪枝策略可视化
-├── pytorch_model.bin            # 剪枝后模型
-└── YYYYMMDD_HHMMSS/
+results/{output_name}/
+├── pruned_model.bin             # 剪枝后模型权重
+├── config.json                  # 模型配置
+├── pruning_analysis.json        # 剪枝分析报告
+├── global_group_table.csv       # 全局分组表
+└── logs/
     └── training.log             # 详细日志
 ```
 
 ## 💡 使用建议
 
-### 剪枝率选择
+### 稀疏度选择
 
-| 剪枝率 | 推荐方法 | 是否微调 | PPL退化 |
-|--------|---------|---------|---------|
-| 15-20% | 全局/层级均可 | 可选 | < 10% |
-| 20-30% | 全局剪枝 | **推荐** | 10-30% |
-| 30-40% | 全局剪枝 | **必须** | > 30% |
+| 稀疏度 | 是否微调 | PPL 退化 | 适用场景 |
+|--------|---------|----------|----------|
+| 10-20% | 可选 | < 10% | 快速压缩 |
+| 20-30% | **推荐** | 10-30% | 平衡性能 |
+| 30-50% | **必须** | > 30% | 极限压缩 |
 
-### 重要性方法选择
+### 重要性度量选择
 
-- **taylor**：平衡精度和速度，大多数场景推荐
-- **taylor_2nd**：最高精度，愿意牺牲计算时间时使用
-- **wanda**：快速原型验证，无需梯度计算
+- **taylor_fo**：Taylor 一阶，平衡精度和速度（推荐）
+- **taylor_so**：Taylor 二阶，最高精度，计算较慢
+- **magnitude**：权重大小，快速原型验证
 
-### 层级剪枝分布推荐
+### 多模型测试建议
 
-对于LLaMA-3-8B（Attention占19.2%，MLP占80.8%）：
-- **2:8**：均衡剪枝率（推荐）
-- **0:10**：只剪MLP，保护Attention
-- **5:5**：等量剪枝参数
+- **LLaMA-3-8B**：基准模型，GQA 4:1
+- **Mistral-7B-v0.3**：验证相同 GQA 比例（4:1）的泛化性
+- **Qwen2.5-7B**：验证不同 GQA 比例（7:1）的适应性
 
 ## 🛠️ 高级用法
-
-### 仅剪枝Attention或MLP
-
-```bash
-# 只剪MLP
-python layer_pruning.py \
-    --pruning_distribution 0:10 \
-    --pruning_ratio 0.25
-
-# 只剪Attention
-python layer_pruning.py \
-    --pruning_distribution 10:0 \
-    --pruning_ratio 0.25
-```
-
-### 保护关键层
-
-```bash
-# 冻结最重要的3层
-python layer_pruning.py \
-    --freeze_top_n_layers 3 \
-    --pruning_ratio 0.25
-```
 
 ### 深度剪枝（自动移除空层）
 
 ```bash
 python run_global_pruning.py \
-    --pruning_ratio 0.30 \
-    --remove_empty_layers
+    --target_sparsity 0.30 \
+    --auto_remove_layers \
+    --auto_collapse
+```
+
+### 跳过评估（加速实验）
+
+```bash
+python run_global_pruning.py \
+    --target_sparsity 0.20 \
+    --skip_evaluation \
+    --save_model
+```
+
+### 使用梯度检查点（节省显存）
+
+```bash
+python run_global_pruning.py \
+    --target_sparsity 0.20 \
+    --use_gradient_checkpointing \
+    --device cuda:0
 ```
 
 ## 🐛 故障排除
 
 **CUDA OOM**：
 ```bash
---num_samples 50             # 减少样本数
---gradient_batch_size 2      # 减小批次大小
---seq_len 64                 # 减小序列长度
+--nsamples 32                    # 减少样本数
+--use_gradient_checkpointing     # 启用梯度检查点
 ```
 
-**PPL过高**：
-- 降低剪枝率（0.15-0.20）
-- 使用全局剪枝而非层级剪枝
-- 启用微调恢复
-- 尝试二阶Taylor重要性
+**PPL 过高**：
+- 降低稀疏度（10-20%）
+- 使用 Taylor 二阶（`--importance_metric taylor_so`）
+- 启用微调恢复（`--finetune`）
+- 增加校准样本数（`--nsamples 256`）
+
+**自动配置检测失败**：
+- 检查模型 config 中是否有 `num_key_value_heads` 字段
+- 代码会自动回退到 MHA 模式（Q heads = KV heads）
 
 ## 📚 引用
 
