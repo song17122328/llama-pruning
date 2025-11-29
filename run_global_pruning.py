@@ -797,67 +797,80 @@ def main():
         logger.log(f"  平均每批次: {total_time/num_batches:.2f}s")
 
     # ========== Step 3.5: 计算层移除困惑度（H-GSP 必需）==========
-    logger.log(f"\n[Step 3.5] 计算层移除困惑度（H-GSP Layer-wise 重要性）...")
-    logger.log(f"  样本数: {LAYER_IMPORTANCE_NUM_SAMPLES}, 序列长度: {LAYER_IMPORTANCE_SEQ_LEN} (内部固定)")
+    # ========== Step 3.5: 计算层移除困惑度（H-GSP Layer-wise 重要性）==========
+    # 当温度 T=0 时，只使用全局 Taylor 重要性，跳过层级和块级重要性测试
+    if args.temperature == 0.0:
+        logger.log(f"\n[Step 3.5-3.6] 跳过层级和块级重要性测试")
+        logger.log(f"  原因: temperature=0，只使用全局 Taylor 重要性（推荐配置）")
+        logger.log(f"  ✓ 避免模型兼容性问题，聚焦核心方法")
 
-    from core.importance.layer_analyzer import LayerImportanceAnalyzer
+        # 设置为空，后续构建全局分析表时会自动处理
+        layer_removal_ppl = {}
+        block_removal_ppl = {'attention': {}, 'mlp': {}}
 
-    # 加载用于层重要性分析的样本（文本格式）
-    layer_texts_list = dataset_manager.get_layer_importance_samples(
-        num_samples=LAYER_IMPORTANCE_NUM_SAMPLES,
-        seq_len=LAYER_IMPORTANCE_SEQ_LEN
-    )
+    else:
+        logger.log(f"\n[Step 3.5] 计算层移除困惑度（H-GSP Layer-wise 重要性）...")
+        logger.log(f"  样本数: {LAYER_IMPORTANCE_NUM_SAMPLES}, 序列长度: {LAYER_IMPORTANCE_SEQ_LEN} (内部固定)")
 
-    # 创建分析器
-    analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
+        from core.importance.layer_analyzer import LayerImportanceAnalyzer
 
-    # 计算每层的移除困惑度
-    num_layers = len(model.model.layers)
-    layer_removal_ppl = analyzer.measure_layer_importance_by_removal(
-        texts=layer_texts_list,
-        num_layers=num_layers
-    )
+        # 加载用于层重要性分析的样本（文本格式）
+        layer_texts_list = dataset_manager.get_layer_importance_samples(
+            num_samples=LAYER_IMPORTANCE_NUM_SAMPLES,
+            seq_len=LAYER_IMPORTANCE_SEQ_LEN
+        )
 
-    logger.log(f"✓ 层移除困惑度计算完成")
-    print("\n" + "="*60)
-    print("层级重要度")
-    print("="*60)
-    for layer_idx in range(num_layers):
-        importance = layer_removal_ppl.get(layer_idx, 0.0)
-        print(f"Layer {layer_idx:2d}   {importance:10.4f}")
+        # 创建分析器
+        analyzer = LayerImportanceAnalyzer(model, tokenizer, device=args.device)
 
-    # 保存层移除困惑度到分析目录
-    import json
-    layer_ppl_path = os.path.join(output_dirs['analysis'], 'layer_removal_ppl.json')
-    with open(layer_ppl_path, 'w') as f:
-        json.dump(layer_removal_ppl, f, indent=2)
-    logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
+        # 计算每层的移除困惑度
+        num_layers = len(model.model.layers)
+        layer_removal_ppl = analyzer.measure_layer_importance_by_removal(
+            texts=layer_texts_list,
+            num_layers=num_layers
+        )
 
-    # ========== Step 3.6: 计算块移除困惑度（H-GSP 必需）==========
-    logger.log(f"\n[Step 3.6] 计算块移除困惑度（H-GSP Block-wise 重要性）...")
-    logger.log(f"  样本数: {BLOCK_IMPORTANCE_NUM_SAMPLES}, 序列长度: {BLOCK_IMPORTANCE_SEQ_LEN} (内部固定)")
+        logger.log(f"✓ 层移除困惑度计算完成")
+        print("\n" + "="*60)
+        print("层级重要度")
+        print("="*60)
+        for layer_idx in range(num_layers):
+            importance = layer_removal_ppl.get(layer_idx, 0.0)
+            print(f"Layer {layer_idx:2d}   {importance:10.4f}")
 
-    # 加载用于块重要性分析的样本（文本格式）
-    block_texts_list = dataset_manager.get_layer_importance_samples(
-        num_samples=BLOCK_IMPORTANCE_NUM_SAMPLES,
-        seq_len=BLOCK_IMPORTANCE_SEQ_LEN
-    )
+        # 保存层移除困惑度到分析目录
+        import json
+        layer_ppl_path = os.path.join(output_dirs['analysis'], 'layer_removal_ppl.json')
+        with open(layer_ppl_path, 'w') as f:
+            json.dump(layer_removal_ppl, f, indent=2)
+        logger.log(f"✓ 层移除困惑度已保存: {layer_ppl_path}")
 
-    # 计算每层的 Attention 和 MLP 块移除困惑度
-    block_removal_ppl = analyzer.measure_block_importance_by_removal(
-        texts=block_texts_list,
-        num_layers=num_layers
-    )
+        # ========== Step 3.6: 计算块移除困惑度（H-GSP Block-wise 重要性）==========
+        logger.log(f"\n[Step 3.6] 计算块移除困惑度（H-GSP Block-wise 重要性）...")
+        logger.log(f"  样本数: {BLOCK_IMPORTANCE_NUM_SAMPLES}, 序列长度: {BLOCK_IMPORTANCE_SEQ_LEN} (内部固定)")
 
-    logger.log(f"✓ 块移除困惑度计算完成")
-    logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
-    logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
+        # 加载用于块重要性分析的样本（文本格式）
+        block_texts_list = dataset_manager.get_layer_importance_samples(
+            num_samples=BLOCK_IMPORTANCE_NUM_SAMPLES,
+            seq_len=BLOCK_IMPORTANCE_SEQ_LEN
+        )
 
-    # 保存块移除困惑度到分析目录
-    block_ppl_path = os.path.join(output_dirs['analysis'], 'block_removal_ppl.json')
-    with open(block_ppl_path, 'w') as f:
-        json.dump(block_removal_ppl, f, indent=2)
-    logger.log(f"✓ 块移除困惑度已保存: {block_ppl_path}")
+        # 计算每层的 Attention 和 MLP 块移除困惑度
+        block_removal_ppl = analyzer.measure_block_importance_by_removal(
+            texts=block_texts_list,
+            num_layers=num_layers
+        )
+
+        logger.log(f"✓ 块移除困惑度计算完成")
+        logger.log(f"  示例 - Layer 0 Attention: {block_removal_ppl['attention'][0]:.4f}, MLP: {block_removal_ppl['mlp'][0]:.4f}")
+        logger.log(f"  示例 - Layer {num_layers-1} Attention: {block_removal_ppl['attention'][num_layers-1]:.4f}, MLP: {block_removal_ppl['mlp'][num_layers-1]:.4f}")
+
+        # 保存块移除困惑度到分析目录
+        block_ppl_path = os.path.join(output_dirs['analysis'], 'block_removal_ppl.json')
+        with open(block_ppl_path, 'w') as f:
+            json.dump(block_removal_ppl, f, indent=2)
+        logger.log(f"✓ 块移除困惑度已保存: {block_ppl_path}")
+
 
     # ========== Step 4: 构建全局分析表 ==========
     logger.log("\n[Step 4] 构建全局 Group 分析表...")

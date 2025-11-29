@@ -38,6 +38,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/global_prune_20 \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -47,6 +48,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/global_prune_30 \
   --pruning_ratio 0.3 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -56,6 +58,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/global_prune_50 \
   --pruning_ratio 0.5 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -74,6 +77,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/global_prune_20 \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -83,6 +87,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/global_prune_30 \
   --pruning_ratio 0.3 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -92,6 +97,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/global_prune_50 \
   --pruning_ratio 0.5 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -110,6 +116,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/global_prune_20 \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -119,6 +126,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/global_prune_30 \
   --pruning_ratio 0.3 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -128,6 +136,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/global_prune_50 \
   --pruning_ratio 0.5 \
+  --temperature 0.0 \
   --device cuda:0
 ```
 
@@ -145,6 +154,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model meta-llama/Meta-Llama-3-8B \
   --output_name LLaMA-3-8B/prune_20_finetune \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
   --finetune \
   --finetune_data_path yahma/alpaca-cleaned \
   --finetune_epochs 3 \
@@ -160,6 +170,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/prune_20_finetune \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
   --finetune \
   --finetune_data_path yahma/alpaca-cleaned \
   --finetune_epochs 3 \
@@ -171,6 +182,7 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/prune_20_finetune \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
   --finetune \
   --finetune_data_path yahma/alpaca-cleaned \
   --finetune_epochs 3 \
@@ -266,13 +278,16 @@ done
 - `--pruning_ratio`: 目标稀疏度（0.2 = 20%）
 
 ### 剪枝参数
-- `--nsamples`: 校准样本数（推荐 128）
-- `--importance_metric`: 重要性度量
-  - `taylor_fo`: Taylor 一阶（默认，推荐）
-  - `taylor_so`: Taylor 二阶（更精确，更慢）
+- `--importance_method`: 重要性度量
+  - `taylor`: Taylor 一阶（默认，推荐）
+  - `taylor_2nd`: Taylor 二阶（更精确，更慢）
+  - `wanda`: Wanda 方法
   - `magnitude`: 权重大小
-- `--auto_remove_layers`: 自动移除剪空的层（深度剪枝）
-- `--auto_collapse`: 自动折叠稀疏层
+- `--dataset`: 校准数据集（wikitext2 / ptb / c4，默认 wikitext2）
+- `--temperature`: H-GSP 温度参数（默认 1.0）
+  - **设为 0.0**: 只使用全局 Taylor，跳过层级/块级重要性（推荐，避免模型兼容性问题）
+  - **设为 1.0**: 使用完整 H-GSP 层次化剪枝策略
+- `--epsilon`: H-GSP 坍缩阈值（默认 0.15）
 
 ### 微调参数
 - `--finetune`: 启用微调
@@ -298,33 +313,54 @@ CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/quick_test \
   --pruning_ratio 0.1 \
+  --temperature 0.0 \
+  --temperature 0.0 \
   --device cuda:0
-  --skip_evaluation
 
 # 快速测试 Mistral
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/quick_test \
   --pruning_ratio 0.1 \
+  --temperature 0.0 \
+  --temperature 0.0 \
   --device cuda:0
-  --skip_evaluation
 ```
 
-### 2. 标准剪枝（20% 稀疏度）
+**推荐配置说明**：
+- `--temperature 0.0`：只使用全局 Taylor 重要性，跳过层级/块级重要性测试
+- ✅ **优势**：避免模型兼容性问题（如 Qwen/Mistral 的层恒等映射）
+- ✅ **性能**：全局 Taylor 方法已被实验证明效果最好
+- ✅ **速度**：跳过层级分析，加快剪枝速度
+
+### 2. 标准剪枝（20% 稀疏度，推荐配置）
 
 ```bash
-# Qwen
+# Qwen（推荐：temperature=0）
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model Qwen/Qwen2.5-7B \
   --output_name Qwen2.5-7B/prune_20 \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
+  --temperature 0.0 \
   --device cuda:0
 
-# Mistral
+# Mistral（推荐：temperature=0）
 CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
   --base_model mistralai/Mistral-7B-v0.3 \
   --output_name Mistral-7B-v0.3/prune_20 \
   --pruning_ratio 0.2 \
+  --temperature 0.0 \
+  --temperature 0.0 \
+  --device cuda:0
+
+# LLaMA（可使用完整 H-GSP）
+CUDA_VISIBLE_DEVICES=0 python run_global_pruning.py \
+  --base_model meta-llama/Meta-Llama-3-8B \
+  --output_name LLaMA-3-8B/prune_20 \
+  --pruning_ratio 0.2 \
+  --temperature 0.0 \
+  --temperature 1.0 \
   --device cuda:0
 ```
 
