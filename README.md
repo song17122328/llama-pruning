@@ -127,12 +127,13 @@ python run_global_pruning.py \
     --base_model /newdata/LLMs/Qwen2.5-7B \
     --output_name Qwen2.5-7B/Taylor_only_20 \
     --pruning_ratio 0.2 \
-    --temperature 0.0 
+    --temperature 1.0 \
+
 
 # Mistral-7B-v0.3（自动检测 GQA 4:1）
 python run_global_pruning.py \
     --base_model /newdata/LLMs/Mistral-7B-v0.3 \
-    --output_name Mistral-7B-v0.3/Taylor_only_20 \
+    --output_name Mistral-7B-v0.3/Taylor_2nd_only_20 \
     --pruning_ratio 0.2 \
     --importance_method taylor_2nd \
     --temperature 0.0 
