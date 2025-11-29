@@ -110,20 +110,20 @@ pip install -r requirements.txt
 python run_global_pruning.py \
     --base_model /newdata/LLMs/Meta-Llama-3-8B \
     --output_name LLaMA-3-8B/prune_20 \
-    --pruning_ratio 0.2 \
+    --pruning_ratio 0.2 
 
 
 # Qwen2.5-7B（自动检测 GQA 7:1）
 python run_global_pruning.py \
     --base_model /newdata/LLMs/Qwen2.5-7B \
     --output_name Qwen2.5-7B/prune_20 \
-    --pruning_ratio 0.2 \
+    --pruning_ratio 0.2 
 
 # Mistral-7B-v0.3（自动检测 GQA 4:1）
 python run_global_pruning.py \
     --base_model /newdata/LLMs/Mistral-7B-v0.3 \
     --output_name Mistral-7B-v0.3/prune_20 \
-    --pruning_ratio 0.2 \
+    --pruning_ratio 0.2 
 ```
 
 **核心参数**：

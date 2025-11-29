@@ -462,7 +462,7 @@ def main():
 
     # H-GSP 核心参数
     parser.add_argument('--temperature', type=float, default=1.0,
-                       help='H-GSP 温度参数 T（默认: 1.0，推荐范围: 0.5-2.0）')
+                       help='H-GSP 温度参数 T,当temperature为0时表示只用全局Taylor（默认: 1.0，推荐范围: 0.5-2.0）')
     parser.add_argument('--tau', type=float, default=None,
                        help='H-GSP 门控阈值 τ（默认: None 自动计算）')
     parser.add_argument('--epsilon', type=float, default=0,
