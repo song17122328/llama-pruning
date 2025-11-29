@@ -64,8 +64,10 @@ def compute_attention_group_importance_taylor(layer, head_dim=128, gqa_ratio=4, 
                 salience[name] = first_order + second_order
             else:
                 salience[name] = first_order
+                print("⚠️ Warning: Hessian info missing for", full_name)
         else:
             salience[name] = first_order
+            print("⚠️ Warning: Hessian info not provided, using first-order only.")
 
     q_imp = salience['q_proj'].sum(1)
     k_imp = salience['k_proj'].sum(1)

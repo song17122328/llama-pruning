@@ -889,6 +889,7 @@ def main():
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     # 存储在CPU上，避免占用GPU显存
+                    print(f"参数: {name}")
                     hessian_diag[name] = torch.zeros_like(param.data, device='cpu')
 
         # 使用 tqdm 显示进度条

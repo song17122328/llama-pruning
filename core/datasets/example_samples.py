@@ -58,7 +58,7 @@ def get_examples(
     # 中文数据集支持
     elif dataset_name.lower() in ['wikitext_zh', 'wikitext-zh', 'wikipedia_zh', 'wikipedia-zh']:
         try:
-            print("尝试从本地加载中文维基百科数据集: /newdata/DataSets/wikipedia_zh/")
+            # print("尝试从本地加载中文维基百科数据集: /newdata/DataSets/wikipedia_zh/")
             dataset = load_from_disk("/newdata/DataSets/wikipedia_zh")
             if hasattr(dataset, split):
                 dataset = dataset[split]
@@ -70,7 +70,7 @@ def get_examples(
                 # test split 使用后20%
                 total_len = len(dataset)
                 dataset = dataset.select(range(int(total_len * 0.8), total_len))
-            print(f"✓ 成功从本地加载中文维基百科数据集 ({len(dataset)} 样本)")
+            # print(f"✓ 成功从本地加载中文维基百科数据集 ({len(dataset)} 样本)")
         except Exception as e:
             print(f"⚠️ 中文维基本地加载失败: {e}")
             print("尝试从 HuggingFace 下载 wikipedia zh...")
@@ -110,7 +110,16 @@ def get_examples(
     # 收集文本样本
     texts = []
     for item in dataset:
-        text = item[text_field].strip()
+        if 'text' in item:
+            content = item['text']
+        elif 'completion' in item:
+            content = item['completion']
+        elif 'content' in item:
+            content = item['content']
+        else:
+            # 兜底：获取第一个字符串类型的列
+            content = list(item.values())[0]
+        text = content.strip()
         # 过滤掉太短的文本
         if len(text) > 50:
             texts.append(text)

@@ -44,11 +44,11 @@ Qwen 在中文数据上：
 
 ```bash
 python run_global_pruning.py \
-  --base_model /newdata/LLMs/Qwen2.5-7B-Instruct \
+  --base_model /newdata/LLMs/Qwen2.5-7B \
   --dataset wikitext_zh \
   --pruning_ratio 0.2 \
   --output_name Qwen2.5_pruned_zh_calib \
-  --temperature 1.0 \
+  --temperature 0 
   --tau None
 ```
 
