@@ -81,18 +81,41 @@ class LayerImportanceAnalyzer:
         pbar = tqdm(range(num_layers), desc="分析层重要性（loss方法）", ncols=100)
 
         for layer_idx in pbar:
-            # 保存原始forward函数
-            original_forward = self.model.model.layers[layer_idx].forward
+            # 保存原始层
+            original_layer = self.model.model.layers[layer_idx]
 
-            # 定义恒等映射函数（跳过该层）
-            def identity_forward(hidden_states, *args, **kwargs):
-                # 直接返回输入的hidden_states，跳过该层的计算
-                # 为了兼容不同模型（LLaMA, Mistral, Qwen等），总是返回tuple格式
-                # 大多数模型的 DecoderLayer 都会正确处理单元素tuple
-                return (hidden_states,)
+            # 获取模型类型，用于决定返回格式
+            model_type = self.model.config.model_type if hasattr(self.model.config, 'model_type') else 'llama'
 
-            # 临时替换该层的forward
-            self.model.model.layers[layer_idx].forward = identity_forward
+            # 创建恒等映射层（ShortGPT 方法）
+            class IdentityLayer(torch.nn.Module):
+                def __init__(self, model_type):
+                    super().__init__()
+                    self.model_type = model_type
+
+                def forward(self, hidden_states, *args, **kwargs):
+                    # 根据模型类型返回正确的格式
+                    # Mistral, Qwen 等模型的 DecoderLayer 总是返回 tuple
+                    if self.model_type in ['mistral', 'qwen2', 'qwen']:
+                        return (hidden_states,)
+                    else:
+                        # LLaMA 等模型根据参数决定返回格式
+                        output_attentions = kwargs.get('output_attentions', False)
+                        use_cache = kwargs.get('use_cache', False)
+                        if output_attentions or use_cache:
+                            # 返回 tuple 格式
+                            outputs = (hidden_states,)
+                            if output_attentions:
+                                outputs += (None,)
+                            if use_cache:
+                                outputs += (None,)
+                            return outputs
+                        else:
+                            # 只返回 tensor
+                            return hidden_states
+
+            # 临时替换整个层
+            self.model.model.layers[layer_idx] = IdentityLayer(model_type)
 
             try:
                 loss = self.compute_loss(texts, show_progress=False)
@@ -107,7 +130,7 @@ class LayerImportanceAnalyzer:
                 })
             finally:
                 # 无论是否出错，都要恢复该层
-                self.model.model.layers[layer_idx].forward = original_forward
+                self.model.model.layers[layer_idx] = original_layer
 
         pbar.close()
         return layer_importance
