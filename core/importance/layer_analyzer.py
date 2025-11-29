@@ -95,9 +95,9 @@ class LayerImportanceAnalyzer:
 
                 def forward(self, hidden_states, *args, **kwargs):
                     # 根据模型类型返回正确的格式
-                    # Mistral, Qwen 等模型的 DecoderLayer 总是返回 tuple
+                    # Mistral, Qwen 等模型的 DecoderLayer 直接返回 tensor（不是 tuple）
                     if self.model_type in ['mistral', 'qwen2', 'qwen']:
-                        return (hidden_states,)
+                        return hidden_states
                     else:
                         # LLaMA 等模型根据参数决定返回格式
                         output_attentions = kwargs.get('output_attentions', False)
