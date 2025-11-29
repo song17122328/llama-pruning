@@ -280,14 +280,17 @@ class LayerImportanceAnalyzer:
                             input_flat = layer_input.reshape(-1, hidden_dim)
                             output_flat = layer_output.reshape(-1, hidden_dim)
 
-                            # 计算归一化
-                            norm_input = input_flat.norm(dim=-1, keepdim=True)
-                            norm_output = output_flat.norm(dim=-1, keepdim=True)
+                            # 直接计算对角线元素（避免创建大矩阵）
+                            # 点积: 每个 token 位置的点积
+                            dot_product = (input_flat * output_flat).sum(dim=-1)  # [N]
 
-                            # 计算相似度矩阵并取对角线（token-wise 相似度）
-                            sim_matrix = (input_flat @ output_flat.T) / (norm_input * norm_output.T + 1e-8)
-                            sim = sim_matrix.diagonal()  # 只取对应位置的相似度
-                            cos_sim = sim.mean().item()  # 平均 token-wise 相似度
+                            # L2 范数
+                            norm_input = input_flat.norm(dim=-1)  # [N]
+                            norm_output = output_flat.norm(dim=-1)  # [N]
+
+                            # Token-wise 余弦相似度
+                            cos_sim_per_token = dot_product / (norm_input * norm_output + 1e-8)  # [N]
+                            cos_sim = cos_sim_per_token.mean().item()  # 平均 token-wise 相似度
 
                             similarities.append(cos_sim)
                     finally:
@@ -399,14 +402,14 @@ class LayerImportanceAnalyzer:
                             input_flat = attn_input.reshape(-1, hidden_dim)
                             output_flat = attn_output.reshape(-1, hidden_dim)
 
-                            # 计算归一化
-                            norm_input = input_flat.norm(dim=-1, keepdim=True)
-                            norm_output = output_flat.norm(dim=-1, keepdim=True)
+                            # 直接计算对角线元素（避免创建大矩阵）
+                            dot_product = (input_flat * output_flat).sum(dim=-1)  # [N]
+                            norm_input = input_flat.norm(dim=-1)  # [N]
+                            norm_output = output_flat.norm(dim=-1)  # [N]
 
-                            # 计算相似度矩阵并取对角线（token-wise 相似度）
-                            sim_matrix = (input_flat @ output_flat.T) / (norm_input * norm_output.T + 1e-8)
-                            sim = sim_matrix.diagonal()
-                            cos_sim = sim.mean().item()
+                            # Token-wise 余弦相似度
+                            cos_sim_per_token = dot_product / (norm_input * norm_output + 1e-8)
+                            cos_sim = cos_sim_per_token.mean().item()
 
                             similarities.append(cos_sim)
                     finally:
@@ -469,14 +472,14 @@ class LayerImportanceAnalyzer:
                             input_flat = mlp_input.reshape(-1, hidden_dim)
                             output_flat = mlp_output.reshape(-1, hidden_dim)
 
-                            # 计算归一化
-                            norm_input = input_flat.norm(dim=-1, keepdim=True)
-                            norm_output = output_flat.norm(dim=-1, keepdim=True)
+                            # 直接计算对角线元素（避免创建大矩阵）
+                            dot_product = (input_flat * output_flat).sum(dim=-1)  # [N]
+                            norm_input = input_flat.norm(dim=-1)  # [N]
+                            norm_output = output_flat.norm(dim=-1)  # [N]
 
-                            # 计算相似度矩阵并取对角线（token-wise 相似度）
-                            sim_matrix = (input_flat @ output_flat.T) / (norm_input * norm_output.T + 1e-8)
-                            sim = sim_matrix.diagonal()
-                            cos_sim = sim.mean().item()
+                            # Token-wise 余弦相似度
+                            cos_sim_per_token = dot_product / (norm_input * norm_output + 1e-8)
+                            cos_sim = cos_sim_per_token.mean().item()
 
                             similarities.append(cos_sim)
                     finally:
