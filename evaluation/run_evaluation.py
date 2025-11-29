@@ -44,6 +44,25 @@
         --auto_select_gpu \
         --lm_eval
 
+python evaluation/run_evaluation.py \
+    --model_path results/LLM-Pruner_Mistral_20/pruned_model.bin \
+    --metrics ppl,zeroshot,memeroy,speed \
+    --output results/LLM-Pruner_Mistral_20/evaluation/evaluation_results.json
+
+python evaluation/run_evaluation.py \
+    --model_path results/Mistral-7B-v0.3/LLM-Pruner_Mistral_20/pruned_model.bin \
+    --metrics ppl,zeroshot,memeroy,speed \
+    --output results/Mistral-7B-v0.3/LLM-Pruner_Mistral_20/evaluation/evaluation_results.json
+
+python evaluation/run_evaluation.py \
+    --model_path results/Mistral-7B-v0.3/Global_Taylor_20/pruned_model.bin \
+    --metrics ppl,zeroshot,memeroy,speed \
+    --output results/Mistral-7B-v0.3/Global_Taylor_20/evaluation/evaluation_results.json
+
+python evaluation/run_evaluation.py \
+    --model_path /newdata/LLMs/Mistral-7B-v0.3 \
+    --metrics ppl,zeroshot,memeroy,speed \
+    --output results/Mistral-7B-v0.3/Base/evaluation/evaluation_results.json
 # 使用2040窗口 和512步长评估PPL
 python evaluation/run_evaluation.py \
     --model_path /newdata/LLMs/Llama-3-8B-Instruct \
@@ -59,12 +78,7 @@ python evaluation/run_evaluation.py \
     --ppl_stride 512 \
     --output results/HGSP_2000/evaluation/ppl_2048_512.json
     
-python evaluation/run_evaluation.py \
-    --model_path results/HGSP_2000_finetuned/pruned_model.bin \
-    --metrics ppl \
-    --ppl_seq_len 2048 \
-    --ppl_stride 512 \
-    --output results/HGSP_2000_finetuned/evaluation/ppl_2048_512.json
+
 
     # 对比多个模型
     python evaluation/run_evaluation.py \
