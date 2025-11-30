@@ -537,7 +537,7 @@ def remove_empty_layers(model, empty_layers, logger=None):
     for layer_idx in empty_layers:
         if layer_idx < num_layers:
             log(f"  替换 Layer {layer_idx} 为 Identity 层")
-            model.model.layers[layer_idx] = IdentityDecoderLayer()
+            model.model.layers[layer_idx] = IdentityDecoderLayer(model_type)
 
     log(f"✓ 已替换 {len(empty_layers)} 层为 Identity 层")
     log(f"  物理层数: {num_layers} (保持不变)")
@@ -860,11 +860,11 @@ def main():
 
     # H-GSP 内部固定参数（不对外暴露）
     TAYLOR_NUM_SAMPLES = 256
-    TAYLOR_SEQ_LEN = 256              # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
+    TAYLOR_SEQ_LEN = 32              # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
     LAYER_IMPORTANCE_NUM_SAMPLES = 50
-    LAYER_IMPORTANCE_SEQ_LEN = 256    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
+    LAYER_IMPORTANCE_SEQ_LEN = 32    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
     BLOCK_IMPORTANCE_NUM_SAMPLES = 50
-    BLOCK_IMPORTANCE_SEQ_LEN = 256    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
+    BLOCK_IMPORTANCE_SEQ_LEN = 32    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
 
     if args.importance_method in ['taylor', 'taylor_2nd']:
         logger.log(f"\n[Step 3] 计算梯度（{'一阶' if args.importance_method == 'taylor' else '二阶'} Taylor importance）...")

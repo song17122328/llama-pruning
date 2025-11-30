@@ -39,6 +39,9 @@ python evaluation/run_evaluation.py \
     --metrics ppl,zeroshot,speed,memory \
     --output results/Magnitude_2000/evaluation/evaluation_results.json 
 
+python run_global_pruning.py     --base_model /newdata/LLMs/Llama-3-8B/    --output_name LLaMA-3-8B/Taylor_2nd_20     --pruning_ratio 0.2     --temperature 0.0  --importance_method taylor_2nd 
+python run_global_pruning.py     --base_model /newdata/LLMs/Llama-3-8B/    --output_name LLaMA-3-8B/layerwise_20     --pruning_ratio 0.2     --temperature 1.0  --importance_method taylor  --tau inf
+
 微调taylor_only_2000
 CUDA_VISIBLE_DEVICES=0 python finetune_lora.py \
     --pruned_model results/taylor_only_2000/pruned_model.bin \

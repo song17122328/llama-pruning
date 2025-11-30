@@ -1,8 +1,8 @@
 - Training Parameters: 
-  - base_model: /newdata/LLMs/Mistral-7B-v0.3
-  - output_name: Mistral-7B-v0.3/blockwise_2nd_20
+  - base_model: /newdata/LLMs/Qwen2.5-7B
+  - output_name: results/Qwen2.5-7B/taylor_blcokwise_20
   - pruning_ratio: 0.2
-  - importance_method: taylor_2nd
+  - importance_method: taylor
   - dataset: c4
   - gradient_batch_size: 4
   - use_gradient_checkpointing: False
@@ -28,6 +28,6 @@
   - lora_r: 8
   - lora_alpha: 16
   - skip_finetune_evaluation: False
-  - device: cuda:3
+  - device: cuda:2
   - layer_start: 0
   - layer_end: None
