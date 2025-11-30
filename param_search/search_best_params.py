@@ -131,41 +131,55 @@ def extract_results(output_dir):
             eval_data = json.load(f)
 
             # 提取 PPL（WikiText2）
-            if "ppl" in eval_data and "wikitext2" in eval_data["ppl"]:
-                results["ppl"] = eval_data["ppl"]["wikitext2"]
+            # 实际路径: metrics.ppl["wikitext2 (wikitext-2-raw-v1)"]
+            if "metrics" in eval_data:
+                metrics = eval_data["metrics"]
 
-            # 提取所有 7 个 zero-shot 任务的单独 ACC
-            if "zeroshot" in eval_data and "results" in eval_data["zeroshot"]:
-                accs = []
-                for task, task_results in eval_data["zeroshot"]["results"].items():
-                    # 提取任务的 ACC
-                    task_acc = None
-                    if "acc" in task_results:
-                        task_acc = task_results["acc"]
-                    elif "acc_norm" in task_results:
-                        task_acc = task_results["acc_norm"]
+                # 提取 PPL
+                if "ppl" in metrics:
+                    ppl_data = metrics["ppl"]
+                    # 尝试各种 wikitext2 的键名
+                    for key in ppl_data.keys():
+                        if "wikitext2" in key.lower() or "wikitext-2" in key.lower():
+                            results["ppl"] = ppl_data[key]
+                            break
 
-                    if task_acc is not None:
-                        accs.append(task_acc)
+                # 提取所有 7 个 zero-shot 任务的单独 ACC
+                # 实际路径: metrics.zeroshot.<task>.accuracy
+                if "zeroshot" in metrics:
+                    zeroshot_data = metrics["zeroshot"]
+                    accs = []
 
-                        # 保存单独任务的 ACC
-                        if "boolq" in task.lower():
-                            results["acc_boolq"] = task_acc
-                        elif "piqa" in task.lower():
-                            results["acc_piqa"] = task_acc
-                        elif "hellaswag" in task.lower():
-                            results["acc_hellaswag"] = task_acc
-                        elif "winogrande" in task.lower():
-                            results["acc_winogrande"] = task_acc
-                        elif "arc_easy" in task.lower():
-                            results["acc_arc_easy"] = task_acc
-                        elif "arc_challenge" in task.lower():
-                            results["acc_arc_challenge"] = task_acc
-                        elif "openbookqa" in task.lower():
-                            results["acc_openbookqa"] = task_acc
+                    for task_name, task_data in zeroshot_data.items():
+                        # 提取任务的 accuracy
+                        if isinstance(task_data, dict) and "accuracy" in task_data:
+                            task_acc = task_data["accuracy"]
+                            accs.append(task_acc)
 
-                if accs:
-                    results["acc_mean"] = sum(accs) / len(accs)
+                            # 保存单独任务的 ACC
+                            task_lower = task_name.lower()
+                            if "boolq" in task_lower:
+                                results["acc_boolq"] = task_acc
+                            elif "piqa" in task_lower:
+                                results["acc_piqa"] = task_acc
+                            elif "hellaswag" in task_lower:
+                                results["acc_hellaswag"] = task_acc
+                            elif "winogrande" in task_lower:
+                                results["acc_winogrande"] = task_acc
+                            elif "arc_easy" in task_lower or "arc-easy" in task_lower:
+                                results["acc_arc_easy"] = task_acc
+                            elif "arc_challenge" in task_lower or "arc-challenge" in task_lower:
+                                results["acc_arc_challenge"] = task_acc
+                            elif "openbookqa" in task_lower:
+                                results["acc_openbookqa"] = task_acc
+
+                    # 计算平均 ACC（如果有任务结果）
+                    if accs:
+                        results["acc_mean"] = sum(accs) / len(accs)
+
+                    # 也尝试直接读取平均值
+                    if "avg_zeroshot_acc" in metrics:
+                        results["acc_mean"] = metrics["avg_zeroshot_acc"]
 
     # 读取模型对比结果
     model_comp_file = Path(output_dir) / "analysis" / "model_comparison.json"
@@ -179,62 +193,68 @@ def extract_results(output_dir):
             if "total_params" in comp_data and "reduction_ratio" in comp_data["total_params"]:
                 results["pruning_ratio"] = comp_data["total_params"]["reduction_ratio"]
 
-    # 读取梯度统计信息（关键！用于分析规律）
-    grad_stats_file = Path(output_dir) / "analysis" / "gradient_statistics.json"
-    if grad_stats_file.exists():
-        with open(grad_stats_file, 'r') as f:
-            grad_data = json.load(f)
-
-            # 提取梯度均值比率
-            if "gradient_mean_ratio" in grad_data:
-                results["grad_mean_ratio"] = grad_data["gradient_mean_ratio"]
-
-            # 提取梯度范数比率
-            if "gradient_norm_ratio" in grad_data:
-                results["grad_norm_ratio"] = grad_data["gradient_norm_ratio"]
-
-            # 提取梯度标准差比率
-            if "gradient_std_ratio" in grad_data:
-                results["grad_std_ratio"] = grad_data["gradient_std_ratio"]
-
-            # 提取梯度最大值比率
-            if "gradient_max_ratio" in grad_data:
-                results["grad_max_ratio"] = grad_data["gradient_max_ratio"]
-
-            # 提取梯度均值范围
-            if "gradient_mean_range" in grad_data:
-                mean_range = grad_data["gradient_mean_range"]
-                if isinstance(mean_range, str):
-                    # 格式: "8.3733e-02 ~ 9.0496e-01"
-                    parts = mean_range.split('~')
-                    if len(parts) == 2:
-                        min_val = float(parts[0].strip())
-                        max_val = float(parts[1].strip())
-                        results["grad_mean_range"] = max_val - min_val
-
-            # 提取梯度范数范围
-            if "gradient_norm_range" in grad_data:
-                norm_range = grad_data["gradient_norm_range"]
-                if isinstance(norm_range, str):
-                    parts = norm_range.split('~')
-                    if len(parts) == 2:
-                        min_val = float(parts[0].strip())
-                        max_val = float(parts[1].strip())
-                        results["grad_norm_range"] = max_val - min_val
-
-    # 读取梯度诊断信息
+    # 读取梯度诊断信息（包含梯度统计和极端剪枝层信息）
     grad_diag_file = Path(output_dir) / "analysis" / "gradient_diagnosis.json"
     if grad_diag_file.exists():
         with open(grad_diag_file, 'r') as f:
             diag_data = json.load(f)
 
+            # 提取梯度统计信息（实际路径：gradient_statistics）
+            if "gradient_statistics" in diag_data:
+                grad_stats = diag_data["gradient_statistics"]
+
+                # 提取梯度均值比率
+                if "mean_ratio" in grad_stats:
+                    results["grad_mean_ratio"] = grad_stats["mean_ratio"]
+
+                # 提取梯度范数比率
+                if "norm_ratio" in grad_stats:
+                    results["grad_norm_ratio"] = grad_stats["norm_ratio"]
+
+                # 提取梯度标准差比率（如果有）
+                if "std_ratio" in grad_stats:
+                    results["grad_std_ratio"] = grad_stats["std_ratio"]
+
+                # 提取梯度最大值比率（如果有）
+                if "max_ratio" in grad_stats:
+                    results["grad_max_ratio"] = grad_stats["max_ratio"]
+
+                # 提取梯度均值范围
+                if "mean_range" in grad_stats:
+                    mean_range = grad_stats["mean_range"]
+                    if isinstance(mean_range, list) and len(mean_range) == 2:
+                        # 格式: [min, max]
+                        results["grad_mean_range"] = mean_range[1] - mean_range[0]
+                    elif isinstance(mean_range, str):
+                        # 格式: "8.3733e-02 ~ 9.0496e-01"
+                        parts = mean_range.split('~')
+                        if len(parts) == 2:
+                            min_val = float(parts[0].strip())
+                            max_val = float(parts[1].strip())
+                            results["grad_mean_range"] = max_val - min_val
+
+                # 提取梯度范数范围
+                if "norm_range" in grad_stats:
+                    norm_range = grad_stats["norm_range"]
+                    if isinstance(norm_range, list) and len(norm_range) == 2:
+                        # 格式: [min, max]
+                        results["grad_norm_range"] = norm_range[1] - norm_range[0]
+                    elif isinstance(norm_range, str):
+                        parts = norm_range.split('~')
+                        if len(parts) == 2:
+                            min_val = float(parts[0].strip())
+                            max_val = float(parts[1].strip())
+                            results["grad_norm_range"] = max_val - min_val
+
             # 提取极端剪枝层数量
-            if "extreme_pruning_layers" in diag_data:
+            if "num_extreme_layers" in diag_data:
+                results["extreme_pruning_layers"] = diag_data["num_extreme_layers"]
+            elif "extreme_pruning_layers" in diag_data:
                 extreme_layers = diag_data["extreme_pruning_layers"]
                 if isinstance(extreme_layers, list):
                     results["extreme_pruning_layers"] = len(extreme_layers)
-                else:
-                    results["extreme_pruning_layers"] = 0
+                elif isinstance(extreme_layers, int):
+                    results["extreme_pruning_layers"] = extreme_layers
 
     return results
 
