@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-v0.3 --pruning_ratio 0.2 --importance_method taylor --temperature 0.0 --dataset c4 --output results/Mistral-7B-v0.3/taylor_T0_diagnostic_c4
