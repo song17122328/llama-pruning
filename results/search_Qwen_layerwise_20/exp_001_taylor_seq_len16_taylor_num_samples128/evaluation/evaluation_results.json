@@ -1,0 +1,46 @@
+{
+  "model_path": "results/search_Qwen_layerwise_20/exp_001_taylor_seq_len16_taylor_num_samples128/pruned_model.bin",
+  "timestamp": "2025-11-30T22:46:54.120017",
+  "metrics": {
+    "model_info": {
+      "total_params": 6092480640,
+      "trainable_params": 6092480640,
+      "total_params_M": 6092.48064,
+      "total_params_B": 6.09248064,
+      "num_layers": 28,
+      "module_params": {
+        "embedding": 544997376,
+        "lm_head": 544997376,
+        "final_norm": 3584,
+        "attention": 682730112,
+        "mlp": 4319551488,
+        "input_layernorm": 100352,
+        "post_attention_layernorm": 100352,
+        "total_accounted": 6092480640,
+        "unaccounted": 0,
+        "match": true
+      },
+      "attention_params": 682730112,
+      "mlp_params": 4319551488,
+      "attention_params_M": 682.730112,
+      "mlp_params_M": 4319.551488,
+      "attention_ratio": 0.11206110488354379,
+      "mlp_ratio": 0.708997162771452,
+      "model_size_mb": 11620.48486328125,
+      "model_size_gb": 11.348129749298096
+    },
+    "ppl_quick_128": {
+      "wikitext2": Infinity,
+      "ptb": Infinity
+    },
+    "ppl_standard_2048_512": {
+      "wikitext2": Infinity,
+      "ptb": Infinity
+    },
+    "ppl": {
+      "wikitext2": Infinity,
+      "ptb": Infinity
+    },
+    "zeroshot": null
+  }
+}
