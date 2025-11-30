@@ -1,13 +1,13 @@
 - Training Parameters: 
-  - base_model: /newdata/LLMs/Llama-3-8B/
-  - output_name: LLaMA-3-8B/Taylor_2nd_20
+  - base_model: /newdata/LLMs/Mistral-7B-v0.3
+  - output_name: Mistral-7B-v0.3/blockwise_20_c4_loss
   - pruning_ratio: 0.2
-  - importance_method: taylor_2nd
-  - dataset: wikitext2
+  - importance_method: taylor
+  - dataset: c4
   - gradient_batch_size: 4
   - use_gradient_checkpointing: False
-  - temperature: 0.0
-  - tau: None
+  - temperature: 1.0
+  - tau: 0.0
   - epsilon: 0
   - freeze_first_n_layers: 0
   - freeze_last_n_layers: 0
@@ -28,6 +28,6 @@
   - lora_r: 8
   - lora_alpha: 16
   - skip_finetune_evaluation: False
-  - device: cuda:2
+  - device: cuda:1
   - layer_start: 0
   - layer_end: None

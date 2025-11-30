@@ -907,8 +907,8 @@ if __name__ == '__main__':
        --compare_with /path/to/pruned_model.bin
 
    # 示例：
-   python core/analysis/model_analysis.py \\
-       --model_path /newdata/LLMs/Llama-3-8B-Instruct \\
+   python core/analysis/model_analysis.py \
+       --model_path /newdata/LLMs/Llama-3-8B-Instruct \
        --compare_with ~/llama-pruning/results/layerwise_only_1948/pruned_model.bin
 
    # 输出将自动保存到:
