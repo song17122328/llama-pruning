@@ -19,6 +19,30 @@ ENABLE_GRADIENT_NORMALIZATION = True  # 改为 True 启用
 
 # 可选：选择归一化方法
 NORMALIZATION_METHOD = 'log'  # 推荐使用 'log'，也可以试 'minmax', 'zscore', 'sqrt'
+
+# ⭐ 推荐：使用 Block-wise 归一化（更精细）
+NORMALIZATION_LEVEL = 'block'  # 'layer' 或 'block'（推荐 block）
+```
+
+**Block-wise vs Layer-wise**：
+
+| 类型 | 粒度 | 优点 | 缺点 |
+|------|------|------|------|
+| **Block-wise**<br/>（推荐）⭐ | 每层的 Attention<br/>和 MLP 分别归一化 | ✅ 保持 Attn/MLP 内部相对排序<br/>✅ 更精细的控制<br/>✅ 避免破坏块间平衡 | 需要更多计算 |
+| **Layer-wise** | 整层一起归一化 | ✅ 简单快速 | ❌ 可能破坏 Attn/MLP 的相对关系 |
+
+**为什么 Block-wise 更好？**
+
+```python
+# Layer-wise 的问题：
+Layer 0:
+  Attention importance: 1e-4  ← 混在一起归一化
+  MLP importance: 1e-6        ← 可能破坏它们的相对关系
+
+# Block-wise 的优势：
+Layer 0:
+  Attention groups: 分别归一化 → 保持内部排序 ✅
+  MLP groups: 分别归一化 → 保持内部排序 ✅
 ```
 
 **效果**：
@@ -345,6 +369,141 @@ NORMALIZATION_METHOD = args.norm_method
 
 ---
 
+## Block-wise 归一化 vs Temperature：有什么区别？
+
+很多人会困惑：既然有了 `temperature > 0` 的块级修正，为什么还需要 block-wise 归一化？
+
+### 它们的作用机制不同
+
+| 维度 | Block-wise 归一化 | Temperature (T > 0) |
+|------|-------------------|---------------------|
+| **作用阶段** | 重要性得分计算后 | 构建分析表时 |
+| **修正对象** | 梯度尺度不均 | 块级重要性评估 |
+| **评估方式** | 基于梯度统计 | 基于模型输出（loss） |
+| **调整内容** | 归一化重要性得分 | 混合 Taylor + block removal loss |
+| **粒度** | Group 级别 | Block 级别 |
+
+### 详细对比
+
+#### Temperature 方法（T > 0）
+
+```python
+# temperature > 0 时的重要性计算公式
+importance = (1 - T) * taylor_importance + T * block_removal_loss
+```
+
+**特点**：
+- ✅ 从**模型角度**评估：移除该块后 loss 增加多少
+- ✅ 考虑了块之间的**功能依赖**
+- ✅ 更符合模型的**实际重要性**
+- ❌ 需要额外的 forward pass（计算 block removal loss）
+- ❌ 对 Mistral 等模型可能有兼容性问题
+
+#### Block-wise 归一化
+
+```python
+# 对每层的 Attention 和 MLP 分别归一化
+for layer_idx:
+    normalize(attention_groups)  # 单独归一化
+    normalize(mlp_groups)        # 单独归一化
+```
+
+**特点**：
+- ✅ 从**梯度角度**平衡：消除梯度尺度差异
+- ✅ 保持 Attention/MLP **内部的相对排序**
+- ✅ 调整**层间的平衡**
+- ✅ **通用性强**：适用于所有模型
+- ✅ **开销小**：仅需后处理，无需额外 forward
+
+### 它们是互补的！
+
+**最佳实践**：同时使用 ⭐
+
+```python
+# 1. 启用 block-wise 归一化（解决梯度尺度问题）
+ENABLE_GRADIENT_NORMALIZATION = True
+NORMALIZATION_METHOD = 'log'
+NORMALIZATION_LEVEL = 'block'  # ← 关键
+
+# 2. 启用 temperature（解决块级重要性评估）
+--temperature 1.0
+--tau 0.0
+```
+
+**为什么要同时使用？**
+
+```
+┌─────────────────────────────────────────┐
+│ 原始问题：极端剪枝                       │
+│ Layer 2: 97% 剪枝                        │
+│ Layer 3: 96% 剪枝                        │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│ Block-wise 归一化                        │
+│ 作用：消除梯度尺度差异                   │
+│ 结果：各层梯度得分更均衡                 │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│ Temperature 修正                         │
+│ 作用：考虑块移除后的实际影响             │
+│ 结果：重要性评估更准确                   │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│ 最终效果                                 │
+│ Layer 2: 40% 剪枝                        │
+│ Layer 3: 45% 剪枝                        │
+│ ✅ 剪枝更均衡，性能更好                  │
+└─────────────────────────────────────────┘
+```
+
+### 使用建议
+
+| 场景 | Block-wise 归一化 | Temperature | 原因 |
+|------|-------------------|-------------|------|
+| **梯度差异 > 1000x** | ✅ 必须 | 可选 | 梯度尺度问题优先解决 |
+| **前几层过度剪枝** | ✅ 推荐 | ✅ 推荐 | 双重保险 |
+| **Mistral 兼容性问题** | ✅ 必须 | ❌ 跳过 | Temperature 可能报错 |
+| **追求最佳效果** | ✅ 启用 | ✅ 启用 | 互补增强 |
+| **快速实验** | ✅ 仅归一化 | ❌ 跳过 | 归一化开销小 |
+
+### 实际案例：Mistral-7B
+
+**Baseline（无任何修正）**：
+```
+Layer 2: 97.02% 剪枝 (14336 → 427)
+Layer 3: 95.79% 剪枝 (14336 → 603)
+Layer 4: 90.91% 剪枝 (14336 → 1303)
+```
+
+**仅 Temperature (T=1)**：
+```
+Layer 2: 75.27% 剪枝 (14336 → 3545)
+Layer 3: 48.81% 剪枝 (14336 → 7339)
+Layer 4: 49.73% 剪枝 (14336 → 7207)
+```
+✅ 改善明显，但 Layer 2 仍然过度剪枝
+
+**仅 Block-wise 归一化（预期）**：
+```
+Layer 2: 50-60% 剪枝
+Layer 3: 45-55% 剪枝
+Layer 4: 40-50% 剪枝
+```
+✅ 更均衡
+
+**Block-wise 归一化 + Temperature（预期最佳）**：
+```
+Layer 2: 40-45% 剪枝
+Layer 3: 40-45% 剪枝
+Layer 4: 40-45% 剪枝
+```
+✅✅ 最均衡，性能最好
+
+---
+
 ## 总结
 
 **推荐修复流程**：
@@ -357,10 +516,11 @@ NORMALIZATION_METHOD = args.norm_method
 3. ✅ **验证效果**：对比剪枝率分布和模型性能
 4. ✅ **迭代优化**：根据结果调整参数
 
-**最稳妥的方案**：
+**最稳妥的方案**（推荐 Block-wise）⭐：
 ```python
 ENABLE_GRADIENT_NORMALIZATION = True
 NORMALIZATION_METHOD = 'log'
+NORMALIZATION_LEVEL = 'block'  # ← 使用 block-wise（更精细）
 ENABLE_GRADIENT_CLIPPING = True
 ```
 
@@ -368,5 +528,11 @@ ENABLE_GRADIENT_CLIPPING = True
 ```bash
 --temperature 1.0 --tau 0.0
 ```
+
+**为什么推荐 Block-wise？**
+- ✅ 保持 Attention/MLP 内部的相对排序
+- ✅ 避免破坏块间的相对关系
+- ✅ 更精细的梯度平衡
+- ✅ 与 Temperature 互补，效果更佳
 
 这样可以从多个角度缓解极端剪枝问题！

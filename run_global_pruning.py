@@ -1204,6 +1204,7 @@ def main():
     # 设置为 True 启用归一化
     ENABLE_GRADIENT_NORMALIZATION = False  # 可以通过命令行参数控制
     NORMALIZATION_METHOD = 'log'  # 'minmax', 'zscore', 'log', 'sqrt'
+    NORMALIZATION_LEVEL = 'block'  # 'layer' 或 'block'（推荐 block）
     ENABLE_GRADIENT_CLIPPING = False  # 可以通过命令行参数控制
     CLIP_PERCENTILE_LOW = 5.0
     CLIP_PERCENTILE_HIGH = 95.0
@@ -1213,29 +1214,65 @@ def main():
 
         # 按层分组处理重要性得分
         if ENABLE_GRADIENT_NORMALIZATION:
-            logger.log(f"  应用梯度归一化: {NORMALIZATION_METHOD}")
+            logger.log(f"  应用梯度归一化: {NORMALIZATION_METHOD} ({NORMALIZATION_LEVEL}-wise)")
 
-            # 对每层分别归一化（layer-wise normalization）
-            for layer_idx in df['layer_idx'].unique():
-                layer_mask = df['layer_idx'] == layer_idx
+            if NORMALIZATION_LEVEL == 'block':
+                # Block-wise 归一化：对每层的 Attention 和 MLP 分别归一化（推荐）
+                logger.log(f"  使用 Block-wise 归一化（分别处理 Attention 和 MLP）")
 
-                # 提取该层的重要性得分
-                layer_importance = df.loc[layer_mask, 'importance'].to_dict()
+                for layer_idx in df['layer_idx'].unique():
+                    # 处理该层的 Attention groups
+                    attn_mask = (df['layer_idx'] == layer_idx) & (df['group_type'] == 'attention')
+                    if attn_mask.sum() > 0:
+                        attn_importance = df.loc[attn_mask, 'importance'].to_dict()
+                        normalized_attn = normalize_importance_scores(
+                            attn_importance,
+                            method=NORMALIZATION_METHOD
+                        )
+                        for idx, norm_val in normalized_attn.items():
+                            df.loc[idx, 'importance'] = norm_val
 
-                # 归一化
-                normalized_importance = normalize_importance_scores(
-                    layer_importance,
-                    method=NORMALIZATION_METHOD
-                )
+                    # 处理该层的 MLP groups
+                    mlp_mask = (df['layer_idx'] == layer_idx) & (df['group_type'] == 'mlp')
+                    if mlp_mask.sum() > 0:
+                        mlp_importance = df.loc[mlp_mask, 'importance'].to_dict()
+                        normalized_mlp = normalize_importance_scores(
+                            mlp_importance,
+                            method=NORMALIZATION_METHOD
+                        )
+                        for idx, norm_val in normalized_mlp.items():
+                            df.loc[idx, 'importance'] = norm_val
 
-                # 更新 DataFrame
-                for idx, norm_val in normalized_importance.items():
-                    df.loc[idx, 'importance'] = norm_val
+                    # 重新计算该层的 score
+                    layer_mask = df['layer_idx'] == layer_idx
+                    df.loc[layer_mask, 'score'] = df.loc[layer_mask, 'importance'] / df.loc[layer_mask, 'cost']
 
-                # 重新计算 score = importance / cost
-                df.loc[layer_mask, 'score'] = df.loc[layer_mask, 'importance'] / df.loc[layer_mask, 'cost']
+                logger.log(f"  ✓ Block-wise 归一化完成")
 
-            logger.log(f"  ✓ Layer-wise 归一化完成")
+            else:
+                # Layer-wise 归一化：对整层归一化（包括 Attention 和 MLP）
+                logger.log(f"  使用 Layer-wise 归一化（整层一起处理）")
+
+                for layer_idx in df['layer_idx'].unique():
+                    layer_mask = df['layer_idx'] == layer_idx
+
+                    # 提取该层的重要性得分
+                    layer_importance = df.loc[layer_mask, 'importance'].to_dict()
+
+                    # 归一化
+                    normalized_importance = normalize_importance_scores(
+                        layer_importance,
+                        method=NORMALIZATION_METHOD
+                    )
+
+                    # 更新 DataFrame
+                    for idx, norm_val in normalized_importance.items():
+                        df.loc[idx, 'importance'] = norm_val
+
+                    # 重新计算 score = importance / cost
+                    df.loc[layer_mask, 'score'] = df.loc[layer_mask, 'importance'] / df.loc[layer_mask, 'cost']
+
+                logger.log(f"  ✓ Layer-wise 归一化完成")
 
         if ENABLE_GRADIENT_CLIPPING:
             logger.log(f"  应用梯度裁剪: {CLIP_PERCENTILE_LOW}%-{CLIP_PERCENTILE_HIGH}%")
