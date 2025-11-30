@@ -418,7 +418,8 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
                 # 所有heads都被剪枝，替换为 ZeroAttention
                 # 利用残差连接：hidden = hidden + 0 = hidden（跳过Attention）
                 log(f"  ⚠️ Attention 被完全剪空（{old_q}Q:{old_kv}KV → 0），替换为 ZeroAttention")
-                layer.self_attn = ZeroAttention()
+                # 传入模型类型以确保返回值格式正确（Mistral 等模型有特殊格式）
+                layer.self_attn = ZeroAttention(model_type=model.config.model_type)
                 pruning_stats['attention'][layer_idx] = (old_kv, 0)
             else:
                 # 执行部分剪枝

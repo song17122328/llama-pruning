@@ -83,9 +83,16 @@ class ZeroAttention(nn.Module):
     - 利用残差连接的特性
     """
 
-    def __init__(self):
-        """初始化 Zero Attention（无参数）"""
+    def __init__(self, model_type='llama'):
+        """
+        初始化 Zero Attention（无参数）
+
+        Args:
+            model_type: 模型类型 ('llama', 'mistral', 'qwen', 'qwen2' 等)
+                      用于确定返回值格式
+        """
         super().__init__()
+        self.model_type = model_type.lower()
 
     def forward(self, hidden_states, *args, **kwargs):
         """
@@ -95,23 +102,27 @@ class ZeroAttention(nn.Module):
             hidden_states: 输入 [batch_size, seq_len, hidden_dim]
 
         Returns:
-            (attn_output, attn_weights) 或 (attn_output, attn_weights, past_key_value)
-            兼容 LlamaAttention 的返回格式
+            根据模型类型返回不同格式：
+            - LLaMA/Qwen2: use_cache=True 时返回 (output, None, None)
+            - Mistral: 总是返回 (output, None) - 只有2个值
         """
         # 返回全零（在残差连接中等效于跳过）
         output = torch.zeros_like(hidden_states)
 
-        # 兼容 HuggingFace 接口
-        # 注意：LlamaAttention.forward() 总是返回 (attn_output, attn_weights)
-        # 即使 output_attentions=False，也返回 (output, None)
-        use_cache = kwargs.get('use_cache', False)
-
-        if use_cache:
-            # 返回 (output, None, None) - (attn_output, attn_weights, past_key_value)
-            return output, None, None
-        else:
-            # 返回 (output, None) - (attn_output, attn_weights)
+        # Mistral 模型特殊处理：即使 use_cache=True 也只返回2个值
+        if self.model_type == 'mistral':
+            # Mistral 的 Attention 总是返回 (attn_output, attn_weights)
             return output, None
+        else:
+            # 其他模型（LLaMA, Qwen2 等）的标准格式
+            use_cache = kwargs.get('use_cache', False)
+
+            if use_cache:
+                # 返回 (output, None, None) - (attn_output, attn_weights, past_key_value)
+                return output, None, None
+            else:
+                # 返回 (output, None) - (attn_output, attn_weights)
+                return output, None
 
     def __repr__(self):
         """字符串表示"""
