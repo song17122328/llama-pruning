@@ -42,28 +42,18 @@ class IdentityDecoderLayer(nn.Module):
         Args:
             hidden_states: 输入的 hidden states [batch_size, seq_len, hidden_dim]
             *args: 其他位置参数（被忽略）
-            **kwargs: 其他关键字参数（用于判断返回格式）
+            **kwargs: 其他关键字参数（被忽略）
 
         Returns:
-            根据 kwargs 返回不同格式：
-            - 如果 output_attentions 或 use_cache 为 True：返回元组
-            - 否则：直接返回 hidden_states
-        """
-        # 检查返回格式要求（兼容 HuggingFace Transformers）
-        output_attentions = kwargs.get('output_attentions', False)
-        use_cache = kwargs.get('use_cache', False)
+            hidden_states tensor（始终返回张量，不返回元组）
 
-        if output_attentions or use_cache:
-            # 返回元组格式 (hidden_states, attention_weights, past_key_value)
-            outputs = (hidden_states,)
-            if output_attentions:
-                outputs += (None,)  # attention_weights = None
-            if use_cache:
-                outputs += (None,)  # past_key_value = None
-            return outputs
-        else:
-            # 只返回 hidden_states
-            return hidden_states
+        Note:
+            在 HuggingFace Transformers 中，decoder layer 总是直接返回 hidden_states 张量。
+            即使 use_cache=True 或 output_attentions=True，cache 和 attention 也是通过
+            model.forward 的返回值传递，而不是通过 decoder_layer.forward 返回。
+        """
+        # 始终只返回 hidden_states 张量
+        return hidden_states
 
     def __repr__(self):
         """字符串表示"""
