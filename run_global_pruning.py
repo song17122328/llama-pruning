@@ -1435,7 +1435,7 @@ def main():
     logger.log(f"\n{'='*60}")
 
     # ========== Step 8.6: 梯度诊断和可视化（完整版）==========
-    if args.importance_method in ['taylor', 'taylor_2nd']:
+    if args.importance_method in ['taylor', 'taylor_2nd'] and 'gradient_analyzer' in locals():
         logger.log(f"\n[Step 8.6] 生成梯度诊断和可视化报告...")
 
         num_layers = len(model.model.layers)
@@ -1447,20 +1447,25 @@ def main():
             # 使用 MLP 的剪枝率作为层剪枝率的代表
             layer_pruning_rates[layer_idx] = layer_comp['mlp'].get('reduction_ratio', 0.0)
 
-        # 从 global_analysis_table 中提取重要性得分
+        # 从 df (global_analysis_table) 中提取重要性得分
         # 注意：这里我们需要从 group table 中聚合得到每层的平均重要性
         layer_importance_scores = {}
-        for layer_idx in range(num_layers):
-            # 收集该层所有 MLP neuron groups 的重要性
-            layer_importances = []
-            for group in global_analysis_table:
-                if group['type'] == 'mlp_neuron' and group['layer_idx'] == layer_idx:
-                    layer_importances.append(group['importance'])
 
-            if layer_importances:
-                layer_importance_scores[layer_idx] = np.mean(layer_importances)
-            else:
-                layer_importance_scores[layer_idx] = 0.0
+        # 检查 df 是否存在并且不为空
+        if 'df' in locals() and df is not None and not df.empty:
+            for layer_idx in range(num_layers):
+                # 收集该层所有 MLP neuron groups 的重要性
+                layer_groups = df[(df['type'] == 'mlp_neuron') & (df['layer_idx'] == layer_idx)]
+
+                if not layer_groups.empty:
+                    layer_importance_scores[layer_idx] = layer_groups['importance'].mean()
+                else:
+                    layer_importance_scores[layer_idx] = 0.0
+        else:
+            # 如果 df 不存在，使用默认值
+            logger.log(f"  ⚠️  无法提取重要性得分（df 不存在），将使用默认值")
+            for layer_idx in range(num_layers):
+                layer_importance_scores[layer_idx] = 1.0
 
         # 生成完整的梯度可视化（包括重要性和剪枝率对比）
         visualization_dir = output_dirs['visualization']
