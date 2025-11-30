@@ -89,9 +89,16 @@ class LayerImportanceAnalyzer:
 
             # 创建恒等映射层（ShortGPT 方法）
             class IdentityLayer(torch.nn.Module):
-                def __init__(self, model_type):
+                def __init__(self, model_type, original_layer, config, layer_idx):
                     super().__init__()
                     self.model_type = model_type
+
+                    # Qwen2 需要 attention_type 属性
+                    if model_type in ['qwen2', 'qwen'] and hasattr(config, 'layer_types'):
+                        self.attention_type = config.layer_types[layer_idx]
+                    # 如果原始层有 attention_type，直接复制
+                    elif hasattr(original_layer, 'attention_type'):
+                        self.attention_type = original_layer.attention_type
 
                 def forward(self, hidden_states, *args, **kwargs):
                     # 根据模型类型返回正确的格式
@@ -115,7 +122,7 @@ class LayerImportanceAnalyzer:
                             return hidden_states
 
             # 临时替换整个层
-            self.model.model.layers[layer_idx] = IdentityLayer(model_type)
+            self.model.model.layers[layer_idx] = IdentityLayer(model_type, original_layer, self.model.config, layer_idx)
 
             try:
                 loss = self.compute_loss(texts, show_progress=False)
