@@ -64,10 +64,17 @@ def compute_attention_group_importance_taylor(layer, head_dim=128, gqa_ratio=4, 
                 salience[name] = first_order + second_order
             else:
                 salience[name] = first_order
-                print("⚠️ Warning: Hessian info missing for", full_name)
+                # 只在第一层打印警告，避免刷屏
+                if layer_idx == 0:
+                    print(f"⚠️ Warning: Hessian key not found: '{full_name}'")
+                    # 尝试查找相似的键
+                    similar_keys = [k for k in hessian_diag.keys() if name in k and 'attn' in k][:3]
+                    if similar_keys:
+                        print(f"   可能的匹配键: {similar_keys}")
         else:
             salience[name] = first_order
-            print("⚠️ Warning: Hessian info not provided, using first-order only.")
+            if layer_idx == 0 or layer_idx is None:
+                print("⚠️ Warning: Hessian info not provided, using first-order only.")
 
     q_imp = salience['q_proj'].sum(1)
     k_imp = salience['k_proj'].sum(1)
@@ -226,6 +233,14 @@ def compute_mlp_group_importance_taylor(layer, hessian_diag=None, layer_idx=None
                     up_salience = up_salience + second_order.sum(1)
                 else:  # down_proj
                     down_salience = down_salience + second_order.sum(0)
+            else:
+                # 只在第一层打印警告，避免刷屏
+                if layer_idx == 0:
+                    print(f"⚠️ Warning: Hessian key not found: '{full_name}'")
+                    # 尝试查找相似的键
+                    similar_keys = [k for k in hessian_diag.keys() if name in k and 'mlp' in k][:3]
+                    if similar_keys:
+                        print(f"   可能的匹配键: {similar_keys}")
 
     channel_importance = gate_salience + up_salience + down_salience
     return channel_importance

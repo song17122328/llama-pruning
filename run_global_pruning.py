@@ -962,6 +962,20 @@ def main():
 
         if args.importance_method == 'taylor_2nd':
             logger.log(f"  ✓ Hessian 对角线近似计算完成")
+            logger.log(f"  Hessian 字典包含 {len(hessian_diag)} 个参数")
+
+            # 打印一些示例键名，用于调试
+            sample_keys = list(hessian_diag.keys())[:10]
+            logger.log(f"  示例 Hessian 键名（前10个）：")
+            for key in sample_keys:
+                logger.log(f"    - {key}")
+
+            # 检查是否包含预期的键名
+            layer_0_keys = [k for k in hessian_diag.keys() if 'layers.0.' in k]
+            if layer_0_keys:
+                logger.log(f"  Layer 0 的参数示例：")
+                for key in layer_0_keys[:5]:
+                    logger.log(f"    - {key}")
 
     elif args.importance_method == 'magnitude':
         logger.log(f"\n[Step 3] 使用 Magnitude importance (权重绝对值)...")
