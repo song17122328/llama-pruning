@@ -1,0 +1,18 @@
+{
+  "base_model": "/path/to/Mistral-7B-v0.3",
+  "pruning_ratio": 0.2,
+  "output_base": "quick_search",
+  "search_params": {
+    "taylor_seq_len": [32, 64],
+    "taylor_num_samples": [256]
+  },
+  "other_args": {
+    "dataset": "c4",
+    "temperature": 0.0,
+    "importance_method": "taylor",
+    "gradient_batch_size": 4,
+    "run_evaluation": "ppl,zeroshot",
+    "eval_ppl_datasets": "wikitext2",
+    "eval_zeroshot_tasks": "boolq,piqa"
+  }
+}

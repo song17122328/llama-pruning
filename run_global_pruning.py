@@ -680,6 +680,20 @@ def main():
     parser.add_argument('--freeze_last_n_layers', type=int, default=0,
                        help='冻结后N层不剪枝（默认: 0）')
 
+    # H-GSP 内部参数（用于调试和优化）
+    parser.add_argument('--taylor_num_samples', type=int, default=256,
+                       help='Taylor 重要性计算的样本数（默认: 256）')
+    parser.add_argument('--taylor_seq_len', type=int, default=32,
+                       help='Taylor 重要性计算的序列长度（默认: 32）')
+    parser.add_argument('--layer_importance_num_samples', type=int, default=50,
+                       help='层重要性分析的样本数（默认: 50）')
+    parser.add_argument('--layer_importance_seq_len', type=int, default=32,
+                       help='层重要性分析的序列长度（默认: 32）')
+    parser.add_argument('--block_importance_num_samples', type=int, default=50,
+                       help='块重要性分析的样本数（默认: 50）')
+    parser.add_argument('--block_importance_seq_len', type=int, default=32,
+                       help='块重要性分析的序列长度（默认: 32）')
+
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
                        help='Attention head 维度（默认: 128）')
@@ -859,17 +873,17 @@ def main():
     activations = None
     hessian_diag = None
 
-    # H-GSP 内部固定参数（不对外暴露）
-    TAYLOR_NUM_SAMPLES = 256
-    TAYLOR_SEQ_LEN = 32              # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
-    LAYER_IMPORTANCE_NUM_SAMPLES = 50
-    LAYER_IMPORTANCE_SEQ_LEN = 32    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
-    BLOCK_IMPORTANCE_NUM_SAMPLES = 50
-    BLOCK_IMPORTANCE_SEQ_LEN = 32    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
+    # H-GSP 内部参数（从命令行参数获取）
+    TAYLOR_NUM_SAMPLES = args.taylor_num_samples
+    TAYLOR_SEQ_LEN = args.taylor_seq_len
+    LAYER_IMPORTANCE_NUM_SAMPLES = args.layer_importance_num_samples
+    LAYER_IMPORTANCE_SEQ_LEN = args.layer_importance_seq_len
+    BLOCK_IMPORTANCE_NUM_SAMPLES = args.block_importance_num_samples
+    BLOCK_IMPORTANCE_SEQ_LEN = args.block_importance_seq_len
 
     if args.importance_method in ['taylor', 'taylor_2nd']:
         logger.log(f"\n[Step 3] 计算梯度（{'一阶' if args.importance_method == 'taylor' else '二阶'} Taylor importance）...")
-        logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN} (内部固定)")
+        logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN}")
 
         # 初始化梯度分析器
         gradient_analyzer = GradientAnalyzer(model, logger)
@@ -1010,7 +1024,7 @@ def main():
 
     elif args.importance_method == 'wanda':
         logger.log(f"\n[Step 3] 收集激活值（Wanda importance）...")
-        logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN} (内部固定)")
+        logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN}")
 
         # 分批收集激活
         batch_size = args.gradient_batch_size
@@ -1091,7 +1105,7 @@ def main():
     else:
         logger.log(f"\n[Step 3.5] 计算层重要性（H-GSP Layer-wise 重要性）...")
         logger.log(f"  方法: 基于相似度（ShortGPT 方法）")
-        logger.log(f"  样本数: {LAYER_IMPORTANCE_NUM_SAMPLES}, 序列长度: {LAYER_IMPORTANCE_SEQ_LEN} (内部固定)")
+        logger.log(f"  样本数: {LAYER_IMPORTANCE_NUM_SAMPLES}, 序列长度: {LAYER_IMPORTANCE_SEQ_LEN}")
 
         from core.importance.layer_analyzer import LayerImportanceAnalyzer
 
@@ -1129,7 +1143,7 @@ def main():
         # ========== Step 3.6: 计算块重要性（H-GSP Block-wise 重要性）==========
         logger.log(f"\n[Step 3.6] 计算块重要性（H-GSP Block-wise 重要性）...")
         logger.log(f"  方法: 基于loss增加值（移除块后的loss变化）")
-        logger.log(f"  样本数: {BLOCK_IMPORTANCE_NUM_SAMPLES}, 序列长度: {BLOCK_IMPORTANCE_SEQ_LEN} (内部固定)")
+        logger.log(f"  样本数: {BLOCK_IMPORTANCE_NUM_SAMPLES}, 序列长度: {BLOCK_IMPORTANCE_SEQ_LEN}")
 
         # 加载用于块重要性分析的样本（文本格式）
         block_texts_list = dataset_manager.get_layer_importance_samples(
