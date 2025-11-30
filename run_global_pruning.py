@@ -855,11 +855,11 @@ def main():
 
     # H-GSP 内部固定参数（不对外暴露）
     TAYLOR_NUM_SAMPLES = 128
-    TAYLOR_SEQ_LEN = 512              # ✅ 从 128 改为 512（更准确的梯度估计）
+    TAYLOR_SEQ_LEN = 256              # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
     LAYER_IMPORTANCE_NUM_SAMPLES = 50
-    LAYER_IMPORTANCE_SEQ_LEN = 512    # ✅ 从 128 改为 512（更准确的重要性评估）
+    LAYER_IMPORTANCE_SEQ_LEN = 256    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
     BLOCK_IMPORTANCE_NUM_SAMPLES = 50
-    BLOCK_IMPORTANCE_SEQ_LEN = 512    # ✅ 从 128 改为 512（更准确的重要性评估）
+    BLOCK_IMPORTANCE_SEQ_LEN = 256    # ⚠️ 从512改回256（512导致异常剪枝，256是折中）
 
     if args.importance_method in ['taylor', 'taylor_2nd']:
         logger.log(f"\n[Step 3] 计算梯度（{'一阶' if args.importance_method == 'taylor' else '二阶'} Taylor importance）...")
@@ -923,6 +923,19 @@ def main():
 
             # 反向传播
             loss.backward()
+
+            # 🔍 诊断：打印第一个batch的梯度分布（帮助诊断序列长度问题）
+            if batch_idx == 0:
+                sample_layers = [0, 2, 10, 20, 31]
+                logger.log(f"  梯度分布诊断（序列长度 {TAYLOR_SEQ_LEN}）：")
+                for layer_idx in sample_layers:
+                    layer_name = f'model.layers.{layer_idx}.mlp.gate_proj.weight'
+                    for name, param in model.named_parameters():
+                        if name == layer_name and param.grad is not None:
+                            grad_mean = param.grad.abs().mean().item()
+                            grad_std = param.grad.abs().std().item()
+                            logger.log(f"    Layer {layer_idx:2d}: grad_mean={grad_mean:.6e}, grad_std={grad_std:.6e}")
+                            break
 
             # 二阶泰勒：累积 Hessian 对角线（使用梯度平方近似）
             if args.importance_method == 'taylor_2nd':
