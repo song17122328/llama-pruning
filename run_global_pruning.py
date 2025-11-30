@@ -1200,6 +1200,71 @@ def main():
 
     logger.log(f"✓ 分析表构建完成")
 
+    # ========== Step 4.5: 梯度归一化（可选，用于缓解极端剪枝）==========
+    # 设置为 True 启用归一化
+    ENABLE_GRADIENT_NORMALIZATION = False  # 可以通过命令行参数控制
+    NORMALIZATION_METHOD = 'log'  # 'minmax', 'zscore', 'log', 'sqrt'
+    ENABLE_GRADIENT_CLIPPING = False  # 可以通过命令行参数控制
+    CLIP_PERCENTILE_LOW = 5.0
+    CLIP_PERCENTILE_HIGH = 95.0
+
+    if ENABLE_GRADIENT_NORMALIZATION or ENABLE_GRADIENT_CLIPPING:
+        logger.log(f"\n[Step 4.5] 梯度处理（缓解极端剪枝）...")
+
+        # 按层分组处理重要性得分
+        if ENABLE_GRADIENT_NORMALIZATION:
+            logger.log(f"  应用梯度归一化: {NORMALIZATION_METHOD}")
+
+            # 对每层分别归一化（layer-wise normalization）
+            for layer_idx in df['layer_idx'].unique():
+                layer_mask = df['layer_idx'] == layer_idx
+
+                # 提取该层的重要性得分
+                layer_importance = df.loc[layer_mask, 'importance'].to_dict()
+
+                # 归一化
+                normalized_importance = normalize_importance_scores(
+                    layer_importance,
+                    method=NORMALIZATION_METHOD
+                )
+
+                # 更新 DataFrame
+                for idx, norm_val in normalized_importance.items():
+                    df.loc[idx, 'importance'] = norm_val
+
+                # 重新计算 score = importance / cost
+                df.loc[layer_mask, 'score'] = df.loc[layer_mask, 'importance'] / df.loc[layer_mask, 'cost']
+
+            logger.log(f"  ✓ Layer-wise 归一化完成")
+
+        if ENABLE_GRADIENT_CLIPPING:
+            logger.log(f"  应用梯度裁剪: {CLIP_PERCENTILE_LOW}%-{CLIP_PERCENTILE_HIGH}%")
+
+            # 全局裁剪极端值
+            all_importance = df['importance'].to_dict()
+            clipped_importance = clip_importance_scores(
+                all_importance,
+                percentile_low=CLIP_PERCENTILE_LOW,
+                percentile_high=CLIP_PERCENTILE_HIGH
+            )
+
+            # 更新 DataFrame
+            for idx, clip_val in clipped_importance.items():
+                df.loc[idx, 'importance'] = clip_val
+
+            # 重新计算 score
+            df['score'] = df['importance'] / df['cost']
+
+            logger.log(f"  ✓ 梯度裁剪完成")
+
+        # 打印归一化后的统计
+        logger.log(f"\n  归一化后的 Score 统计:")
+        logger.log(f"    最小值: {df['score'].min():.6e}")
+        logger.log(f"    最大值: {df['score'].max():.6e}")
+        logger.log(f"    平均值: {df['score'].mean():.6e}")
+        logger.log(f"    中位数: {df['score'].median():.6e}")
+        logger.log(f"    极差比: {df['score'].max() / (df['score'].min() + 1e-10):.2f}x")
+
     # ========== Step 5: 选择要剪枝的 groups ==========
     logger.log(f"\n[Step 5] 根据剪枝率选择要剪枝的 groups...")
 
