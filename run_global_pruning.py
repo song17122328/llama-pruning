@@ -1454,8 +1454,9 @@ def main():
         # 检查 df 是否存在并且不为空
         if 'df' in locals() and df is not None and not df.empty:
             for layer_idx in range(num_layers):
-                # 收集该层所有 MLP neuron groups 的重要性
-                layer_groups = df[(df['type'] == 'mlp_neuron') & (df['layer_idx'] == layer_idx)]
+                # 收集该层所有 MLP groups 的重要性
+                # 注意：DataFrame 列名是 'group_type'，值是 'mlp'
+                layer_groups = df[(df['group_type'] == 'mlp') & (df['layer_idx'] == layer_idx)]
 
                 if not layer_groups.empty:
                     layer_importance_scores[layer_idx] = layer_groups['importance'].mean()
