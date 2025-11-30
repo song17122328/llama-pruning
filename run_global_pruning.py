@@ -32,11 +32,7 @@ from core.models import IdentityDecoderLayer, ZeroAttention, ZeroMLP
 from evaluation.metrics.ppl import PPLMetric
 from core.utils.logger import LoggerWithDepth
 from core.analysis import ModelAnalyzer, ModelComparator
-from core.analysis.gradient_analysis import (
-    GradientAnalyzer,
-    normalize_importance_scores,
-    clip_importance_scores
-)
+from core.analysis.gradient_analysis import GradientAnalyzer
 
 import sys
 # 导入 evaluation 模块
@@ -1215,108 +1211,6 @@ def main():
 
     logger.log(f"✓ 分析表构建完成")
 
-    # ========== Step 4.5: 梯度归一化（可选，用于缓解极端剪枝）==========
-    # 设置为 True 启用归一化
-    ENABLE_GRADIENT_NORMALIZATION = False  # 可以通过命令行参数控制
-    NORMALIZATION_METHOD = 'log'  # 'minmax', 'zscore', 'log', 'sqrt'
-    NORMALIZATION_LEVEL = 'block'  # 'layer' 或 'block'（推荐 block）
-    ENABLE_GRADIENT_CLIPPING = False  # 可以通过命令行参数控制
-    CLIP_PERCENTILE_LOW = 5.0
-    CLIP_PERCENTILE_HIGH = 95.0
-
-    if ENABLE_GRADIENT_NORMALIZATION or ENABLE_GRADIENT_CLIPPING:
-        logger.log(f"\n[Step 4.5] 梯度处理（缓解极端剪枝）...")
-
-        # 按层分组处理重要性得分
-        if ENABLE_GRADIENT_NORMALIZATION:
-            logger.log(f"  应用梯度归一化: {NORMALIZATION_METHOD} ({NORMALIZATION_LEVEL}-wise)")
-
-            if NORMALIZATION_LEVEL == 'block':
-                # Block-wise 归一化：对每层的 Attention 和 MLP 分别归一化（推荐）
-                logger.log(f"  使用 Block-wise 归一化（分别处理 Attention 和 MLP）")
-
-                for layer_idx in df['layer_idx'].unique():
-                    # 处理该层的 Attention groups
-                    attn_mask = (df['layer_idx'] == layer_idx) & (df['group_type'] == 'attention')
-                    if attn_mask.sum() > 0:
-                        attn_importance = df.loc[attn_mask, 'importance'].to_dict()
-                        normalized_attn = normalize_importance_scores(
-                            attn_importance,
-                            method=NORMALIZATION_METHOD
-                        )
-                        for idx, norm_val in normalized_attn.items():
-                            df.loc[idx, 'importance'] = norm_val
-
-                    # 处理该层的 MLP groups
-                    mlp_mask = (df['layer_idx'] == layer_idx) & (df['group_type'] == 'mlp')
-                    if mlp_mask.sum() > 0:
-                        mlp_importance = df.loc[mlp_mask, 'importance'].to_dict()
-                        normalized_mlp = normalize_importance_scores(
-                            mlp_importance,
-                            method=NORMALIZATION_METHOD
-                        )
-                        for idx, norm_val in normalized_mlp.items():
-                            df.loc[idx, 'importance'] = norm_val
-
-                    # 重新计算该层的 score
-                    layer_mask = df['layer_idx'] == layer_idx
-                    df.loc[layer_mask, 'score'] = df.loc[layer_mask, 'importance'] / df.loc[layer_mask, 'cost']
-
-                logger.log(f"  ✓ Block-wise 归一化完成")
-
-            else:
-                # Layer-wise 归一化：对整层归一化（包括 Attention 和 MLP）
-                logger.log(f"  使用 Layer-wise 归一化（整层一起处理）")
-
-                for layer_idx in df['layer_idx'].unique():
-                    layer_mask = df['layer_idx'] == layer_idx
-
-                    # 提取该层的重要性得分
-                    layer_importance = df.loc[layer_mask, 'importance'].to_dict()
-
-                    # 归一化
-                    normalized_importance = normalize_importance_scores(
-                        layer_importance,
-                        method=NORMALIZATION_METHOD
-                    )
-
-                    # 更新 DataFrame
-                    for idx, norm_val in normalized_importance.items():
-                        df.loc[idx, 'importance'] = norm_val
-
-                    # 重新计算 score = importance / cost
-                    df.loc[layer_mask, 'score'] = df.loc[layer_mask, 'importance'] / df.loc[layer_mask, 'cost']
-
-                logger.log(f"  ✓ Layer-wise 归一化完成")
-
-        if ENABLE_GRADIENT_CLIPPING:
-            logger.log(f"  应用梯度裁剪: {CLIP_PERCENTILE_LOW}%-{CLIP_PERCENTILE_HIGH}%")
-
-            # 全局裁剪极端值
-            all_importance = df['importance'].to_dict()
-            clipped_importance = clip_importance_scores(
-                all_importance,
-                percentile_low=CLIP_PERCENTILE_LOW,
-                percentile_high=CLIP_PERCENTILE_HIGH
-            )
-
-            # 更新 DataFrame
-            for idx, clip_val in clipped_importance.items():
-                df.loc[idx, 'importance'] = clip_val
-
-            # 重新计算 score
-            df['score'] = df['importance'] / df['cost']
-
-            logger.log(f"  ✓ 梯度裁剪完成")
-
-        # 打印归一化后的统计
-        logger.log(f"\n  归一化后的 Score 统计:")
-        logger.log(f"    最小值: {df['score'].min():.6e}")
-        logger.log(f"    最大值: {df['score'].max():.6e}")
-        logger.log(f"    平均值: {df['score'].mean():.6e}")
-        logger.log(f"    中位数: {df['score'].median():.6e}")
-        logger.log(f"    极差比: {df['score'].max() / (df['score'].min() + 1e-10):.2f}x")
-
     # ========== Step 5: 选择要剪枝的 groups ==========
     logger.log(f"\n[Step 5] 根据剪枝率选择要剪枝的 groups...")
 
@@ -1616,10 +1510,9 @@ def main():
             logger.log(f"\n{'⚠️ '*20}")
             logger.log(f"检测到潜在问题，建议:")
             logger.log(f"  1. 检查校准数据集（C4/Wikitext2）是否适合当前模型")
-            logger.log(f"  2. 尝试调整序列长度 TAYLOR_SEQ_LEN")
-            logger.log(f"  3. 使用梯度归一化来缓解极端剪枝")
-            logger.log(f"  4. 设置剪枝率范围限制（--min-rate, --max-rate）")
-            logger.log(f"  5. 使用 temperature > 0 启用块级修正")
+            logger.log(f"  2. 尝试调整序列长度参数（--taylor_seq_len）")
+            logger.log(f"  3. 尝试调整样本数参数（--taylor_num_samples）")
+            logger.log(f"  4. 使用 temperature > 0 启用块级修正")
             logger.log(f"{'⚠️ '*20}\n")
 
     # ========== Step 9: LoRA 微调恢复（可选）==========
