@@ -101,22 +101,25 @@ class LayerImportanceAnalyzer:
                         self.attention_type = original_layer.attention_type
 
                 def forward(self, hidden_states, *args, **kwargs):
-                    # 根据模型类型和参数返回正确的格式
-                    # 所有模型都可能需要返回 tuple 格式（当 output_attentions 或 use_cache 时）
-                    output_attentions = kwargs.get('output_attentions', False)
-                    use_cache = kwargs.get('use_cache', False)
-
-                    # 如果需要 attention 或 cache，返回 tuple 格式
-                    if output_attentions or use_cache:
-                        outputs = (hidden_states,)
-                        if output_attentions:
-                            outputs += (None,)  # 空的 attention weights
-                        if use_cache:
-                            outputs += (None,)  # 空的 cache
-                        return outputs
-                    else:
-                        # 只返回 tensor
+                    # 根据模型类型返回正确的格式
+                    # Mistral, Qwen 等模型的 DecoderLayer 直接返回 tensor（不是 tuple）
+                    if self.model_type in ['mistral', 'qwen2', 'qwen']:
                         return hidden_states
+                    else:
+                        # LLaMA 等模型根据参数决定返回格式
+                        output_attentions = kwargs.get('output_attentions', False)
+                        use_cache = kwargs.get('use_cache', False)
+                        if output_attentions or use_cache:
+                            # 返回 tuple 格式
+                            outputs = (hidden_states,)
+                            if output_attentions:
+                                outputs += (None,)
+                            if use_cache:
+                                outputs += (None,)
+                            return outputs
+                        else:
+                            # 只返回 tensor
+                            return hidden_states
 
             # 临时替换整个层
             self.model.model.layers[layer_idx] = IdentityLayer(model_type, original_layer, self.model.config, layer_idx)
