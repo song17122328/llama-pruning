@@ -855,11 +855,11 @@ def main():
 
     # H-GSP 内部固定参数（不对外暴露）
     TAYLOR_NUM_SAMPLES = 128
-    TAYLOR_SEQ_LEN = 128
+    TAYLOR_SEQ_LEN = 512              # ✅ 从 128 改为 512（更准确的梯度估计）
     LAYER_IMPORTANCE_NUM_SAMPLES = 50
-    LAYER_IMPORTANCE_SEQ_LEN = 128
+    LAYER_IMPORTANCE_SEQ_LEN = 512    # ✅ 从 128 改为 512（更准确的重要性评估）
     BLOCK_IMPORTANCE_NUM_SAMPLES = 50
-    BLOCK_IMPORTANCE_SEQ_LEN = 128
+    BLOCK_IMPORTANCE_SEQ_LEN = 512    # ✅ 从 128 改为 512（更准确的重要性评估）
 
     if args.importance_method in ['taylor', 'taylor_2nd']:
         logger.log(f"\n[Step 3] 计算梯度（{'一阶' if args.importance_method == 'taylor' else '二阶'} Taylor importance）...")
