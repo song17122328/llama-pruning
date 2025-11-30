@@ -93,18 +93,18 @@ class ZeroAttention(nn.Module):
 
         Returns:
             根据模型类型返回不同格式：
-            - LLaMA/Qwen2: use_cache=True 时返回 (output, None, None)
-            - Mistral: 总是返回 (output, None) - 只有2个值
+            - Mistral/Qwen/Qwen2: 总是返回 (output, None) - 2个值
+            - LLaMA: use_cache=True 时返回 (output, None, None) - 3个值
         """
         # 返回全零（在残差连接中等效于跳过）
         output = torch.zeros_like(hidden_states)
 
-        # Mistral 模型特殊处理：即使 use_cache=True 也只返回2个值
-        if self.model_type == 'mistral':
-            # Mistral 的 Attention 总是返回 (attn_output, attn_weights)
+        # Mistral 和 Qwen 系列模型：总是返回2个值
+        if self.model_type in ['mistral', 'qwen', 'qwen2']:
+            # Attention 总是返回 (attn_output, attn_weights)
             return output, None
         else:
-            # 其他模型（LLaMA, Qwen2 等）的标准格式
+            # LLaMA 等模型：根据 use_cache 决定返回格式
             use_cache = kwargs.get('use_cache', False)
 
             if use_cache:
