@@ -62,6 +62,9 @@ def compute_attention_group_importance_taylor(layer, head_dim=128, gqa_ratio=4, 
                 hess = hessian_diag[full_name].to(sub_layer.weight.device)
                 second_order = 0.5 * (sub_layer.weight ** 2 * hess).abs()
                 salience[name] = first_order + second_order
+                # 只在第一层打印确认信息，避免刷屏
+                if layer_idx == 0:
+                    print(f"✓ Hessian found: '{full_name}' (shape: {hess.shape})")
             else:
                 salience[name] = first_order
                 # 只在第一层打印警告，避免刷屏
@@ -233,6 +236,10 @@ def compute_mlp_group_importance_taylor(layer, hessian_diag=None, layer_idx=None
                     up_salience = up_salience + second_order.sum(1)
                 else:  # down_proj
                     down_salience = down_salience + second_order.sum(0)
+
+                # 只在第一层打印确认信息，避免刷屏
+                if layer_idx == 0:
+                    print(f"✓ Hessian found: '{full_name}' (shape: {hess.shape})")
             else:
                 # 只在第一层打印警告，避免刷屏
                 if layer_idx == 0:
