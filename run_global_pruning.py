@@ -537,7 +537,7 @@ def remove_empty_layers(model, empty_layers, logger=None):
     for layer_idx in empty_layers:
         if layer_idx < num_layers:
             log(f"  替换 Layer {layer_idx} 为 Identity 层")
-            model.model.layers[layer_idx] = IdentityDecoderLayer(model_type)
+            model.model.layers[layer_idx] = IdentityDecoderLayer()
 
     log(f"✓ 已替换 {len(empty_layers)} 层为 Identity 层")
     log(f"  物理层数: {num_layers} (保持不变)")
