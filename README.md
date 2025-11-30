@@ -106,13 +106,18 @@ pip install -r requirements.txt
 基于性价比得分（Importance/Cost）全局选择最优剪枝策略。
 
 ```bash
-# LLaMA-3-8B
-
+    
+# Llama-3-8B-Instruct
 python run_global_pruning.py \
     --base_model /newdata/LLMs/Llama-3-8B-Instruct \
     --output_name Llama-3-8B-Instruct/Taylor_only_20 \
     --pruning_ratio 0.2 \
     --temperature 0.0 
+
+
+# LLaMA-3-8B
+
+
 
 
 python run_global_pruning.py \
