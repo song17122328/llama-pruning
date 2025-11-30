@@ -100,12 +100,28 @@ def run_pruning_experiment(
 
 
 def extract_results(output_dir):
-    """从输出目录提取评估结果"""
+    """从输出目录提取评估结果（包括梯度统计和详细 ACC）"""
     results = {
         "ppl": None,
-        "acc": None,
+        "acc_mean": None,
         "params": None,
-        "pruning_ratio": None
+        "pruning_ratio": None,
+        # 梯度统计指标
+        "grad_mean_ratio": None,
+        "grad_norm_ratio": None,
+        "grad_std_ratio": None,
+        "grad_max_ratio": None,
+        "grad_mean_range": None,
+        "grad_norm_range": None,
+        "extreme_pruning_layers": None,
+        # 详细 ACC 指标
+        "acc_boolq": None,
+        "acc_piqa": None,
+        "acc_hellaswag": None,
+        "acc_winogrande": None,
+        "acc_arc_easy": None,
+        "acc_arc_challenge": None,
+        "acc_openbookqa": None,
     }
 
     # 读取评估结果
@@ -118,17 +134,38 @@ def extract_results(output_dir):
             if "ppl" in eval_data and "wikitext2" in eval_data["ppl"]:
                 results["ppl"] = eval_data["ppl"]["wikitext2"]
 
-            # 提取平均 ACC
+            # 提取所有 7 个 zero-shot 任务的单独 ACC
             if "zeroshot" in eval_data and "results" in eval_data["zeroshot"]:
                 accs = []
                 for task, task_results in eval_data["zeroshot"]["results"].items():
+                    # 提取任务的 ACC
+                    task_acc = None
                     if "acc" in task_results:
-                        accs.append(task_results["acc"])
+                        task_acc = task_results["acc"]
                     elif "acc_norm" in task_results:
-                        accs.append(task_results["acc_norm"])
+                        task_acc = task_results["acc_norm"]
+
+                    if task_acc is not None:
+                        accs.append(task_acc)
+
+                        # 保存单独任务的 ACC
+                        if "boolq" in task.lower():
+                            results["acc_boolq"] = task_acc
+                        elif "piqa" in task.lower():
+                            results["acc_piqa"] = task_acc
+                        elif "hellaswag" in task.lower():
+                            results["acc_hellaswag"] = task_acc
+                        elif "winogrande" in task.lower():
+                            results["acc_winogrande"] = task_acc
+                        elif "arc_easy" in task.lower():
+                            results["acc_arc_easy"] = task_acc
+                        elif "arc_challenge" in task.lower():
+                            results["acc_arc_challenge"] = task_acc
+                        elif "openbookqa" in task.lower():
+                            results["acc_openbookqa"] = task_acc
 
                 if accs:
-                    results["acc"] = sum(accs) / len(accs)
+                    results["acc_mean"] = sum(accs) / len(accs)
 
     # 读取模型对比结果
     model_comp_file = Path(output_dir) / "analysis" / "model_comparison.json"
@@ -141,6 +178,63 @@ def extract_results(output_dir):
 
             if "total_params" in comp_data and "reduction_ratio" in comp_data["total_params"]:
                 results["pruning_ratio"] = comp_data["total_params"]["reduction_ratio"]
+
+    # 读取梯度统计信息（关键！用于分析规律）
+    grad_stats_file = Path(output_dir) / "analysis" / "gradient_statistics.json"
+    if grad_stats_file.exists():
+        with open(grad_stats_file, 'r') as f:
+            grad_data = json.load(f)
+
+            # 提取梯度均值比率
+            if "gradient_mean_ratio" in grad_data:
+                results["grad_mean_ratio"] = grad_data["gradient_mean_ratio"]
+
+            # 提取梯度范数比率
+            if "gradient_norm_ratio" in grad_data:
+                results["grad_norm_ratio"] = grad_data["gradient_norm_ratio"]
+
+            # 提取梯度标准差比率
+            if "gradient_std_ratio" in grad_data:
+                results["grad_std_ratio"] = grad_data["gradient_std_ratio"]
+
+            # 提取梯度最大值比率
+            if "gradient_max_ratio" in grad_data:
+                results["grad_max_ratio"] = grad_data["gradient_max_ratio"]
+
+            # 提取梯度均值范围
+            if "gradient_mean_range" in grad_data:
+                mean_range = grad_data["gradient_mean_range"]
+                if isinstance(mean_range, str):
+                    # 格式: "8.3733e-02 ~ 9.0496e-01"
+                    parts = mean_range.split('~')
+                    if len(parts) == 2:
+                        min_val = float(parts[0].strip())
+                        max_val = float(parts[1].strip())
+                        results["grad_mean_range"] = max_val - min_val
+
+            # 提取梯度范数范围
+            if "gradient_norm_range" in grad_data:
+                norm_range = grad_data["gradient_norm_range"]
+                if isinstance(norm_range, str):
+                    parts = norm_range.split('~')
+                    if len(parts) == 2:
+                        min_val = float(parts[0].strip())
+                        max_val = float(parts[1].strip())
+                        results["grad_norm_range"] = max_val - min_val
+
+    # 读取梯度诊断信息
+    grad_diag_file = Path(output_dir) / "analysis" / "gradient_diagnosis.json"
+    if grad_diag_file.exists():
+        with open(grad_diag_file, 'r') as f:
+            diag_data = json.load(f)
+
+            # 提取极端剪枝层数量
+            if "extreme_pruning_layers" in diag_data:
+                extreme_layers = diag_data["extreme_pruning_layers"]
+                if isinstance(extreme_layers, list):
+                    results["extreme_pruning_layers"] = len(extreme_layers)
+                else:
+                    results["extreme_pruning_layers"] = 0
 
     return results
 
@@ -231,9 +325,23 @@ def main():
                 **params,
                 "output_dir": output_dir,
                 "ppl": metrics["ppl"],
-                "acc": metrics["acc"],
+                "acc_mean": metrics["acc_mean"],
+                "acc_boolq": metrics.get("acc_boolq"),
+                "acc_piqa": metrics.get("acc_piqa"),
+                "acc_hellaswag": metrics.get("acc_hellaswag"),
+                "acc_winogrande": metrics.get("acc_winogrande"),
+                "acc_arc_easy": metrics.get("acc_arc_easy"),
+                "acc_arc_challenge": metrics.get("acc_arc_challenge"),
+                "acc_openbookqa": metrics.get("acc_openbookqa"),
                 "params_count": metrics["params"],
                 "pruning_ratio": metrics["pruning_ratio"],
+                "grad_mean_ratio": metrics.get("grad_mean_ratio"),
+                "grad_norm_ratio": metrics.get("grad_norm_ratio"),
+                "grad_std_ratio": metrics.get("grad_std_ratio"),
+                "grad_max_ratio": metrics.get("grad_max_ratio"),
+                "grad_mean_range": metrics.get("grad_mean_range"),
+                "grad_norm_range": metrics.get("grad_norm_range"),
+                "extreme_pruning_layers": metrics.get("extreme_pruning_layers"),
                 "elapsed_time": run_result["elapsed_time"],
                 "success": True
             }
@@ -242,9 +350,23 @@ def main():
                 **params,
                 "output_dir": f"results/{output_name}",
                 "ppl": None,
-                "acc": None,
+                "acc_mean": None,
+                "acc_boolq": None,
+                "acc_piqa": None,
+                "acc_hellaswag": None,
+                "acc_winogrande": None,
+                "acc_arc_easy": None,
+                "acc_arc_challenge": None,
+                "acc_openbookqa": None,
                 "params_count": None,
                 "pruning_ratio": None,
+                "grad_mean_ratio": None,
+                "grad_norm_ratio": None,
+                "grad_std_ratio": None,
+                "grad_max_ratio": None,
+                "grad_mean_range": None,
+                "grad_norm_range": None,
+                "extreme_pruning_layers": None,
                 "elapsed_time": run_result["elapsed_time"],
                 "success": False
             }
@@ -263,16 +385,20 @@ def main():
         print(f"\n✓ 结果已保存到 {results_file}")
 
         # 显示当前最佳结果
-        if "acc" in df_results.columns:
+        if "acc_mean" in df_results.columns:
             df_valid = df_results[df_results['success'] == True]
-            if not df_valid.empty and df_valid['acc'].notna().any():
-                best_idx = df_valid['acc'].idxmax()
+            if not df_valid.empty and df_valid['acc_mean'].notna().any():
+                best_idx = df_valid['acc_mean'].idxmax()
                 best_row = df_valid.loc[best_idx]
                 print(f"\n当前最佳配置:")
                 for param_name in param_names:
                     print(f"  {param_name}: {best_row[param_name]}")
-                print(f"  ACC: {best_row['acc']:.4f}")
+                print(f"  ACC (mean): {best_row['acc_mean']:.4f}")
                 print(f"  PPL: {best_row['ppl']:.2f}")
+                if best_row.get('grad_norm_ratio'):
+                    print(f"  梯度范数比率: {best_row['grad_norm_ratio']:.2f}x")
+                if best_row.get('extreme_pruning_layers') is not None:
+                    print(f"  极端剪枝层数: {best_row['extreme_pruning_layers']}")
 
     # 生成最终报告
     print(f"\n{'='*80}")
@@ -282,29 +408,50 @@ def main():
     df_results = pd.read_csv(results_file)
     df_valid = df_results[df_results['success'] == True]
 
-    if not df_valid.empty and df_valid['acc'].notna().any():
+    if not df_valid.empty and df_valid['acc_mean'].notna().any():
         # 按 ACC 排序
-        df_sorted = df_valid.sort_values('acc', ascending=False)
+        df_sorted = df_valid.sort_values('acc_mean', ascending=False)
 
-        print("Top 5 配置（按 ACC 排序）:")
+        print("Top 5 配置（按平均 ACC 排序）:")
         print("-" * 80)
         for i, (idx, row) in enumerate(df_sorted.head(5).iterrows()):
             print(f"\n#{i+1}")
             for param_name in param_names:
                 print(f"  {param_name}: {row[param_name]}")
-            print(f"  ACC: {row['acc']:.4f}")
+            print(f"  ACC (mean): {row['acc_mean']:.4f}")
             print(f"  PPL: {row['ppl']:.2f}")
+            if row.get('grad_norm_ratio'):
+                print(f"  梯度范数比率: {row['grad_norm_ratio']:.2f}x")
+            if row.get('extreme_pruning_layers') is not None:
+                print(f"  极端剪枝层数: {row['extreme_pruning_layers']}")
             print(f"  输出目录: {row['output_dir']}")
 
         # 保存最佳配置
         best_config_file = Path(output_base) / "best_config.json"
         best_row = df_sorted.iloc[0]
+
+        # 提取所有 7 个任务的 ACC
+        acc_details = {}
+        for task in ['boolq', 'piqa', 'hellaswag', 'winogrande', 'arc_easy', 'arc_challenge', 'openbookqa']:
+            col_name = f'acc_{task}'
+            if col_name in best_row and pd.notna(best_row[col_name]):
+                acc_details[task] = best_row[col_name]
+
+        # 提取梯度统计
+        grad_stats = {}
+        for stat in ['grad_mean_ratio', 'grad_norm_ratio', 'grad_std_ratio', 'grad_max_ratio',
+                     'grad_mean_range', 'grad_norm_range', 'extreme_pruning_layers']:
+            if stat in best_row and pd.notna(best_row[stat]):
+                grad_stats[stat] = best_row[stat]
+
         best_config = {
             "params": {k: best_row[k] for k in param_names},
             "metrics": {
-                "acc": best_row['acc'],
+                "acc_mean": best_row['acc_mean'],
+                "acc_details": acc_details,
                 "ppl": best_row['ppl'],
-                "pruning_ratio": best_row['pruning_ratio']
+                "pruning_ratio": best_row['pruning_ratio'],
+                "gradient_statistics": grad_stats
             },
             "output_dir": best_row['output_dir']
         }
