@@ -534,7 +534,13 @@ def remove_empty_layers(model, empty_layers, logger=None):
     for layer_idx in empty_layers:
         if layer_idx < num_layers:
             log(f"  替换 Layer {layer_idx} 为 Identity 层")
-            model.model.layers[layer_idx] = IdentityDecoderLayer()
+            # 获取原始层和配置，以便复制必要的属性（如 Qwen2 的 attention_type）
+            original_layer = model.model.layers[layer_idx]
+            model.model.layers[layer_idx] = IdentityDecoderLayer(
+                original_layer=original_layer,
+                config=model.config,
+                layer_idx=layer_idx
+            )
 
     log(f"✓ 已替换 {len(empty_layers)} 层为 Identity 层")
     log(f"  物理层数: {num_layers} (保持不变)")

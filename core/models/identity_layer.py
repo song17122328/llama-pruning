@@ -31,9 +31,24 @@ class IdentityDecoderLayer(nn.Module):
         >>> assert torch.equal(output, hidden_states)
     """
 
-    def __init__(self):
-        """初始化 Identity 层（无参数）"""
+    def __init__(self, original_layer=None, config=None, layer_idx=None):
+        """
+        初始化 Identity 层
+
+        Args:
+            original_layer: 原始的 decoder layer（可选，用于复制必要属性）
+            config: 模型配置（可选，用于 Qwen2 等模型）
+            layer_idx: 层索引（可选，用于 Qwen2 等模型）
+        """
         super().__init__()
+
+        # Qwen2 需要 attention_type 属性
+        if config is not None and hasattr(config, 'model_type'):
+            model_type = config.model_type
+            if model_type in ['qwen2', 'qwen'] and hasattr(config, 'layer_types') and layer_idx is not None:
+                self.attention_type = config.layer_types[layer_idx]
+            elif original_layer is not None and hasattr(original_layer, 'attention_type'):
+                self.attention_type = original_layer.attention_type
 
     def forward(self, hidden_states, *args, **kwargs):
         """
