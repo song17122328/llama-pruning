@@ -32,6 +32,11 @@ from core.models import IdentityDecoderLayer, ZeroAttention, ZeroMLP
 from evaluation.metrics.ppl import PPLMetric
 from core.utils.logger import LoggerWithDepth
 from core.analysis import ModelAnalyzer, ModelComparator
+from core.analysis.gradient_analysis import (
+    GradientAnalyzer,
+    normalize_importance_scores,
+    clip_importance_scores
+)
 
 import sys
 # 导入 evaluation 模块
@@ -865,6 +870,10 @@ def main():
         logger.log(f"\n[Step 3] 计算梯度（{'一阶' if args.importance_method == 'taylor' else '二阶'} Taylor importance）...")
         logger.log(f"  样本数: {TAYLOR_NUM_SAMPLES}, 序列长度: {TAYLOR_SEQ_LEN} (内部固定)")
 
+        # 初始化梯度分析器
+        gradient_analyzer = GradientAnalyzer(model, logger)
+        logger.log(f"  ✓ 梯度分析器已初始化（将收集梯度统计用于诊断）")
+
         # 分批计算梯度以节省内存
         batch_size = args.gradient_batch_size
         num_batches = (TAYLOR_NUM_SAMPLES + batch_size - 1) // batch_size
@@ -936,6 +945,9 @@ def main():
                             grad_std = param.grad.abs().std().item()
                             logger.log(f"    Layer {layer_idx:2d}: grad_mean={grad_mean:.6e}, grad_std={grad_std:.6e}")
                             break
+
+            # 📊 收集梯度统计（用于后续诊断和可视化）
+            gradient_analyzer.accumulate_gradient_stats(layer_prefix='model.layers')
 
             # 二阶泰勒：累积 Hessian 对角线（使用梯度平方近似）
             if args.importance_method == 'taylor_2nd':
@@ -1140,6 +1152,20 @@ def main():
             json.dump(block_removal_ppl, f, indent=2)
         logger.log(f"✓ 块重要性已保存: {block_importance_path}")
 
+    # ========== Step 3.7: 梯度诊断和可视化（仅在使用 Taylor 方法时）==========
+    if args.importance_method in ['taylor', 'taylor_2nd']:
+        logger.log(f"\n[Step 3.7] 梯度诊断和可视化...")
+
+        num_layers = len(model.model.layers)
+
+        # 保存梯度统计到文件
+        gradient_stats_path = os.path.join(output_dirs['analysis'], 'gradient_statistics.json')
+        gradient_analyzer.save_gradient_stats(gradient_stats_path)
+
+        # 注意：此时还没有计算重要性得分和剪枝率，所以先不生成完整的可视化
+        # 完整的可视化将在剪枝完成后生成
+        logger.log(f"  ✓ 梯度统计已收集并保存")
+        logger.log(f"  ℹ️  完整的梯度可视化将在剪枝完成后生成")
 
     # ========== Step 4: 构建全局分析表 ==========
     logger.log("\n[Step 4] 构建全局 Group 分析表...")
@@ -1407,6 +1433,71 @@ def main():
         logger.log(f"\n完全剪空的层 ({len(zero_layers)}个): {zero_layers}")
 
     logger.log(f"\n{'='*60}")
+
+    # ========== Step 8.6: 梯度诊断和可视化（完整版）==========
+    if args.importance_method in ['taylor', 'taylor_2nd']:
+        logger.log(f"\n[Step 8.6] 生成梯度诊断和可视化报告...")
+
+        num_layers = len(model.model.layers)
+
+        # 从 comparison_result 中提取每层的剪枝率
+        layer_pruning_rates = {}
+        for layer_comp in comparison_result['layers']:
+            layer_idx = layer_comp['layer_idx']
+            # 使用 MLP 的剪枝率作为层剪枝率的代表
+            layer_pruning_rates[layer_idx] = layer_comp['mlp'].get('reduction_ratio', 0.0)
+
+        # 从 global_analysis_table 中提取重要性得分
+        # 注意：这里我们需要从 group table 中聚合得到每层的平均重要性
+        layer_importance_scores = {}
+        for layer_idx in range(num_layers):
+            # 收集该层所有 MLP neuron groups 的重要性
+            layer_importances = []
+            for group in global_analysis_table:
+                if group['type'] == 'mlp_neuron' and group['layer_idx'] == layer_idx:
+                    layer_importances.append(group['importance'])
+
+            if layer_importances:
+                layer_importance_scores[layer_idx] = np.mean(layer_importances)
+            else:
+                layer_importance_scores[layer_idx] = 0.0
+
+        # 生成完整的梯度可视化（包括重要性和剪枝率对比）
+        visualization_dir = output_dirs['visualization']
+        gradient_analyzer.visualize_gradient_distribution(
+            num_layers=num_layers,
+            save_dir=visualization_dir,
+            importance_scores=layer_importance_scores,
+            pruning_rates=layer_pruning_rates
+        )
+
+        # 生成诊断报告
+        diagnosis_report = gradient_analyzer.diagnose_extreme_pruning(
+            num_layers=num_layers,
+            importance_scores=layer_importance_scores,
+            pruning_rates=layer_pruning_rates,
+            threshold=0.5  # 剪枝率超过 50% 视为极端
+        )
+
+        # 打印诊断报告
+        gradient_analyzer.print_diagnosis_report(diagnosis_report)
+
+        # 保存诊断报告
+        diagnosis_path = os.path.join(output_dirs['analysis'], 'gradient_diagnosis.json')
+        with open(diagnosis_path, 'w') as f:
+            json.dump(diagnosis_report, f, indent=2)
+        logger.log(f"  ✓ 诊断报告已保存: {diagnosis_path}")
+
+        # 如果检测到严重问题，给出建议
+        if diagnosis_report['diagnosis']:
+            logger.log(f"\n{'⚠️ '*20}")
+            logger.log(f"检测到潜在问题，建议:")
+            logger.log(f"  1. 检查校准数据集（C4/Wikitext2）是否适合当前模型")
+            logger.log(f"  2. 尝试调整序列长度 TAYLOR_SEQ_LEN")
+            logger.log(f"  3. 使用梯度归一化来缓解极端剪枝")
+            logger.log(f"  4. 设置剪枝率范围限制（--min-rate, --max-rate）")
+            logger.log(f"  5. 使用 temperature > 0 启用块级修正")
+            logger.log(f"{'⚠️ '*20}\n")
 
     # ========== Step 9: LoRA 微调恢复（可选）==========
     if args.finetune:
