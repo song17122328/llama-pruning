@@ -41,14 +41,14 @@
 
 ```bash
 # 使用更新后的配置（包含所有 7 个 zero-shot 任务）
-python search_best_params.py --config configs/mistral_param_search.json
+python param_search/search_best_params.py --config configs/mistral_param_search.json
 ```
 
 ### 步骤 2: 分析相关性
 
 ```bash
 # 分析梯度指标与 ACC 的相关性
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv
 ```
 
@@ -193,12 +193,12 @@ ppl                          -0.5234   2.345e-02      -0.5012        15   *
 
 ```bash
 # 分析 PPL 而非 ACC
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv \
     --target ppl
 
 # 分析特定任务的 ACC
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv \
     --target acc_hellaswag
 ```

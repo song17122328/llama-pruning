@@ -72,13 +72,13 @@ python run_global_pruning.py \
 
 ```bash
 # 完整搜索（5 × 3 = 15 个实验）
-python search_best_params.py --config configs/mistral_param_search.json
+python param_search/search_best_params.py --config configs/mistral_param_search.json
 
 # 快速测试（仅测试 2 个配置）
-python search_best_params.py --config configs/quick_param_search.json --max_experiments 2
+python param_search/search_best_params.py --config configs/quick_param_search.json --max_experiments 2
 
 # 从中断处继续
-python search_best_params.py --config configs/mistral_param_search.json --resume
+python param_search/search_best_params.py --config configs/mistral_param_search.json --resume
 ```
 
 #### 步骤 3: 查看结果
@@ -273,11 +273,11 @@ print("热力图已保存到 param_heatmap.png")
 
 ```bash
 # GPU 0: 搜索 seq_len
-CUDA_VISIBLE_DEVICES=0 python search_best_params.py \
+CUDA_VISIBLE_DEVICES=0 python param_search/search_best_params.py \
     --config configs/search_seq_len.json &
 
 # GPU 1: 搜索 num_samples
-CUDA_VISIBLE_DEVICES=1 python search_best_params.py \
+CUDA_VISIBLE_DEVICES=1 python param_search/search_best_params.py \
     --config configs/search_num_samples.json &
 
 wait
@@ -311,7 +311,7 @@ wait
 **解决方法**：
 ```bash
 # 使用 --resume 从中断处继续
-python search_best_params.py --config configs/mistral_param_search.json --resume
+python param_search/search_best_params.py --config configs/mistral_param_search.json --resume
 ```
 
 ### 问题 3: 结果异常
@@ -347,7 +347,7 @@ cat > configs/my_mistral_search.json <<EOF
 EOF
 
 # 2. 运行搜索
-python search_best_params.py --config configs/my_mistral_search.json
+python param_search/search_best_params.py --config configs/my_mistral_search.json
 
 # 3. 查看最佳配置
 cat results/mistral_optimal_params/best_config.json

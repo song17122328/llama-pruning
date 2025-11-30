@@ -21,7 +21,7 @@
 vim configs/mistral_param_search.json
 
 # 2. 运行搜索（测试 15 种参数组合）
-python search_best_params.py --config configs/mistral_param_search.json
+python param_search/search_best_params.py --config configs/mistral_param_search.json
 ```
 
 **输出**: `results/param_search_mistral_20/search_results.csv`
@@ -36,7 +36,7 @@ python search_best_params.py --config configs/mistral_param_search.json
 ### 步骤 2: 分析相关性
 
 ```bash
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv
 ```
 
@@ -192,7 +192,7 @@ ppl                       0.45          0.67        -0.72    1.00
 
 ```bash
 # 分析 HellaSwag 任务
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv \
     --target acc_hellaswag
 ```
@@ -200,7 +200,7 @@ python analyze_param_correlations.py \
 ### 自定义输出目录
 
 ```bash
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv \
     --output_dir my_analysis/
 ```
@@ -244,10 +244,10 @@ print(f"最佳配置: taylor_seq_len={best['taylor_seq_len']}, "
 
 ```bash
 # 1. 运行参数搜索（6-8 小时）
-python search_best_params.py --config configs/mistral_param_search.json
+python param_search/search_best_params.py --config configs/mistral_param_search.json
 
 # 2. 分析相关性（< 1 分钟）
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/param_search_mistral_20/search_results.csv
 
 # 3. 查看发现
@@ -273,10 +273,10 @@ python run_global_pruning.py \
 
 ```bash
 # 快速测试（2-3 小时，只测试 3 个配置）
-python search_best_params.py --config configs/quick_param_search.json
+python param_search/search_best_params.py --config configs/quick_param_search.json
 
 # 分析
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/quick_search/search_results.csv
 ```
 

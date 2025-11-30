@@ -27,10 +27,10 @@ vim configs/mistral_param_search.json
 
 ```bash
 # 快速测试（2 个配置，约 2 小时）
-python search_best_params.py --config configs/quick_param_search.json
+python param_search/search_best_params.py --config configs/quick_param_search.json
 
 # 完整搜索（15 个配置，约 8 小时）
-python search_best_params.py --config configs/mistral_param_search.json
+python param_search/search_best_params.py --config configs/mistral_param_search.json
 ```
 
 ### 步骤 3: 查看最佳配置
@@ -167,12 +167,12 @@ python run_global_pruning.py \
 
 ```bash
 # 1. 快速测试（只运行 2 个实验）
-python search_best_params.py \
+python param_search/search_best_params.py \
     --config configs/quick_param_search.json \
     --max_experiments 2
 
 # 2. 从中断处继续
-python search_best_params.py \
+python param_search/search_best_params.py \
     --config configs/mistral_param_search.json \
     --resume
 
@@ -223,7 +223,7 @@ print(df[['taylor_seq_len', 'taylor_num_samples', 'acc', 'ppl']])
 
 ```bash
 # 使用 --resume 继续
-python search_best_params.py \
+python param_search/search_best_params.py \
     --config configs/mistral_param_search.json \
     --resume
 ```

@@ -47,7 +47,7 @@ cat > /tmp/quick_search.json <<EOF
 }
 EOF
 
-python search_best_params.py --config /tmp/quick_search.json
+python param_search/search_best_params.py --config /tmp/quick_search.json
 
 # 查看结果
 echo ""

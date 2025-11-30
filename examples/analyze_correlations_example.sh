@@ -30,7 +30,7 @@ cat > /tmp/correlation_search.json <<EOF
 EOF
 
 # 运行搜索
-python search_best_params.py --config /tmp/correlation_search.json
+python param_search/search_best_params.py --config /tmp/correlation_search.json
 
 echo ""
 echo "======================================"
@@ -38,7 +38,7 @@ echo "步骤 2: 分析相关性"
 echo "======================================"
 
 # 运行相关性分析
-python analyze_param_correlations.py \
+python param_search/analyze_param_correlations.py \
     --results results/correlation_analysis_demo/search_results.csv \
     --output_dir results/correlation_analysis_demo/
 
