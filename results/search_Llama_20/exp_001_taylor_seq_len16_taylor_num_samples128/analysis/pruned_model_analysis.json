@@ -1,0 +1,774 @@
+{
+  "model_name": "剪枝后模型",
+  "total_params": 6424211456,
+  "embedding_params": 525336576,
+  "lm_head_params": 525336576,
+  "layers": [
+    {
+      "layer_idx": 0,
+      "total": 207626240,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 12582912,
+        "k_proj": 3145728,
+        "v_proj": 3145728,
+        "o_proj": 12582912,
+        "total": 31457280,
+        "num_heads": 24,
+        "num_kv_heads": 6
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 58720256,
+        "up_proj": 58720256,
+        "down_proj": 58720256,
+        "total": 176160768,
+        "intermediate_size": 14336
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 1,
+      "total": 217964544,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 16777216,
+        "k_proj": 4194304,
+        "v_proj": 4194304,
+        "o_proj": 16777216,
+        "total": 41943040
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 58671104,
+        "up_proj": 58671104,
+        "down_proj": 58671104,
+        "total": 176013312,
+        "intermediate_size": 14324
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 2,
+      "total": 207515648,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 12582912,
+        "k_proj": 3145728,
+        "v_proj": 3145728,
+        "o_proj": 12582912,
+        "total": 31457280,
+        "num_heads": 24,
+        "num_kv_heads": 6
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 58683392,
+        "up_proj": 58683392,
+        "down_proj": 58683392,
+        "total": 176050176,
+        "intermediate_size": 14327
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 3,
+      "total": 217915392,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 16777216,
+        "k_proj": 4194304,
+        "v_proj": 4194304,
+        "o_proj": 16777216,
+        "total": 41943040
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 58654720,
+        "up_proj": 58654720,
+        "down_proj": 58654720,
+        "total": 175964160,
+        "intermediate_size": 14320
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 4,
+      "total": 217018368,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 16777216,
+        "k_proj": 4194304,
+        "v_proj": 4194304,
+        "o_proj": 16777216,
+        "total": 41943040
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 58355712,
+        "up_proj": 58355712,
+        "down_proj": 58355712,
+        "total": 175067136,
+        "intermediate_size": 14247
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 5,
+      "total": 199593984,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57790464,
+        "up_proj": 57790464,
+        "down_proj": 57790464,
+        "total": 173371392,
+        "intermediate_size": 14109
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 6,
+      "total": 199843840,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 14680064,
+        "k_proj": 3670016,
+        "v_proj": 3670016,
+        "o_proj": 14680064,
+        "total": 36700160,
+        "num_heads": 28,
+        "num_kv_heads": 7
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 54378496,
+        "up_proj": 54378496,
+        "down_proj": 54378496,
+        "total": 163135488,
+        "intermediate_size": 13276
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 7,
+      "total": 165376000,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 14680064,
+        "k_proj": 3670016,
+        "v_proj": 3670016,
+        "o_proj": 14680064,
+        "total": 36700160,
+        "num_heads": 28,
+        "num_kv_heads": 7
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 42889216,
+        "up_proj": 42889216,
+        "down_proj": 42889216,
+        "total": 128667648,
+        "intermediate_size": 10471
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 8,
+      "total": 132263936,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 12582912,
+        "k_proj": 3145728,
+        "v_proj": 3145728,
+        "o_proj": 12582912,
+        "total": 31457280,
+        "num_heads": 24,
+        "num_kv_heads": 6
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 33599488,
+        "up_proj": 33599488,
+        "down_proj": 33599488,
+        "total": 100798464,
+        "intermediate_size": 8203
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 9,
+      "total": 106639360,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 8388608,
+        "k_proj": 2097152,
+        "v_proj": 2097152,
+        "o_proj": 8388608,
+        "total": 20971520,
+        "num_heads": 16,
+        "num_kv_heads": 4
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 28553216,
+        "up_proj": 28553216,
+        "down_proj": 28553216,
+        "total": 85659648,
+        "intermediate_size": 6971
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 10,
+      "total": 87351296,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 6291456,
+        "k_proj": 1572864,
+        "v_proj": 1572864,
+        "o_proj": 6291456,
+        "total": 15728640,
+        "num_heads": 12,
+        "num_kv_heads": 3
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 23871488,
+        "up_proj": 23871488,
+        "down_proj": 23871488,
+        "total": 71614464,
+        "intermediate_size": 5828
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 11,
+      "total": 96456704,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 12582912,
+        "k_proj": 3145728,
+        "v_proj": 3145728,
+        "o_proj": 12582912,
+        "total": 31457280,
+        "num_heads": 24,
+        "num_kv_heads": 6
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 21663744,
+        "up_proj": 21663744,
+        "down_proj": 21663744,
+        "total": 64991232,
+        "intermediate_size": 5289
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 12,
+      "total": 101343232,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 14680064,
+        "k_proj": 3670016,
+        "v_proj": 3670016,
+        "o_proj": 14680064,
+        "total": 36700160,
+        "num_heads": 28,
+        "num_kv_heads": 7
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 21544960,
+        "up_proj": 21544960,
+        "down_proj": 21544960,
+        "total": 64634880,
+        "intermediate_size": 5260
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 13,
+      "total": 94507008,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 22761472,
+        "up_proj": 22761472,
+        "down_proj": 22761472,
+        "total": 68284416,
+        "intermediate_size": 5557
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 14,
+      "total": 107102208,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 26959872,
+        "up_proj": 26959872,
+        "down_proj": 26959872,
+        "total": 80879616,
+        "intermediate_size": 6582
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 15,
+      "total": 128888832,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 34222080,
+        "up_proj": 34222080,
+        "down_proj": 34222080,
+        "total": 102666240,
+        "intermediate_size": 8355
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 16,
+      "total": 151601152,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 14680064,
+        "k_proj": 3670016,
+        "v_proj": 3670016,
+        "o_proj": 14680064,
+        "total": 36700160,
+        "num_heads": 28,
+        "num_kv_heads": 7
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 38297600,
+        "up_proj": 38297600,
+        "down_proj": 38297600,
+        "total": 114892800,
+        "intermediate_size": 9350
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 17,
+      "total": 160579584,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 44785664,
+        "up_proj": 44785664,
+        "down_proj": 44785664,
+        "total": 134356992,
+        "intermediate_size": 10934
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 18,
+      "total": 166596608,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 6291456,
+        "k_proj": 1572864,
+        "v_proj": 1572864,
+        "o_proj": 6291456,
+        "total": 15728640,
+        "num_heads": 12,
+        "num_kv_heads": 3
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 50286592,
+        "up_proj": 50286592,
+        "down_proj": 50286592,
+        "total": 150859776,
+        "intermediate_size": 12277
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 19,
+      "total": 177311744,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 6291456,
+        "k_proj": 1572864,
+        "v_proj": 1572864,
+        "o_proj": 6291456,
+        "total": 15728640,
+        "num_heads": 12,
+        "num_kv_heads": 3
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 53858304,
+        "up_proj": 53858304,
+        "down_proj": 53858304,
+        "total": 161574912,
+        "intermediate_size": 13149
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 20,
+      "total": 179257344,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 4194304,
+        "k_proj": 1048576,
+        "v_proj": 1048576,
+        "o_proj": 4194304,
+        "total": 10485760,
+        "num_heads": 8,
+        "num_kv_heads": 2
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 56254464,
+        "up_proj": 56254464,
+        "down_proj": 56254464,
+        "total": 168763392,
+        "intermediate_size": 13734
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 21,
+      "total": 199114752,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57630720,
+        "up_proj": 57630720,
+        "down_proj": 57630720,
+        "total": 172892160,
+        "intermediate_size": 14070
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 22,
+      "total": 189218816,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 6291456,
+        "k_proj": 1572864,
+        "v_proj": 1572864,
+        "o_proj": 6291456,
+        "total": 15728640,
+        "num_heads": 12,
+        "num_kv_heads": 3
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57827328,
+        "up_proj": 57827328,
+        "down_proj": 57827328,
+        "total": 173481984,
+        "intermediate_size": 14118
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 23,
+      "total": 178278400,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 2097152,
+        "k_proj": 524288,
+        "v_proj": 524288,
+        "o_proj": 2097152,
+        "total": 5242880,
+        "num_heads": 4,
+        "num_kv_heads": 1
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57675776,
+        "up_proj": 57675776,
+        "down_proj": 57675776,
+        "total": 173027328,
+        "intermediate_size": 14081
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 24,
+      "total": 182833152,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 4194304,
+        "k_proj": 1048576,
+        "v_proj": 1048576,
+        "o_proj": 4194304,
+        "total": 10485760,
+        "num_heads": 8,
+        "num_kv_heads": 2
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57446400,
+        "up_proj": 57446400,
+        "down_proj": 57446400,
+        "total": 172339200,
+        "intermediate_size": 14025
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 25,
+      "total": 181874688,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 4194304,
+        "k_proj": 1048576,
+        "v_proj": 1048576,
+        "o_proj": 4194304,
+        "total": 10485760,
+        "num_heads": 8,
+        "num_kv_heads": 2
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57126912,
+        "up_proj": 57126912,
+        "down_proj": 57126912,
+        "total": 171380736,
+        "intermediate_size": 13947
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 26,
+      "total": 184315904,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 6291456,
+        "k_proj": 1572864,
+        "v_proj": 1572864,
+        "o_proj": 6291456,
+        "total": 15728640,
+        "num_heads": 12,
+        "num_kv_heads": 3
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 56193024,
+        "up_proj": 56193024,
+        "down_proj": 56193024,
+        "total": 168579072,
+        "intermediate_size": 13719
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 27,
+      "total": 190894080,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 54890496,
+        "up_proj": 54890496,
+        "down_proj": 54890496,
+        "total": 164671488,
+        "intermediate_size": 13401
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 28,
+      "total": 176181248,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 6291456,
+        "k_proj": 1572864,
+        "v_proj": 1572864,
+        "o_proj": 6291456,
+        "total": 15728640,
+        "num_heads": 12,
+        "num_kv_heads": 3
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 53481472,
+        "up_proj": 53481472,
+        "down_proj": 53481472,
+        "total": 160444416,
+        "intermediate_size": 13057
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 29,
+      "total": 181358592,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 10485760,
+        "k_proj": 2621440,
+        "v_proj": 2621440,
+        "o_proj": 10485760,
+        "total": 26214400,
+        "num_heads": 20,
+        "num_kv_heads": 5
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 51712000,
+        "up_proj": 51712000,
+        "down_proj": 51712000,
+        "total": 155136000,
+        "intermediate_size": 12625
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 30,
+      "total": 178708480,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 8388608,
+        "k_proj": 2097152,
+        "v_proj": 2097152,
+        "o_proj": 8388608,
+        "total": 20971520,
+        "num_heads": 16,
+        "num_kv_heads": 4
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 52576256,
+        "up_proj": 52576256,
+        "down_proj": 52576256,
+        "total": 157728768,
+        "intermediate_size": 12836
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 31,
+      "total": 208003072,
+      "attention": {
+        "type": "LlamaAttention",
+        "q_proj": 14680064,
+        "k_proj": 3670016,
+        "v_proj": 3670016,
+        "o_proj": 14680064,
+        "total": 36700160,
+        "num_heads": 28,
+        "num_kv_heads": 7
+      },
+      "mlp": {
+        "type": "LlamaMLP",
+        "gate_proj": 57098240,
+        "up_proj": 57098240,
+        "down_proj": 57098240,
+        "total": 171294720,
+        "intermediate_size": 13940
+      },
+      "norm": 8192,
+      "is_zero_layer": false
+    }
+  ],
+  "layer_summary": {
+    "num_layers": 32,
+    "total_layer_params": 5373534208
+  }
+}
