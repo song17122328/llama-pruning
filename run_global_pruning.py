@@ -889,7 +889,6 @@ def main():
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     # 存储在CPU上，避免占用GPU显存
-                    print(f"参数: {name}")
                     hessian_diag[name] = torch.zeros_like(param.data, device='cpu')
 
         # ✅ 修复：一次性加载所有样本，避免每批次重复获取相同样本
@@ -910,12 +909,17 @@ def main():
 
             batch_start_time = time.time()
 
+            # ⚠️ 关键：对于二阶泰勒，每个批次清零梯度以获得独立的梯度
+            # 对于一阶泰勒，不清零梯度，让梯度累积
+            if args.importance_method == 'taylor_2nd':
+                model.zero_grad()
+
             # ✅ 修复：从预加载的样本中切片获取当前批次
             input_ids = all_gradient_samples[start_idx:end_idx].to(args.device)
 
             # 前向传播
             outputs = model(input_ids, labels=input_ids)
-            loss = outputs.loss / num_batches  # 归一化
+            loss = outputs.loss  # ✅ 修复：不除以 num_batches
 
             # 反向传播
             loss.backward()
@@ -924,15 +928,17 @@ def main():
             if args.importance_method == 'taylor_2nd':
                 for name, param in model.named_parameters():
                     if param.requires_grad and param.grad is not None:
-                        # 将梯度平方移动到CPU后累加，避免GPU OOM
-                        hessian_diag[name] += (param.grad ** 2).cpu() / num_batches
+                        # ✅ 修复：累加每个批次独立的梯度平方
+                        # 注意：这里累加的是梯度平方，不是平方和除以批次数
+                        hessian_diag[name] += (param.grad ** 2).cpu()
 
+            # 累加 loss（用于报告平均值）
             batch_time = time.time() - batch_start_time
-            total_loss += loss.item() * num_batches
+            total_loss += loss.item()
 
             # 更新进度条信息
             pbar.set_postfix({
-                'loss': f'{loss.item() * num_batches:.4f}',
+                'loss': f'{loss.item():.4f}',
                 'time': f'{batch_time:.2f}s'
             })
 
@@ -942,6 +948,11 @@ def main():
                 torch.cuda.empty_cache()
 
         pbar.close()
+
+        # ✅ 修复：在所有批次完成后，将 Hessian 对角线除以批次数得到平均值
+        if args.importance_method == 'taylor_2nd':
+            for name in hessian_diag:
+                hessian_diag[name] /= num_batches
 
         total_time = time.time() - start_time
         logger.log(f"✓ 梯度计算完成")
