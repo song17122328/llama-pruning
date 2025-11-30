@@ -1,9 +1,9 @@
 - Training Parameters: 
-  - base_model: /newdata/LLMs/Llama-3-8B-Instruct
-  - output_name: Llama-3-8B-Instruct/Taylor_grandient_dignose
+  - base_model: /newdata/LLMs/Mistral-7B-v0.3
+  - output_name: results/Mistral-7B-v0.3/taylor_T0_norm_log_c4
   - pruning_ratio: 0.2
   - importance_method: taylor
-  - dataset: wikitext2
+  - dataset: c4
   - gradient_batch_size: 4
   - use_gradient_checkpointing: False
   - temperature: 0.0
@@ -28,6 +28,6 @@
   - lora_r: 8
   - lora_alpha: 16
   - skip_finetune_evaluation: False
-  - device: cuda:2
+  - device: cuda:1
   - layer_start: 0
   - layer_end: None

@@ -1202,7 +1202,7 @@ def main():
 
     # ========== Step 4.5: 梯度归一化（可选，用于缓解极端剪枝）==========
     # 设置为 True 启用归一化
-    ENABLE_GRADIENT_NORMALIZATION = True  # 可以通过命令行参数控制
+    ENABLE_GRADIENT_NORMALIZATION = False  # 可以通过命令行参数控制
     NORMALIZATION_METHOD = 'log'  # 'minmax', 'zscore', 'log', 'sqrt'
     NORMALIZATION_LEVEL = 'block'  # 'layer' 或 'block'（推荐 block）
     ENABLE_GRADIENT_CLIPPING = False  # 可以通过命令行参数控制

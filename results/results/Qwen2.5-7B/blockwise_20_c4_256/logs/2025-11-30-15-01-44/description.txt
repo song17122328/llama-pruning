@@ -1,13 +1,13 @@
 - Training Parameters: 
-  - base_model: /newdata/LLMs/Llama-3-8B-Instruct
-  - output_name: Llama-3-8B-Instruct/Taylor_grandient_dignose
+  - base_model: /newdata/LLMs/Qwen2.5-7B
+  - output_name: results/Qwen2.5-7B/blockwise_20_c4_256
   - pruning_ratio: 0.2
   - importance_method: taylor
-  - dataset: wikitext2
+  - dataset: c4
   - gradient_batch_size: 4
   - use_gradient_checkpointing: False
-  - temperature: 0.0
-  - tau: None
+  - temperature: 1.0
+  - tau: 0.0
   - epsilon: 0
   - freeze_first_n_layers: 0
   - freeze_last_n_layers: 0
@@ -28,6 +28,6 @@
   - lora_r: 8
   - lora_alpha: 16
   - skip_finetune_evaluation: False
-  - device: cuda:2
+  - device: cuda:0
   - layer_start: 0
   - layer_end: None
