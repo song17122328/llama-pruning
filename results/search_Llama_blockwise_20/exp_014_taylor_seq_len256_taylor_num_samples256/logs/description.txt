@@ -1,6 +1,6 @@
 - Training Parameters: 
   - base_model: /newdata/LLMs/Llama-3-8B
-  - output_name: search_Llama_blockwise_20/exp_013_taylor_seq_len256_taylor_num_samples128
+  - output_name: search_Llama_blockwise_20/exp_014_taylor_seq_len256_taylor_num_samples256
   - pruning_ratio: 0.2
   - importance_method: taylor
   - dataset: wikitext2
@@ -11,11 +11,11 @@
   - epsilon: 0
   - freeze_first_n_layers: 0
   - freeze_last_n_layers: 0
-  - taylor_num_samples: 128
+  - taylor_num_samples: 256
   - taylor_seq_len: 256
-  - layer_importance_num_samples: 25
+  - layer_importance_num_samples: 51
   - layer_importance_seq_len: 256
-  - block_importance_num_samples: 25
+  - block_importance_num_samples: 51
   - block_importance_seq_len: 256
   - head_dim: 128
   - gqa_ratio: 4
