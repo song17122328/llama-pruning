@@ -27,6 +27,7 @@ import json
 import argparse
 import subprocess
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from itertools import product
 from datetime import datetime
@@ -462,15 +463,31 @@ def main():
         for stat in ['grad_mean_ratio', 'grad_norm_ratio', 'grad_std_ratio', 'grad_max_ratio',
                      'grad_mean_range', 'grad_norm_range', 'extreme_pruning_layers']:
             if stat in best_row and pd.notna(best_row[stat]):
-                grad_stats[stat] = best_row[stat]
+                # 转换为 Python 原生类型以支持 JSON 序列化
+                val = best_row[stat]
+                if isinstance(val, (np.integer, np.floating)):
+                    grad_stats[stat] = val.item()
+                else:
+                    grad_stats[stat] = val
+
+        # 辅助函数：将 numpy 类型转换为 Python 原生类型
+        def to_python_type(val):
+            if pd.isna(val):
+                return None
+            elif isinstance(val, (np.integer, np.floating)):
+                return val.item()
+            elif isinstance(val, np.ndarray):
+                return val.tolist()
+            else:
+                return val
 
         best_config = {
-            "params": {k: best_row[k] for k in param_names},
+            "params": {k: to_python_type(best_row[k]) for k in param_names},
             "metrics": {
-                "acc_mean": best_row['acc_mean'],
-                "acc_details": acc_details,
-                "ppl": best_row['ppl'],
-                "pruning_ratio": best_row['pruning_ratio'],
+                "acc_mean": to_python_type(best_row['acc_mean']),
+                "acc_details": {k: to_python_type(v) for k, v in acc_details.items()},
+                "ppl": to_python_type(best_row['ppl']),
+                "pruning_ratio": to_python_type(best_row['pruning_ratio']),
                 "gradient_statistics": grad_stats
             },
             "output_dir": best_row['output_dir']
