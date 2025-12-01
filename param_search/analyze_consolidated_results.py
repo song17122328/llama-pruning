@@ -128,14 +128,47 @@ def analyze_model(model_name):
 
     # 过滤有效结果
     valid_data = [row for row in data if row.get('acc_mean') is not None]
+    invalid_data = [row for row in data if row.get('acc_mean') is None]
 
     print(f"\n{'='*80}")
     print(f"{model_name.upper()} 模型分析")
     print(f"{'='*80}")
-    print(f"总实验数: {len(data)}, 有效结果: {len(valid_data)}")
+    print(f"总实验数: {len(data)}, 有效结果: {len(valid_data)}, 无效实验: {len(invalid_data)}")
+
+    # 显示无效实验详情
+    if len(invalid_data) > 0:
+        print(f"\n{'─'*80}")
+        print("无效实验详情")
+        print(f"{'─'*80}")
+
+        for i, row in enumerate(invalid_data, 1):
+            print(f"\n{i}. {row['output_dir']}")
+            print(f"   剪枝方法: {row.get('pruning_method', 'N/A')}")
+
+            # 显示参数
+            if row.get('taylor_seq_len') is not None:
+                print(f"   taylor_seq_len: {int(row['taylor_seq_len'])}")
+            if row.get('taylor_num_samples') is not None:
+                print(f"   taylor_num_samples: {int(row['taylor_num_samples'])}")
+
+            # 显示失败原因
+            reasons = []
+            if row.get('ppl') is None:
+                reasons.append("PPL缺失")
+            if row.get('acc_mean') is None:
+                reasons.append("ACC缺失")
+            if row.get('grad_norm_ratio') is None:
+                reasons.append("梯度统计缺失")
+
+            if reasons:
+                print(f"   失败原因: {', '.join(reasons)}")
+
+            # 显示是否标记为成功
+            if row.get('success') is not None:
+                print(f"   success标记: {row['success']}")
 
     if len(valid_data) == 0:
-        print("❌ 没有有效结果")
+        print("\n❌ 没有有效结果")
         return None
 
     # 1. 按剪枝方法分组分析
