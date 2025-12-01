@@ -41,8 +41,8 @@ def main():
                        help='模型名称')
     args = parser.parse_args()
 
-    model = args.model  
-    
+    model = args.model  # 用于显示和目录名（统一大写开头）
+
     # 查找所有相关搜索目录
     search_patterns = [
         f'search_{model}_20',          # 普通 Taylor
