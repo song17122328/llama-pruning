@@ -1,0 +1,44 @@
+[
+  {
+    "model": "Llama",
+    "total_experiments": 45,
+    "valid_experiments": 44,
+    "best_method": "blockwise",
+    "best_acc": 0.5980432152155284,
+    "best_ppl": 13.171745300292969,
+    "correlations": {
+      "grad_mean_ratio": 0.6954582060634361,
+      "grad_norm_ratio": NaN,
+      "grad_mean_range": 0.48334102859183975,
+      "grad_norm_range": NaN
+    }
+  },
+  {
+    "model": "Qwen",
+    "total_experiments": 45,
+    "valid_experiments": 45,
+    "best_method": "layerwise",
+    "best_acc": 0.616085336041312,
+    "best_ppl": 10.80429458618164,
+    "correlations": {
+      "grad_mean_ratio": 0.2997969000714703,
+      "grad_norm_ratio": -0.39284516138999837,
+      "grad_mean_range": 0.32631510302394784,
+      "grad_norm_range": 0.28044562809378243
+    }
+  },
+  {
+    "model": "Mistral",
+    "total_experiments": 42,
+    "valid_experiments": 40,
+    "best_method": "blockwise",
+    "best_acc": 0.5946708313292756,
+    "best_ppl": 13.291704177856445,
+    "correlations": {
+      "grad_mean_ratio": -0.2214634662907171,
+      "grad_norm_ratio": NaN,
+      "grad_mean_range": -0.3476038470232897,
+      "grad_norm_range": NaN
+    }
+  }
+]
