@@ -15,6 +15,38 @@ from pathlib import Path
 import sys
 
 
+def extract_params_from_path(path):
+    """从输出路径中提取参数"""
+    parts = Path(path).name.split('_')
+    params = {}
+
+    i = 0
+    while i < len(parts):
+        if parts[i] == 'taylor' and i + 2 < len(parts):
+            if parts[i + 1] == 'seq':
+                # taylor_seq_len16
+                param_name = 'taylor_seq_len'
+                value_str = parts[i + 2]
+                value = ''.join([c for c in value_str if c.isdigit()])
+                if value:
+                    params[param_name] = int(value)
+                i += 3
+            elif parts[i + 1] == 'num':
+                # taylor_num_samples128
+                param_name = 'taylor_num_samples'
+                value_str = parts[i + 2]
+                value = ''.join([c for c in value_str if c.isdigit()])
+                if value:
+                    params[param_name] = int(value)
+                i += 3
+            else:
+                i += 1
+        else:
+            i += 1
+
+    return params
+
+
 def load_search_results(csv_file):
     """加载搜索结果CSV"""
     results = []
@@ -84,6 +116,12 @@ def main():
         valid_results = [r for r in results if r.get('acc_mean') is not None]
         if valid_results:
             best = max(valid_results, key=lambda x: x['acc_mean'])
+
+            # 从output_dir中提取参数
+            best_params = extract_params_from_path(best['output_dir'])
+            taylor_seq_len = best.get('taylor_seq_len') or best_params.get('taylor_seq_len')
+            taylor_num_samples = best.get('taylor_num_samples') or best_params.get('taylor_num_samples')
+
             method_stats[method] = {
                 'total_experiments': len(results),
                 'valid_experiments': len(valid_results),
@@ -91,9 +129,10 @@ def main():
                 'best_ppl': best.get('ppl'),
                 'best_grad_norm_ratio': best.get('grad_norm_ratio'),
                 'best_params': {
-                    'taylor_seq_len': best.get('taylor_seq_len'),
-                    'taylor_num_samples': best.get('taylor_num_samples')
-                }
+                    'taylor_seq_len': taylor_seq_len,
+                    'taylor_num_samples': taylor_num_samples
+                },
+                'best_output_dir': best['output_dir']
             }
 
             print(f"✓ {method.upper():12s}: {len(results)} 实验, 最佳 ACC = {best['acc_mean']:.4f}, PPL = {best.get('ppl', 'N/A')}")
@@ -125,6 +164,11 @@ def main():
     if valid_results:
         global_best = max(valid_results, key=lambda x: x['acc_mean'])
 
+        # 从output_dir中提取参数（如果CSV中没有的话）
+        params = extract_params_from_path(global_best['output_dir'])
+        taylor_seq_len = global_best.get('taylor_seq_len') or params.get('taylor_seq_len')
+        taylor_num_samples = global_best.get('taylor_num_samples') or params.get('taylor_num_samples')
+
         print(f"\n{'='*80}")
         print("全局最佳配置")
         print(f"{'='*80}")
@@ -133,16 +177,16 @@ def main():
         print(f"PPL:      {global_best.get('ppl', 'N/A'):.2f}" if global_best.get('ppl') else "PPL:      N/A")
         print(f"梯度范数比: {global_best.get('grad_norm_ratio', 'N/A'):.2f}" if global_best.get('grad_norm_ratio') else "梯度范数比: N/A")
         print(f"参数:")
-        print(f"  - taylor_seq_len: {global_best.get('taylor_seq_len')}")
-        print(f"  - taylor_num_samples: {global_best.get('taylor_num_samples')}")
+        print(f"  - taylor_seq_len: {taylor_seq_len}")
+        print(f"  - taylor_num_samples: {taylor_num_samples}")
 
         # 保存全局最佳配置
         best_config = {
             "model": model,
             "pruning_method": global_best['pruning_method'],
             "params": {
-                "taylor_seq_len": global_best.get('taylor_seq_len'),
-                "taylor_num_samples": global_best.get('taylor_num_samples')
+                "taylor_seq_len": taylor_seq_len,
+                "taylor_num_samples": taylor_num_samples
             },
             "metrics": {
                 "acc_mean": global_best['acc_mean'],
