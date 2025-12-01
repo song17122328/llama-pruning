@@ -1,0 +1,28 @@
+{
+  "params": {
+    "taylor_seq_len": 64,
+    "taylor_num_samples": 128
+  },
+  "metrics": {
+    "acc_mean": 0.5980432152155284,
+    "acc_details": {
+      "boolq": 0.7324159021406728,
+      "piqa": 0.7301414581066377,
+      "hellaswag": 0.6475801633140809,
+      "winogrande": 0.6953433307024467,
+      "arc_easy": 0.5980639730639731,
+      "arc_challenge": 0.3967576791808874,
+      "openbookqa": 0.386
+    },
+    "ppl": 13.171745300292969,
+    "pruning_ratio": 0.1999996939576529,
+    "gradient_statistics": {
+      "grad_mean_ratio": 17.122734902582707,
+      "grad_norm_ratio": 12.174176803043103,
+      "grad_mean_range": 0.2230542831950717,
+      "grad_norm_range": 851.3379388385349,
+      "extreme_pruning_layers": 5
+    }
+  },
+  "output_dir": "results/search_Llama_blockwise_20/exp_007_taylor_seq_len64_taylor_num_samples128"
+}
