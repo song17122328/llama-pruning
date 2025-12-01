@@ -1,0 +1,101 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 2,
+      "pruning_rate": 0.5829380580357143,
+      "importance": 0.048213145562580655,
+      "gradient_mean": 0.013317081042461924,
+      "gradient_norm": 112.43519747257233
+    },
+    {
+      "layer_idx": 3,
+      "pruning_rate": 0.8436104910714286,
+      "importance": 0.05208634904452732,
+      "gradient_mean": 0.01347699181901084,
+      "gradient_norm": 145.3618882232242
+    },
+    {
+      "layer_idx": 4,
+      "pruning_rate": 0.8107561383928571,
+      "importance": 0.06102030511413302,
+      "gradient_mean": 0.015297849766082235,
+      "gradient_norm": 161.0897697077857
+    },
+    {
+      "layer_idx": 5,
+      "pruning_rate": 0.7584402901785714,
+      "importance": 0.06834231742790767,
+      "gradient_mean": 0.017992508701152272,
+      "gradient_norm": 213.238721675343
+    },
+    {
+      "layer_idx": 6,
+      "pruning_rate": 0.7493024553571429,
+      "importance": 0.0892172030040196,
+      "gradient_mean": 0.018107498892479472,
+      "gradient_norm": 228.20856654644012
+    },
+    {
+      "layer_idx": 7,
+      "pruning_rate": 0.6652483258928571,
+      "importance": 0.11191729881933757,
+      "gradient_mean": 0.019981653326087527,
+      "gradient_norm": 294.8371153672536
+    },
+    {
+      "layer_idx": 8,
+      "pruning_rate": 0.6070731026785714,
+      "importance": 0.12953812522547586,
+      "gradient_mean": 0.02175162360072136,
+      "gradient_norm": 312.1444107691447
+    },
+    {
+      "layer_idx": 9,
+      "pruning_rate": 0.5191824776785714,
+      "importance": 0.18115478434732982,
+      "gradient_mean": 0.02402560619844331,
+      "gradient_norm": 453.63385832309723
+    },
+    {
+      "layer_idx": 10,
+      "pruning_rate": 0.57763671875,
+      "importance": 0.18006590008735657,
+      "gradient_mean": 0.027570914891031053,
+      "gradient_norm": 420.0868242647913
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 0.6200474330357143,
+      "importance": 0.21987802854606084,
+      "gradient_mean": 0.030929538938734267,
+      "gradient_norm": 426.8190238873164
+    }
+  ],
+  "num_extreme_layers": 10,
+  "gradient_statistics": {
+    "mean_range": [
+      0.013317081042461924,
+      0.1114289899253183
+    ],
+    "mean_ratio": 8.367373355563895,
+    "norm_range": [
+      112.43519747257233,
+      3550.402743021647
+    ],
+    "norm_ratio": 31.57732474196598
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "10 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    },
+    {
+      "issue": "\u524d\u51e0\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "critical",
+      "description": "\u524d5\u5c42\u4e2d\u6709 3 \u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "recommendation": "\u524d\u51e0\u5c42\u901a\u5e38\u5f88\u91cd\u8981\uff0c\u5efa\u8bae\u4e3a\u5176\u8bbe\u7f6e\u8f83\u4f4e\u7684 max_rate"
+    }
+  ]
+}
