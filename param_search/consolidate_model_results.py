@@ -37,18 +37,17 @@ def load_search_results(csv_file):
 def main():
     parser = argparse.ArgumentParser(description='汇总模型所有剪枝方法的结果')
     parser.add_argument('--model', type=str, required=True,
-                       choices=['llama', 'qwen', 'mistral'],
+                       choices=['Llama', 'Qwen', 'Mistral'],
                        help='模型名称')
     args = parser.parse_args()
 
-    model_name = args.model.lower()  # 用于目录名（小写）
-    model = args.model.capitalize()  # 用于显示（大写）
-
+    model = args.model  
+    
     # 查找所有相关搜索目录
     search_patterns = [
-        f'search_{model_name}_20',          # 普通 Taylor
-        f'search_{model_name}_layerwise_20', # Layerwise
-        f'search_{model_name}_blockwise_20'  # Blockwise
+        f'search_{model}_20',          # 普通 Taylor
+        f'search_{model}_layerwise_20', # Layerwise
+        f'search_{model}_blockwise_20'  # Blockwise
     ]
 
     all_results = []
