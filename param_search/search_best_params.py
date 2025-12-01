@@ -147,7 +147,7 @@ def extract_results(output_dir):
 
                 # 提取所有 7 个 zero-shot 任务的单独 ACC
                 # 实际路径: metrics.zeroshot.<task>.accuracy
-                if "zeroshot" in metrics:
+                if "zeroshot" in metrics and metrics["zeroshot"] is not None:
                     zeroshot_data = metrics["zeroshot"]
                     accs = []
 
