@@ -243,22 +243,27 @@ def main():
 
         all_results.append(results)
 
-    # 确定所有列
+    # 确定所有列，并按search_best_params.py的顺序排列
     all_keys = set()
     for result in all_results:
         all_keys.update(result.keys())
 
-    # 定义列顺序
+    # 定义列顺序（与search_best_params.py完全一致）
     param_cols = sorted([col for col in all_keys if col.startswith('taylor_') or col.startswith('layer_') or col.startswith('block_')])
-    other_cols = ['output_dir', 'ppl', 'acc_mean',
-                  'acc_boolq', 'acc_piqa', 'acc_hellaswag', 'acc_winogrande',
-                  'acc_arc_easy', 'acc_arc_challenge', 'acc_openbookqa',
-                  'params_count', 'pruning_ratio',
-                  'grad_mean_ratio', 'grad_norm_ratio', 'grad_std_ratio', 'grad_max_ratio',
-                  'grad_mean_range', 'grad_norm_range', 'extreme_pruning_layers',
-                  'elapsed_time', 'success']
 
-    all_cols = param_cols + [col for col in other_cols if col in all_keys]
+    # 固定列顺序
+    fixed_cols = [
+        'output_dir', 'ppl', 'acc_mean',
+        'acc_boolq', 'acc_piqa', 'acc_hellaswag', 'acc_winogrande',
+        'acc_arc_easy', 'acc_arc_challenge', 'acc_openbookqa',
+        'params_count', 'pruning_ratio',
+        'grad_mean_ratio', 'grad_norm_ratio', 'grad_std_ratio', 'grad_max_ratio',
+        'grad_mean_range', 'grad_norm_range', 'extreme_pruning_layers',
+        'elapsed_time', 'success'
+    ]
+
+    # 组合列顺序：参数列在前，其他列在后（与search_best_params.py一致）
+    all_cols = param_cols + [col for col in fixed_cols if col in all_keys]
 
     # 保存为 CSV
     output_file = search_dir / "search_results.csv"
@@ -300,13 +305,34 @@ def main():
         if best_result.get('grad_norm_ratio') is not None:
             print(f"  - Grad norm ratio: {best_result['grad_norm_ratio']:.2f}")
 
-        # 保存最佳配置
+        # 提取所有 7 个任务的 ACC（与search_best_params.py一致）
+        acc_details = {}
+        for task in ['boolq', 'piqa', 'hellaswag', 'winogrande', 'arc_easy', 'arc_challenge', 'openbookqa']:
+            col_name = f'acc_{task}'
+            if best_result.get(col_name) is not None:
+                acc_details[task] = float(best_result[col_name])
+
+        # 提取梯度统计（与search_best_params.py一致）
+        grad_stats = {}
+        for stat in ['grad_mean_ratio', 'grad_norm_ratio', 'grad_std_ratio', 'grad_max_ratio',
+                     'grad_mean_range', 'grad_norm_range', 'extreme_pruning_layers']:
+            if best_result.get(stat) is not None:
+                val = best_result[stat]
+                # 确保是Python原生类型
+                if isinstance(val, (int, float)):
+                    grad_stats[stat] = float(val) if isinstance(val, float) else int(val)
+                else:
+                    grad_stats[stat] = val
+
+        # 保存最佳配置（与search_best_params.py格式完全一致）
         best_config = {
             "params": {col: best_result[col] for col in param_cols if col in best_result},
             "metrics": {
                 "acc_mean": float(best_result['acc_mean']),
+                "acc_details": acc_details,
                 "ppl": float(best_result['ppl']) if best_result.get('ppl') is not None else None,
-                "grad_norm_ratio": float(best_result['grad_norm_ratio']) if best_result.get('grad_norm_ratio') is not None else None,
+                "pruning_ratio": float(best_result['pruning_ratio']) if best_result.get('pruning_ratio') is not None else None,
+                "gradient_statistics": grad_stats
             },
             "output_dir": best_result['output_dir']
         }
