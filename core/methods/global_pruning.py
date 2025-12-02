@@ -644,15 +644,15 @@ def build_global_group_table(
                 # 判断模式
                 if ppl_layer < computed_tau:
                     # Layer-Dominant Mode: 强制压低得分，鼓励整层移除
-                    B = math.log(1 + ppl_layer)
+                    B = math.log(2 + ppl_layer)
                 else:
                     # Block-Dominant Mode: 根据 MLP 块具体表现精细评分
                     if block_removal_ppl is not None and layer_idx in block_removal_ppl.get('mlp', {}):
                         ppl_block = block_removal_ppl['mlp'][layer_idx]
-                        B = math.log(1 + ppl_block)
+                        B = math.log(2 + ppl_block)
                     else:
                         # Fallback: 使用层级数据
-                        B = math.log(1 + ppl_layer)
+                        B = math.log(2 + ppl_layer)
 
                 # 应用温度调制
                 M = B ** temperature
