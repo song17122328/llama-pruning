@@ -1,0 +1,74 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 9,
+      "pruning_rate": 0.8575613839285714,
+      "importance": 1.5011539544378008,
+      "gradient_mean": 0.019635576961769,
+      "gradient_norm": 124.53150542577107
+    },
+    {
+      "layer_idx": 10,
+      "pruning_rate": 0.6134905133928571,
+      "importance": 1.3455604144505091,
+      "gradient_mean": 0.017374823180337746,
+      "gradient_norm": 111.55057170655992
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 0.6924525669642857,
+      "importance": 1.4029413206236703,
+      "gradient_mean": 0.01914481135706107,
+      "gradient_norm": 114.72758833567302
+    },
+    {
+      "layer_idx": 12,
+      "pruning_rate": 0.9159458705357143,
+      "importance": 1.4014426980699812,
+      "gradient_mean": 0.019832709804177284,
+      "gradient_norm": 103.67836009131537
+    },
+    {
+      "layer_idx": 23,
+      "pruning_rate": 0.5018833705357143,
+      "importance": 0.8780062964984349,
+      "gradient_mean": 0.007216310852931606,
+      "gradient_norm": 39.21046627892388
+    },
+    {
+      "layer_idx": 25,
+      "pruning_rate": 0.7720424107142857,
+      "importance": 0.8468534094946725,
+      "gradient_mean": 0.009184785704645846,
+      "gradient_norm": 49.31296348571777
+    },
+    {
+      "layer_idx": 26,
+      "pruning_rate": 0.9485909598214286,
+      "importance": 0.89774831703731,
+      "gradient_mean": 0.011958777801030211,
+      "gradient_norm": 67.03491799036662
+    }
+  ],
+  "num_extreme_layers": 7,
+  "gradient_statistics": {
+    "mean_range": [
+      0.007216310852931606,
+      0.1066174724449714
+    ],
+    "mean_ratio": 14.774511954984195,
+    "norm_range": [
+      39.21046627892388,
+      596.6446745130751
+    ],
+    "norm_ratio": 15.216464661943013
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "7 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    }
+  ]
+}

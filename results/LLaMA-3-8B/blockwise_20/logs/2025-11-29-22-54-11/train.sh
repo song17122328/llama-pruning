@@ -1,1 +1,0 @@
-python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B/ --output_name LLaMA-3-8B/blockwise_20 --pruning_ratio 0.2 --temperature 1.0 --importance_method taylor --tau 0

@@ -1,0 +1,30 @@
+{
+  "base_model": "/newdata/LLMs/Qwen2.5-7B-Instruct",
+  "pruning_ratio": 0.2,
+  "output_base": "search_Qwen-Instruct_layerwise_20",
+  "search_params": {
+    "taylor_seq_len": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "taylor_num_samples": [
+      4,
+      64,
+      128,
+      256,
+      512
+    ]
+  },
+  "other_args": {
+    "dataset": "c4",
+    "temperature": 1.0,
+    "tau": "inf",
+    "importance_method": "taylor",
+    "gradient_batch_size": 4,
+    "run_evaluation": "ppl,zeroshot",
+    "eval_ppl_datasets": "wikitext2,ptb",
+    "eval_zeroshot_tasks": "boolq,piqa,hellaswag,winogrande,arc_easy,arc_challenge,openbookqa"
+  }
+}

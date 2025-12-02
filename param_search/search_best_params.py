@@ -52,11 +52,11 @@ def run_pruning_experiment(
     if layer_importance_seq_len is None:
         layer_importance_seq_len = taylor_seq_len
     if layer_importance_num_samples is None:
-        layer_importance_num_samples = taylor_num_samples // 5  # 默认1/5
+        layer_importance_num_samples = max(4,taylor_num_samples // 5)  # 默认1/5
     if block_importance_seq_len is None:
         block_importance_seq_len = taylor_seq_len
     if block_importance_num_samples is None:
-        block_importance_num_samples = taylor_num_samples // 5
+        block_importance_num_samples = max(4,taylor_num_samples // 5)
 
     # 构建命令
     cmd = [
@@ -291,6 +291,7 @@ def main():
 
     # 创建结果记录
     results_file = Path(output_base) / "search_results.csv"
+    results_file = "results" / results_file
     results_file.parent.mkdir(parents=True, exist_ok=True)
 
     # 如果是续传，读取已有结果
@@ -448,7 +449,7 @@ def main():
             print(f"  输出目录: {row['output_dir']}")
 
         # 保存最佳配置
-        best_config_file = Path(output_base) / "best_config.json"
+        best_config_file = "results" / Path(output_base) / "best_config.json"
         best_row = df_sorted.iloc[0]
 
         # 提取所有 7 个任务的 ACC

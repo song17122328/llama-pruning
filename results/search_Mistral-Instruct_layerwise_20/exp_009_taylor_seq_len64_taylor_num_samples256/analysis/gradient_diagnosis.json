@@ -1,0 +1,81 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 6,
+      "pruning_rate": 0.6049107142857143,
+      "importance": 0.1421931151832853,
+      "gradient_mean": 0.006328185399373372,
+      "gradient_norm": 57.89768494500054
+    },
+    {
+      "layer_idx": 8,
+      "pruning_rate": 0.6796875,
+      "importance": 0.13341679956231797,
+      "gradient_mean": 0.006739805452525616,
+      "gradient_norm": 66.79043671819899
+    },
+    {
+      "layer_idx": 9,
+      "pruning_rate": 0.9893973214285714,
+      "importance": 0.13400360941886902,
+      "gradient_mean": 0.0072208983409735895,
+      "gradient_norm": 97.97335084279378
+    },
+    {
+      "layer_idx": 10,
+      "pruning_rate": 0.9676339285714286,
+      "importance": 0.12520955502986908,
+      "gradient_mean": 0.0079486473566956,
+      "gradient_norm": 81.20552224583096
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 0.9729352678571429,
+      "importance": 0.12605647104127066,
+      "gradient_mean": 0.008461626763972972,
+      "gradient_norm": 86.4985716342926
+    },
+    {
+      "layer_idx": 12,
+      "pruning_rate": 0.9855608258928571,
+      "importance": 0.1392636682306017,
+      "gradient_mean": 0.009782057048545944,
+      "gradient_norm": 107.26404665576086
+    },
+    {
+      "layer_idx": 13,
+      "pruning_rate": 0.8869280133928571,
+      "importance": 0.15192143406186784,
+      "gradient_mean": 0.008687273185286257,
+      "gradient_norm": 88.93012058734894
+    },
+    {
+      "layer_idx": 14,
+      "pruning_rate": 0.9642159598214286,
+      "importance": 0.17871242548738206,
+      "gradient_mean": 0.010745289942456616,
+      "gradient_norm": 164.11420037349066
+    }
+  ],
+  "num_extreme_layers": 8,
+  "gradient_statistics": {
+    "mean_range": [
+      0.005523112292091052,
+      0.04328210838139057
+    ],
+    "mean_ratio": 7.836543113511394,
+    "norm_range": [
+      39.31780017746819,
+      790.2511232164171
+    ],
+    "norm_ratio": 20.099067588915503
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "8 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    }
+  ]
+}

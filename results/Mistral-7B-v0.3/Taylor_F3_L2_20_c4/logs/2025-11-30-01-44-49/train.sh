@@ -1,1 +1,0 @@
-python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-v0.3 --output_name Mistral-7B-v0.3/Taylor_F3_L2_20_c4 --pruning_ratio 0.2 --importance_method taylor --temperature 0 --dataset c4 --freeze_first_n_layers 3 --freeze_last_n_layers 2

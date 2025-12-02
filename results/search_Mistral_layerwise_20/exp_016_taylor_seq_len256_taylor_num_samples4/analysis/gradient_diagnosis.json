@@ -1,0 +1,74 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 6,
+      "pruning_rate": 0.8767438616071429,
+      "importance": 0.0042267658614686555,
+      "gradient_mean": 0.0001748535368177626,
+      "gradient_norm": 1.4136161804199219
+    },
+    {
+      "layer_idx": 7,
+      "pruning_rate": 0.6765485491071429,
+      "importance": 0.004205191740766168,
+      "gradient_mean": 0.00018084049224853516,
+      "gradient_norm": 1.4929156833224826
+    },
+    {
+      "layer_idx": 9,
+      "pruning_rate": 0.6760602678571429,
+      "importance": 0.004200904497078487,
+      "gradient_mean": 0.00018541680441962348,
+      "gradient_norm": 1.7550917731391058
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 0.9753069196428571,
+      "importance": 0.003946496107216392,
+      "gradient_mean": 0.00019417206446329752,
+      "gradient_norm": 1.678707970513238
+    },
+    {
+      "layer_idx": 12,
+      "pruning_rate": 0.8079659598214286,
+      "importance": 0.003964425264192479,
+      "gradient_mean": 0.0002088745435078939,
+      "gradient_norm": 1.9709896511501737
+    },
+    {
+      "layer_idx": 13,
+      "pruning_rate": 0.9215959821428571,
+      "importance": 0.003991050712232079,
+      "gradient_mean": 0.00020322534773084853,
+      "gradient_norm": 1.7012600368923612
+    },
+    {
+      "layer_idx": 14,
+      "pruning_rate": 0.9421735491071429,
+      "importance": 0.004188215093953269,
+      "gradient_mean": 0.00021972921159532334,
+      "gradient_norm": 3.6206902398003473
+    }
+  ],
+  "num_extreme_layers": 7,
+  "gradient_statistics": {
+    "mean_range": [
+      0.0001748535368177626,
+      0.0003662308057149251
+    ],
+    "mean_ratio": 2.0944992187758795,
+    "norm_range": [
+      1.2921178605821397,
+      10.052652994791666
+    ],
+    "norm_ratio": 7.77998145578193
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "7 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    }
+  ]
+}

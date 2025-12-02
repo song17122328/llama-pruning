@@ -1,1 +1,0 @@
-python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-v0.3 --output_name Mistral-7B-v0.3/blockwise_20_256 --pruning_ratio 0.2 --importance_method taylor --temperature 1 --dataset c4 --tau 0

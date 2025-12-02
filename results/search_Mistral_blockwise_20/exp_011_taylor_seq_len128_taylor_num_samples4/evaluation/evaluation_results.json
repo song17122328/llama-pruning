@@ -1,0 +1,46 @@
+{
+  "model_path": "results/search_Mistral_blockwise_20/exp_011_taylor_seq_len128_taylor_num_samples4/pruned_model.bin",
+  "timestamp": "2025-12-02T02:56:30.932937",
+  "metrics": {
+    "model_info": {
+      "total_params": 5798428672,
+      "trainable_params": 5798428672,
+      "total_params_M": 5798.428672,
+      "total_params_B": 5.798428672,
+      "num_layers": 32,
+      "module_params": {
+        "embedding": 134217728,
+        "lm_head": 134217728,
+        "final_norm": 4096,
+        "attention": 938475520,
+        "mlp": 4591251456,
+        "input_layernorm": 131072,
+        "post_attention_layernorm": 131072,
+        "total_accounted": 5798428672,
+        "unaccounted": 0,
+        "match": true
+      },
+      "attention_params": 938475520,
+      "mlp_params": 4591251456,
+      "attention_params_M": 938.47552,
+      "mlp_params_M": 4591.251456,
+      "attention_ratio": 0.1618499723091877,
+      "mlp_ratio": 0.7918095945839032,
+      "model_size_mb": 11059.625244140625,
+      "model_size_gb": 10.800415277481079
+    },
+    "ppl_quick_128": {
+      "wikitext2 (wikitext-2-raw-v1)": 296.3374328613281,
+      "ptb": 463.9674377441406
+    },
+    "ppl_standard_2048_512": {
+      "wikitext2 (wikitext-2-raw-v1)": 116.7258071899414,
+      "ptb": 512.4203491210938
+    },
+    "ppl": {
+      "wikitext2 (wikitext-2-raw-v1)": 116.7258071899414,
+      "ptb": 512.4203491210938
+    },
+    "zeroshot": null
+  }
+}

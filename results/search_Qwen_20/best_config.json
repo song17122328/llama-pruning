@@ -1,9 +1,28 @@
 {
-  "params": {},
-  "metrics": {
-    "acc_mean": 0.6096022676937657,
-    "ppl": 14.920433044433594,
-    "grad_norm_ratio": 5.599357574305292
+  "params": {
+    "taylor_seq_len": 32,
+    "taylor_num_samples": 128
   },
-  "output_dir": "results/search_Qwen_20/exp_004_taylor_seq_len32_taylor_num_samples128"
+  "metrics": {
+    "acc_mean": 0.6091188338527412,
+    "acc_details": {
+      "boolq": 0.6966360856269113,
+      "piqa": 0.7562568008705114,
+      "hellaswag": 0.6823341963752241,
+      "winogrande": 0.5919494869771112,
+      "arc_easy": 0.6835016835016835,
+      "arc_challenge": 0.4351535836177474,
+      "openbookqa": 0.418
+    },
+    "ppl": 14.920412063598633,
+    "pruning_ratio": 0.2000011966989127,
+    "gradient_statistics": {
+      "grad_mean_ratio": 4.883739529832199,
+      "grad_norm_ratio": 5.599357574305292,
+      "grad_mean_range": 0.0031105037778615,
+      "grad_norm_range": 8.339149157206217,
+      "extreme_pruning_layers": 3
+    }
+  },
+  "output_dir": "results/search_Qwen_20/exp_003_taylor_seq_len32_taylor_num_samples128"
 }

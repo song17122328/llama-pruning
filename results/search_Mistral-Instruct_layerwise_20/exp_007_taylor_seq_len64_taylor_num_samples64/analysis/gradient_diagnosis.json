@@ -1,0 +1,88 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 6,
+      "pruning_rate": 0.7219587053571429,
+      "importance": 0.062267562108380456,
+      "gradient_mean": 0.0016283690929412842,
+      "gradient_norm": 13.134423149956596
+    },
+    {
+      "layer_idx": 9,
+      "pruning_rate": 0.9723772321428571,
+      "importance": 0.053068878395216804,
+      "gradient_mean": 0.0016126371920108795,
+      "gradient_norm": 16.05835681491428
+    },
+    {
+      "layer_idx": 10,
+      "pruning_rate": 0.9571010044642857,
+      "importance": 0.04794106259942055,
+      "gradient_mean": 0.0017312814791997273,
+      "gradient_norm": 14.830767843458387
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 1.0,
+      "importance": 0.04551839083433151,
+      "gradient_mean": 0.0016682872341738807,
+      "gradient_norm": 14.681938277350532
+    },
+    {
+      "layer_idx": 12,
+      "pruning_rate": 0.9996512276785714,
+      "importance": 0.04527077717440469,
+      "gradient_mean": 0.0018214392993185255,
+      "gradient_norm": 17.063010692596436
+    },
+    {
+      "layer_idx": 13,
+      "pruning_rate": 0.9838169642857143,
+      "importance": 0.04532656818628311,
+      "gradient_mean": 0.0017110560503270891,
+      "gradient_norm": 14.54815806282891
+    },
+    {
+      "layer_idx": 14,
+      "pruning_rate": 0.9989536830357143,
+      "importance": 0.047426849603652954,
+      "gradient_mean": 0.0019227320121394263,
+      "gradient_norm": 24.09993232621087
+    },
+    {
+      "layer_idx": 15,
+      "pruning_rate": 0.5396902901785714,
+      "importance": 0.09467792191675731,
+      "gradient_mean": 0.002817976391977734,
+      "gradient_norm": 25.06298526128133
+    },
+    {
+      "layer_idx": 16,
+      "pruning_rate": 0.8498883928571429,
+      "importance": 0.06229372428996222,
+      "gradient_mean": 0.002434154765473472,
+      "gradient_norm": 15.5898118019104
+    }
+  ],
+  "num_extreme_layers": 9,
+  "gradient_statistics": {
+    "mean_range": [
+      0.0013207412428326076,
+      0.005846421751711104
+    ],
+    "mean_ratio": 4.426621293744181,
+    "norm_range": [
+      9.35243919160631,
+      120.19049877590604
+    ],
+    "norm_ratio": 12.851246216333626
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "9 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    }
+  ]
+}

@@ -1,0 +1,746 @@
+{
+  "original_name": "原始模型",
+  "pruned_name": "剪枝后模型",
+  "total_params": {
+    "original": 7615616512,
+    "pruned": 6092498944,
+    "reduced": 1523117568,
+    "reduction_ratio": 0.19999924702090882
+  },
+  "layer_params": {
+    "original": 6525618176,
+    "pruned": 5002500608,
+    "reduced": 1523117568,
+    "reduction_ratio": 0.23340586698770407
+  },
+  "layers": [
+    {
+      "layer_idx": 0,
+      "total": {
+        "original": 233057792,
+        "pruned": 141633536,
+        "reduced": 91424256,
+        "reduction_ratio": 0.3922814818394916
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 112261632,
+        "reduced": 91424256,
+        "reduction_ratio": 0.44884923986486486,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 10441
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 1,
+      "total": {
+        "original": 233057792,
+        "pruned": 64455680,
+        "reduced": 168602112,
+        "reduction_ratio": 0.7234347779283861
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 35083776,
+        "reduced": 168602112,
+        "reduction_ratio": 0.8277554898648649,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 3263
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 2,
+      "total": {
+        "original": 233057792,
+        "pruned": 97776128,
+        "reduced": 135281664,
+        "reduction_ratio": 0.5804640249917068
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 68404224,
+        "reduced": 135281664,
+        "reduction_ratio": 0.6641680743243243,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 6362
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 3,
+      "total": {
+        "original": 233057792,
+        "pruned": 145504256,
+        "reduced": 87553536,
+        "reduction_ratio": 0.3756730691072539
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 116132352,
+        "reduced": 87553536,
+        "reduction_ratio": 0.4298458614864865,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 10801
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 4,
+      "total": {
+        "original": 233057792,
+        "pruned": 165578240,
+        "reduced": 67479552,
+        "reduction_ratio": 0.2895399952986768
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 136206336,
+        "reduced": 67479552,
+        "reduction_ratio": 0.3312922297297297,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 12668
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 5,
+      "total": {
+        "original": 233057792,
+        "pruned": 139977728,
+        "reduced": 93080064,
+        "reduction_ratio": 0.3993861917305043
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 110605824,
+        "reduced": 93080064,
+        "reduction_ratio": 0.45697846283783783,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 10287
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 6,
+      "total": {
+        "original": 233057792,
+        "pruned": 213435392,
+        "reduced": 19622400,
+        "reduction_ratio": 0.08419542565648266
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 184063488,
+        "reduced": 19622400,
+        "reduction_ratio": 0.09633657094594594,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 17119
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 7,
+      "total": {
+        "original": 233057792,
+        "pruned": 225692672,
+        "reduced": 7365120,
+        "reduction_ratio": 0.031602118671063356
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 196320768,
+        "reduced": 7365120,
+        "reduction_ratio": 0.03615920608108108,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18259
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 8,
+      "total": {
+        "original": 233057792,
+        "pruned": 225950720,
+        "reduced": 7107072,
+        "reduction_ratio": 0.030494891155580843
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 196578816,
+        "reduced": 7107072,
+        "reduction_ratio": 0.034892314189189186,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18283
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 9,
+      "total": {
+        "original": 233057792,
+        "pruned": 226595840,
+        "reduced": 6461952,
+        "reduction_ratio": 0.027726822366874564
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 197223936,
+        "reduced": 6461952,
+        "reduction_ratio": 0.03172508445945946,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18343
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 10,
+      "total": {
+        "original": 233057792,
+        "pruned": 225165824,
+        "reduced": 7891968,
+        "reduction_ratio": 0.03386270818184015
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 195793920,
+        "reduced": 7891968,
+        "reduction_ratio": 0.03874577702702703,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18210
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 11,
+      "total": {
+        "original": 233057792,
+        "pruned": 226456064,
+        "reduced": 6601728,
+        "reduction_ratio": 0.028326570604427594
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 197084160,
+        "reduced": 6601728,
+        "reduction_ratio": 0.032411317567567564,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18330
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 12,
+      "total": {
+        "original": 233057792,
+        "pruned": 225284096,
+        "reduced": 7773696,
+        "reduction_ratio": 0.03335522890391067
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 195912192,
+        "reduced": 7773696,
+        "reduction_ratio": 0.03816511824324324,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18221
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 13,
+      "total": {
+        "original": 233057792,
+        "pruned": 225757184,
+        "reduced": 7300608,
+        "reduction_ratio": 0.03132531179219273
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 196385280,
+        "reduced": 7300608,
+        "reduction_ratio": 0.03584248310810811,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18265
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 14,
+      "total": {
+        "original": 233057792,
+        "pruned": 228240896,
+        "reduced": 4816896,
+        "reduction_ratio": 0.020668246955673552
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 198868992,
+        "reduced": 4816896,
+        "reduction_ratio": 0.02364864864864865,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18496
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 15,
+      "total": {
+        "original": 233057792,
+        "pruned": 227122688,
+        "reduced": 5935104,
+        "reduction_ratio": 0.02546623285609777
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 197750784,
+        "reduced": 5935104,
+        "reduction_ratio": 0.029138513513513514,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18392
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 16,
+      "total": {
+        "original": 233057792,
+        "pruned": 226821632,
+        "reduced": 6236160,
+        "reduction_ratio": 0.026757998290827367
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 197449728,
+        "reduced": 6236160,
+        "reduction_ratio": 0.030616554054054054,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18364
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 17,
+      "total": {
+        "original": 233057792,
+        "pruned": 224101376,
+        "reduced": 8956416,
+        "reduction_ratio": 0.038430021683205515
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 194729472,
+        "reduced": 8956416,
+        "reduction_ratio": 0.04397170608108108,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 18111
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 18,
+      "total": {
+        "original": 233057792,
+        "pruned": 215198720,
+        "reduced": 17859072,
+        "reduction_ratio": 0.07662937096735217
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 185826816,
+        "reduced": 17859072,
+        "reduction_ratio": 0.08767947635135136,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 17283
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 19,
+      "total": {
+        "original": 233057792,
+        "pruned": 211123712,
+        "reduced": 21934080,
+        "reduction_ratio": 0.0941143388160135
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 181751808,
+        "reduced": 21934080,
+        "reduction_ratio": 0.10768581081081081,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 16904
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 20,
+      "total": {
+        "original": 233057792,
+        "pruned": 193737728,
+        "reduced": 39320064,
+        "reduction_ratio": 0.16871379267164774
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 164365824,
+        "reduced": 39320064,
+        "reduction_ratio": 0.19304265202702703,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 15287
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 21,
+      "total": {
+        "original": 233057792,
+        "pruned": 186232832,
+        "reduced": 46824960,
+        "reduction_ratio": 0.2009156595802641
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 156860928,
+        "reduced": 46824960,
+        "reduction_ratio": 0.22988809121621623,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 14589
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 22,
+      "total": {
+        "original": 233057792,
+        "pruned": 181996544,
+        "reduced": 51061248,
+        "reduction_ratio": 0.219092644626102
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 152624640,
+        "reduced": 51061248,
+        "reduction_ratio": 0.2506862331081081,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 14195
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 23,
+      "total": {
+        "original": 233057792,
+        "pruned": 169825280,
+        "reduced": 63232512,
+        "reduction_ratio": 0.27131687577302716
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 140453376,
+        "reduced": 63232512,
+        "reduction_ratio": 0.31044130067567566,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 13063
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 24,
+      "total": {
+        "original": 233057792,
+        "pruned": 152428544,
+        "reduced": 80629248,
+        "reduction_ratio": 0.34596246410847314
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 123056640,
+        "reduced": 80629248,
+        "reduction_ratio": 0.39585092905405406,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 11445
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 25,
+      "total": {
+        "original": 233057792,
+        "pruned": 117742592,
+        "reduced": 115315200,
+        "reduction_ratio": 0.4947922959812474
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 88370688,
+        "reduced": 115315200,
+        "reduction_ratio": 0.5661423141891891,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 8219
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 26,
+      "total": {
+        "original": 233057792,
+        "pruned": 63520256,
+        "reduced": 169537536,
+        "reduction_ratio": 0.7274484776720103
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 34148352,
+        "reduced": 169537536,
+        "reduction_ratio": 0.832347972972973,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 3176
+        }
+      },
+      "is_zero_layer": false
+    },
+    {
+      "layer_idx": 27,
+      "total": {
+        "original": 233057792,
+        "pruned": 55144448,
+        "reduced": 177913344,
+        "reduction_ratio": 0.7633872374453801
+      },
+      "attention": {
+        "original": 29364736,
+        "pruned": 29364736,
+        "reduced": 0,
+        "reduction_ratio": 0.0
+      },
+      "mlp": {
+        "original": 203685888,
+        "pruned": 25772544,
+        "reduced": 177913344,
+        "reduction_ratio": 0.8734691722972973,
+        "intermediate_size": {
+          "original": 18944,
+          "pruned": 2397
+        }
+      },
+      "is_zero_layer": false
+    }
+  ]
+}

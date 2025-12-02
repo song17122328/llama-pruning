@@ -1,0 +1,74 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 7,
+      "pruning_rate": 0.5048828125,
+      "importance": 0.020900093551192964,
+      "gradient_mean": 0.00038562218348185223,
+      "gradient_norm": 1.5043063693576388
+    },
+    {
+      "layer_idx": 8,
+      "pruning_rate": 0.5910993303571429,
+      "importance": 0.01972001977264881,
+      "gradient_mean": 0.00036462148030598957,
+      "gradient_norm": 1.4707234700520833
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 0.6365094866071429,
+      "importance": 0.01858955275799547,
+      "gradient_mean": 0.0003585418065388997,
+      "gradient_norm": 1.5022922092013888
+    },
+    {
+      "layer_idx": 12,
+      "pruning_rate": 0.6741071428571429,
+      "importance": 0.018632322815912112,
+      "gradient_mean": 0.0003786815537346734,
+      "gradient_norm": 1.4568888346354167
+    },
+    {
+      "layer_idx": 13,
+      "pruning_rate": 0.59228515625,
+      "importance": 0.019130252301692963,
+      "gradient_mean": 0.00036448902553982206,
+      "gradient_norm": 1.5090738932291667
+    },
+    {
+      "layer_idx": 14,
+      "pruning_rate": 0.5720563616071429,
+      "importance": 0.02047294777418886,
+      "gradient_mean": 0.00038492679595947266,
+      "gradient_norm": 1.6392008463541667
+    },
+    {
+      "layer_idx": 29,
+      "pruning_rate": 0.5250418526785714,
+      "importance": 0.024147878267935345,
+      "gradient_mean": 0.00033273961808946397,
+      "gradient_norm": 2.16204833984375
+    }
+  ],
+  "num_extreme_layers": 7,
+  "gradient_statistics": {
+    "mean_range": [
+      0.00030940108829074435,
+      0.0011066264576382106
+    ],
+    "mean_ratio": 3.576671646775686,
+    "norm_range": [
+      1.3781195746527777,
+      7.148328993055555
+    ],
+    "norm_ratio": 5.187016514396366
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "7 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    }
+  ]
+}

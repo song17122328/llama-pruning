@@ -1,9 +1,28 @@
 {
-  "params": {},
-  "metrics": {
-    "acc_mean": 0.516691955136222,
-    "ppl": 12.101028442382812,
-    "grad_norm_ratio": 6.026438746294882
+  "params": {
+    "taylor_seq_len": 256,
+    "taylor_num_samples": 4
   },
-  "output_dir": "results/search_Mistral_layerwise_20/exp_003_taylor_seq_len16_taylor_num_samples512"
+  "metrics": {
+    "acc_mean": 0.5263673607942901,
+    "acc_details": {
+      "boolq": 0.6776758409785932,
+      "piqa": 0.691512513601741,
+      "hellaswag": 0.5219079864568811,
+      "winogrande": 0.6037884767166535,
+      "arc_easy": 0.5281986531986532,
+      "arc_challenge": 0.2994880546075085,
+      "openbookqa": 0.362
+    },
+    "ppl": 10.917014122009276,
+    "pruning_ratio": 0.1999997739521694,
+    "gradient_statistics": {
+      "grad_mean_ratio": 2.0944992187758795,
+      "grad_norm_ratio": 7.77998145578193,
+      "grad_mean_range": 0.0001913772688971,
+      "grad_norm_range": 8.760535134209526,
+      "extreme_pruning_layers": 7
+    }
+  },
+  "output_dir": "results/search_Mistral_layerwise_20/exp_016_taylor_seq_len256_taylor_num_samples4"
 }

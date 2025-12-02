@@ -1,0 +1,81 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 6,
+      "pruning_rate": 0.8968331473214286,
+      "importance": 0.010953219208334173,
+      "gradient_mean": 0.00038626458909776475,
+      "gradient_norm": 2.944405449761285
+    },
+    {
+      "layer_idx": 7,
+      "pruning_rate": 0.7712751116071429,
+      "importance": 0.01051156475607838,
+      "gradient_mean": 0.00037354893154568144,
+      "gradient_norm": 2.8627488878038196
+    },
+    {
+      "layer_idx": 9,
+      "pruning_rate": 0.7022879464285714,
+      "importance": 0.009548181401831763,
+      "gradient_mean": 0.00033273961808946397,
+      "gradient_norm": 2.526913113064236
+    },
+    {
+      "layer_idx": 11,
+      "pruning_rate": 1.0,
+      "importance": 0.008649190089532308,
+      "gradient_mean": 0.0003177656067742242,
+      "gradient_norm": 2.476197984483507
+    },
+    {
+      "layer_idx": 12,
+      "pruning_rate": 0.9193638392857143,
+      "importance": 0.008667070019458021,
+      "gradient_mean": 0.00031876564025878906,
+      "gradient_norm": 2.5545281304253473
+    },
+    {
+      "layer_idx": 13,
+      "pruning_rate": 0.90966796875,
+      "importance": 0.008626394772103854,
+      "gradient_mean": 0.0003393954700893826,
+      "gradient_norm": 2.3911175198025174
+    },
+    {
+      "layer_idx": 14,
+      "pruning_rate": 0.93212890625,
+      "importance": 0.00877717137336731,
+      "gradient_mean": 0.0003345343801710341,
+      "gradient_norm": 2.7210706075032554
+    },
+    {
+      "layer_idx": 21,
+      "pruning_rate": 0.8135463169642857,
+      "importance": 0.011656013982636588,
+      "gradient_mean": 0.0002929038471645779,
+      "gradient_norm": 2.45957522922092
+    }
+  ],
+  "num_extreme_layers": 8,
+  "gradient_statistics": {
+    "mean_range": [
+      0.00023380253050062392,
+      0.000493062867058648
+    ],
+    "mean_ratio": 2.10888502838009,
+    "norm_range": [
+      2.10459476047092,
+      15.59930419921875
+    ],
+    "norm_ratio": 7.412022728302848
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "8 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    }
+  ]
+}
