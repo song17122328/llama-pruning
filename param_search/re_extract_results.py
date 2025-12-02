@@ -249,7 +249,19 @@ def main():
         all_keys.update(result.keys())
 
     # 定义列顺序（与search_best_params.py完全一致）
-    param_cols = sorted([col for col in all_keys if col.startswith('taylor_') or col.startswith('layer_') or col.startswith('block_')])
+    # 注意：taylor_seq_len 必须在 taylor_num_samples 前面（与 config 文件顺序一致）
+    all_param_cols = [col for col in all_keys if col.startswith('taylor_') or col.startswith('layer_') or col.startswith('block_')]
+
+    # 手动指定参数列顺序（与 config 文件保持一致）
+    param_cols = []
+    if 'taylor_seq_len' in all_param_cols:
+        param_cols.append('taylor_seq_len')
+    if 'taylor_num_samples' in all_param_cols:
+        param_cols.append('taylor_num_samples')
+    # 添加其他参数列（如果有）
+    for col in sorted(all_param_cols):
+        if col not in param_cols:
+            param_cols.append(col)
 
     # 固定列顺序
     fixed_cols = [
