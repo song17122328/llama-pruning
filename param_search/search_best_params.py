@@ -296,15 +296,16 @@ def main():
 
     # 如果是续传，读取已有结果
     completed_experiments = set()
+    all_results = []  # 存储所有结果（包括已有的）
+
     if args.resume and results_file.exists():
         df_existing = pd.read_csv(results_file)
+        # 将已有结果加载到all_results
+        all_results = df_existing.to_dict('records')
         for _, row in df_existing.iterrows():
             key = tuple(row[param_names].values)
             completed_experiments.add(key)
         print(f"已完成 {len(completed_experiments)} 个实验，将跳过")
-
-    # 运行实验
-    all_results = []
 
     for i, param_combo in enumerate(param_combinations):
         # 检查是否达到最大实验次数
@@ -395,14 +396,8 @@ def main():
 
         all_results.append(result_entry)
 
-        # 实时保存结果
+        # 实时保存结果（all_results已经包含所有数据，不需要再合并）
         df_results = pd.DataFrame(all_results)
-
-        # 如果是续传，合并之前的结果
-        if args.resume and results_file.exists():
-            df_existing = pd.read_csv(results_file)
-            df_results = pd.concat([df_existing, df_results], ignore_index=True)
-
         df_results.to_csv(results_file, index=False)
         print(f"\n✓ 结果已保存到 {results_file}")
 

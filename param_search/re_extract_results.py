@@ -11,6 +11,38 @@ import sys
 from pathlib import Path
 
 
+def extract_params_from_path(path):
+    """从输出路径中提取参数"""
+    parts = Path(path).name.split('_')
+    params = {}
+
+    i = 0
+    while i < len(parts):
+        if parts[i] == 'taylor' and i + 2 < len(parts):
+            if parts[i + 1] == 'seq':
+                # taylor_seq_len16
+                param_name = 'taylor_seq_len'
+                value_str = parts[i + 2]
+                value = ''.join([c for c in value_str if c.isdigit()])
+                if value:
+                    params[param_name] = int(value)
+                i += 3
+            elif parts[i + 1] == 'num':
+                # taylor_num_samples128
+                param_name = 'taylor_num_samples'
+                value_str = parts[i + 2]
+                value = ''.join([c for c in value_str if c.isdigit()])
+                if value:
+                    params[param_name] = int(value)
+                i += 3
+            else:
+                i += 1
+        else:
+            i += 1
+
+    return params
+
+
 def extract_results(output_dir):
     """从输出目录提取评估结果（包括梯度统计和详细 ACC）"""
     results = {
@@ -199,34 +231,8 @@ def main():
     for exp_dir in exp_dirs:
         print(f"提取 {exp_dir.name} ...")
 
-        # 从目录名解析参数
-        # 格式: exp_001_taylor_seq_len16_taylor_num_samples128
-        parts = exp_dir.name.split('_')
-        params = {}
-        i = 2  # 跳过 'exp' 和编号
-        while i < len(parts):
-            if i + 1 < len(parts):
-                # 处理参数名和值
-                param_name = parts[i]
-                # 提取数字部分
-                param_value_str = parts[i + 1]
-                # 找到数字的位置
-                for j, char in enumerate(param_value_str):
-                    if char.isdigit():
-                        actual_param_name = param_value_str[:j]
-                        param_value = param_value_str[j:]
-                        if actual_param_name:
-                            param_name = param_name + '_' + actual_param_name
-                        break
-                else:
-                    # 没找到数字，整个都是参数名
-                    i += 1
-                    continue
-
-                params[param_name] = int(param_value)
-                i += 2
-            else:
-                i += 1
+        # 从目录名解析参数（使用统一的提取函数）
+        params = extract_params_from_path(exp_dir.name)
 
         # 提取结果
         results = extract_results(str(exp_dir))
