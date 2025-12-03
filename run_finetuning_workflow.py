@@ -209,10 +209,13 @@ class FinetuningWorkflow:
 
         print(f"\n使用GPU: {gpu_id}")
 
+        # 微调后的模型bin文件路径
+        finetuned_model_bin = self.finetuned_dir / 'pruned_model.bin'
+
         # 构建评估命令
         cmd = [
             'python', 'evaluation/run_evaluation.py',
-            '--model_path', str(self.finetuned_dir),
+            '--model_path', str(finetuned_model_bin),  # 指定bin文件路径
             '--output', str(self.eval_dir),
             '--metrics', 'ppl,zeroshot',  # 只评估PPL和zero-shot任务
             '--auto_select_gpu'  # 自动选择GPU（会使用CUDA_VISIBLE_DEVICES）
