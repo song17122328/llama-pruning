@@ -11,7 +11,6 @@ param_search/
 ├── consolidate_all_models.py      # 批量汇总所有6个模型
 ├── analyze_all_models.py          # 跨模型综合分析
 ├── re_extract_results.py          # 重提取结果工具
-├── extract_instruct_results.py    # 提取Instruct模型结果
 ├── copy_best_results.py           # 复制最佳结果到独立目录
 └── README.md                      # 本文件
 ```
@@ -93,20 +92,7 @@ python param_search/re_extract_results.py --search_dir results/search_Llama_20
 
 ---
 
-### 3. extract_instruct_results.py - 批量提取Instruct模型结果
-
-**功能**: 自动扫描所有 Instruct 模型的搜索目录并批量提取结果
-
-**用法**:
-```bash
-python param_search/extract_instruct_results.py
-```
-
-**说明**: 会自动处理所有 `search_{model}-Instruct_*_20` 目录
-
----
-
-### 4. consolidate_model_results.py - 单模型结果汇总
+### 3. consolidate_model_results.py - 单模型结果汇总
 
 **功能**: 汇总单个模型的所有剪枝方法（Taylor、Layerwise、Blockwise）的结果
 
@@ -130,7 +116,7 @@ python param_search/consolidate_model_results.py --model Mistral-Instruct
 
 ---
 
-### 5. consolidate_all_models.py - 批量汇总所有模型
+### 4. consolidate_all_models.py - 批量汇总所有模型
 
 **功能**: 自动对所有6个模型运行汇总
 
@@ -143,7 +129,7 @@ python param_search/consolidate_all_models.py
 
 ---
 
-### 6. analyze_all_models.py - 跨模型综合分析 ⭐
+### 5. analyze_all_models.py - 跨模型综合分析 ⭐
 
 **功能**: 对比分析所有6个模型的最佳配置，生成综合报告
 
@@ -182,7 +168,7 @@ Mistral              Instruct   BLOCKWISE    0.6552     24.33      32         25
 
 ---
 
-### 7. copy_best_results.py - 复制最佳结果
+### 6. copy_best_results.py - 复制最佳结果
 
 **功能**: 将最佳实验结果复制到独立目录以便查看和分析
 
