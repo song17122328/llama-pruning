@@ -479,9 +479,18 @@ def main():
 
     # 自动选择GPU
     if args.auto_select_gpu:
-        gpu_id = get_best_gpu()
-        args.device = f'cuda:{gpu_id}'
-        print(f"✓ 自动选择GPU: {args.device}\n")
+        # 检查是否设置了CUDA_VISIBLE_DEVICES环境变量
+        cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+        if cuda_visible_devices is not None:
+            # 如果设置了CUDA_VISIBLE_DEVICES，使用cuda:0
+            # 因为PyTorch会将第一个可见GPU重新编号为0
+            args.device = 'cuda:0'
+            print(f"✓ 检测到CUDA_VISIBLE_DEVICES={cuda_visible_devices}，使用 {args.device}\n")
+        else:
+            # 否则自动选择剩余显存最大的GPU
+            gpu_id = get_best_gpu()
+            args.device = f'cuda:{gpu_id}'
+            print(f"✓ 自动选择GPU: {args.device}\n")
 
     # 对比模式
     if args.compare:

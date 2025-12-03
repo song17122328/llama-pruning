@@ -216,13 +216,17 @@ class FinetuningWorkflow:
         eval_output_json = self.eval_dir / 'evaluation_results.json'
 
         # 构建评估命令
-        # 注意：使用CUDA_VISIBLE_DEVICES限制可见GPU后，PyTorch会将第一个可见GPU重新编号为0
+        # 注意：
+        # 1. CUDA_VISIBLE_DEVICES 限制评估脚本只能看到指定的GPU
+        # 2. 评估脚本的 --auto_select_gpu 默认为 True，会自动选择剩余显存最大的GPU
+        # 3. 由于只有1个GPU可见，auto_select_gpu 会自动选择 cuda:0
+        # 4. 不需要传递 --device 参数，因为会被 auto_select_gpu 覆盖
         cmd = [
             'python', 'evaluation/run_evaluation.py',
             '--model_path', str(finetuned_model_bin),  # 指定bin文件路径
             '--output', str(eval_output_json),  # 指定输出JSON文件
-            '--metrics', 'ppl,zeroshot',  # 只评估PPL和zero-shot任务
-            '--device', 'cuda:0'  # 使用cuda:0（CUDA_VISIBLE_DEVICES会将指定GPU映射为0）
+            '--metrics', 'ppl,zeroshot'  # 只评估PPL和zero-shot任务
+            # 不传递 --device，让 auto_select_gpu 在受限的GPU列表中自动选择
         ]
 
         print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
