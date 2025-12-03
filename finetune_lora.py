@@ -446,7 +446,7 @@ if __name__ == "__main__":
                        help='添加EOS token')
     parser.add_argument('--group_by_length', default=False, action="store_true",
                        help="按长度分组 (更快但loss曲线奇怪)")
-    parser.add_argument('--skip_evaluation', default=False, action="store_true",
+    parser.add_argument('--skip_evaluation', default=True, action="store_true",
                        help='跳过自动评估')
 
     # WandB
