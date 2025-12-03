@@ -12,8 +12,17 @@ LoRA微调工作流管理脚本
     # 完整流程（微调+评估）
     python run_finetuning_workflow.py --model Llama --config best_acc --stage all
 
-    # 批量处理所有模型
+    # 批量处理所有模型（顺序执行）
     python run_finetuning_workflow.py --batch-all --stage all
+
+    # 批量处理所有模型（并行使用4个GPU）
+    python run_finetuning_workflow.py --batch-all --stage finetune --num-gpus 4
+
+    # 说明：
+    # - 每个模型在单张卡上训练（不是分布式训练）
+    # - --num-gpus 指定同时运行的任务数，每个任务占用1张卡
+    # - 自动选择显存最大的N张GPU
+    # - 任务会轮询分配到不同的GPU上
 """
 
 import argparse
@@ -22,7 +31,51 @@ import subprocess
 import os
 from pathlib import Path
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.utils.get_best_gpu import get_best_gpu
+
+
+def get_best_gpus(num_gpus):
+    """
+    获取N个剩余显存最大的GPU
+
+    Args:
+        num_gpus: 需要的GPU数量
+
+    Returns:
+        list: GPU ID列表
+    """
+    try:
+        result = subprocess.run(
+            ['nvidia-smi', '--query-gpu=index,memory.free',
+             '--format=csv,noheader,nounits'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        # 解析结果
+        gpu_memory = []
+        for line in result.stdout.strip().split('\n'):
+            parts = line.split(',')
+            gpu_id = int(parts[0].strip())
+            free_mem = int(parts[1].strip())  # MB
+            gpu_memory.append((gpu_id, free_mem))
+
+        # 按剩余显存排序，选择前N个
+        gpu_memory.sort(key=lambda x: x[1], reverse=True)
+        best_gpus = [gpu_id for gpu_id, _ in gpu_memory[:num_gpus]]
+
+        print(f"✓ 选择了 {len(best_gpus)} 个GPU: {best_gpus}")
+        for gpu_id, free_mem in gpu_memory[:num_gpus]:
+            print(f"  GPU {gpu_id}: 剩余显存 {free_mem/1024:.2f} GB")
+
+        return best_gpus
+
+    except Exception as e:
+        print(f"警告: 无法获取GPU信息 ({e})，使用默认GPU列表")
+        return list(range(num_gpus))
 
 
 class FinetuningWorkflow:
@@ -47,8 +100,13 @@ class FinetuningWorkflow:
         with open(info_file, 'r') as f:
             return json.load(f)
 
-    def finetune(self, lora_config=None):
-        """运行LoRA微调"""
+    def finetune(self, lora_config=None, gpu_id=None):
+        """运行LoRA微调
+
+        Args:
+            lora_config: LoRA配置字典
+            gpu_id: 指定使用的GPU ID，如果为None则自动选择
+        """
         print(f"\n{'='*80}")
         print(f"开始微调: {self.model} - {self.config_type}")
         print(f"{'='*80}")
@@ -87,8 +145,9 @@ class FinetuningWorkflow:
 
         print(f"\n微调配置已保存: {config_file}")
 
-        # 获取最佳GPU
-        gpu_id = get_best_gpu()
+        # 获取GPU ID（如果未指定）
+        if gpu_id is None:
+            gpu_id = get_best_gpu()
 
         # 设置环境变量，确保LoRA微调只使用单GPU（避免数据分布在多GPU上出错）
         env = os.environ.copy()
@@ -257,6 +316,34 @@ class FinetuningWorkflow:
         return '\n'.join(report)
 
 
+def run_single_task(model, config, stage, gpu_id):
+    """运行单个任务（在指定GPU上）"""
+    task_name = f"{model}/{config}"
+    try:
+        print(f"\n[GPU {gpu_id}] 开始处理: {task_name}")
+        workflow = FinetuningWorkflow(model, config)
+
+        if stage in ['finetune', 'all']:
+            success = workflow.finetune(gpu_id=gpu_id)
+            if not success:
+                return (task_name, False, "微调失败")
+
+        if stage in ['evaluate', 'all']:
+            success = workflow.evaluate()
+            if not success:
+                return (task_name, False, "评估失败")
+
+        if stage in ['compare', 'all']:
+            workflow.compare_results()
+
+        print(f"\n[GPU {gpu_id}] ✓ 完成: {task_name}")
+        return (task_name, True, "成功")
+
+    except Exception as e:
+        print(f"\n[GPU {gpu_id}] ✗ 处理 {task_name} 时出错: {e}")
+        return (task_name, False, str(e))
+
+
 def main():
     parser = argparse.ArgumentParser(description='LoRA微调工作流管理')
     parser.add_argument('--model', type=str,
@@ -268,6 +355,8 @@ def main():
                        default='all', help='执行阶段')
     parser.add_argument('--batch-all', action='store_true',
                        help='批量处理所有模型和配置')
+    parser.add_argument('--num-gpus', type=int, default=1,
+                       help='并行使用的GPU数量（默认1，顺序执行）')
 
     args = parser.parse_args()
 
@@ -279,10 +368,51 @@ def main():
         print(f"\n{'='*80}")
         print(f"批量处理所有模型")
         print(f"{'='*80}")
-        print(f"\n将处理 {len(models)} × {len(configs)} = {len(models)*len(configs)} 个配置")
+        total_tasks = len(models) * len(configs)
+        print(f"\n将处理 {len(models)} × {len(configs)} = {total_tasks} 个配置")
 
-        for model in models:
-            for config in configs:
+        # 构建任务列表
+        tasks = [(model, config) for model in models for config in configs]
+
+        if args.num_gpus > 1:
+            # 并行模式
+            print(f"\n并行模式: 使用 {args.num_gpus} 个GPU")
+
+            # 获取最佳的N个GPU
+            gpu_ids = get_best_gpus(args.num_gpus)
+
+            # 使用线程池并行执行
+            results = []
+            with ThreadPoolExecutor(max_workers=args.num_gpus) as executor:
+                # 提交所有任务
+                future_to_task = {}
+                for i, (model, config) in enumerate(tasks):
+                    # 轮询分配GPU
+                    gpu_id = gpu_ids[i % len(gpu_ids)]
+                    future = executor.submit(run_single_task, model, config, args.stage, gpu_id)
+                    future_to_task[future] = (model, config)
+
+                # 等待任务完成
+                for future in as_completed(future_to_task):
+                    task_name, success, msg = future.result()
+                    results.append((task_name, success, msg))
+
+            # 打印结果摘要
+            print(f"\n{'='*80}")
+            print(f"批量处理完成")
+            print(f"{'='*80}")
+            success_count = sum(1 for _, success, _ in results if success)
+            print(f"\n成功: {success_count}/{len(results)}")
+
+            if success_count < len(results):
+                print("\n失败的任务:")
+                for task_name, success, msg in results:
+                    if not success:
+                        print(f"  ✗ {task_name}: {msg}")
+        else:
+            # 顺序模式
+            print(f"\n顺序模式: 逐个处理")
+            for model, config in tasks:
                 try:
                     workflow = FinetuningWorkflow(model, config)
 
@@ -299,7 +429,7 @@ def main():
                     print(f"\n✗ 处理 {model}/{config} 时出错: {e}")
                     continue
 
-        print(f"\n✓ 批量处理完成")
+            print(f"\n✓ 批量处理完成")
     else:
         # 单个处理
         if not args.model or not args.config:
