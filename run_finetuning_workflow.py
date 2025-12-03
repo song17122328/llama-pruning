@@ -19,8 +19,10 @@ LoRA微调工作流管理脚本
 import argparse
 import json
 import subprocess
+import os
 from pathlib import Path
 import sys
+from core.utils.get_best_gpu import get_best_gpu
 
 
 class FinetuningWorkflow:
@@ -85,10 +87,16 @@ class FinetuningWorkflow:
 
         print(f"\n微调配置已保存: {config_file}")
 
-        # 构建微调命令
-        # 注意：这里需要根据实际的微调脚本调整
-        CUDA_VISIBLE_DEVICES=0
+        # 获取最佳GPU
+        gpu_id = get_best_gpu()
 
+        # 设置环境变量，确保LoRA微调只使用单GPU（避免数据分布在多GPU上出错）
+        env = os.environ.copy()
+        env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+
+        print(f"\n使用GPU: {gpu_id}")
+
+        # 构建微调命令
         cmd = [
             'python', 'finetune_lora.py',
             '--pruned_model', str(self.pruned_dir / 'pruned_model.bin'),
@@ -102,13 +110,13 @@ class FinetuningWorkflow:
             '--micro_batch_size', str(lora_config['micro_batch_size'])
         ]
 
-        print(f"\n执行命令: {' '.join(cmd)}")
+        print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
         print(f"\n⚠️  注意：请确保 finetune_lora.py 存在并且参数正确")
         print(f"如果需要，请修改此脚本中的命令构建逻辑")
 
-        # 取消注释以下行来实际运行微调
+        # 运行微调
         try:
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, env=env, check=True)
             print(f"\n✓ 微调完成")
             return True
         except subprocess.CalledProcessError as e:
