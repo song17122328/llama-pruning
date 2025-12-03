@@ -69,8 +69,9 @@ def load_search_results(csv_file):
 def main():
     parser = argparse.ArgumentParser(description='汇总模型所有剪枝方法的结果')
     parser.add_argument('--model', type=str, required=True,
-                       choices=['Llama', 'Qwen', 'Mistral'],
-                       help='模型名称')
+                       choices=['Llama', 'Qwen', 'Mistral',
+                               'Llama-Instruct', 'Qwen-Instruct', 'Mistral-Instruct'],
+                       help='模型名称（支持Base和Instruct版本）')
     args = parser.parse_args()
 
     model = args.model  # 用于显示和目录名（统一大写开头）

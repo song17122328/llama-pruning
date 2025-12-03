@@ -1,0 +1,38 @@
+{
+  "taylor": {
+    "total_experiments": 20,
+    "valid_experiments": 20,
+    "best_acc": 0.6098946728670109,
+    "best_ppl": 17.103872299194336,
+    "best_grad_norm_ratio": 3.8076976444230515,
+    "best_params": {
+      "taylor_seq_len": 32.0,
+      "taylor_num_samples": 128.0
+    },
+    "best_output_dir": "results/search_Qwen-Instruct_20/exp_003_taylor_seq_len32_taylor_num_samples128"
+  },
+  "layerwise": {
+    "total_experiments": 20,
+    "valid_experiments": 20,
+    "best_acc": 0.6201725521951644,
+    "best_ppl": 13.424369812011719,
+    "best_grad_norm_ratio": 4.394187369009396,
+    "best_params": {
+      "taylor_seq_len": 32.0,
+      "taylor_num_samples": 4.0
+    },
+    "best_output_dir": "results/search_Qwen-Instruct_layerwise_20/exp_001_taylor_seq_len32_taylor_num_samples4"
+  },
+  "blockwise": {
+    "total_experiments": 20,
+    "valid_experiments": 20,
+    "best_acc": 0.6066757746094801,
+    "best_ppl": 19.119935989379883,
+    "best_grad_norm_ratio": 4.394187369009396,
+    "best_params": {
+      "taylor_seq_len": 32.0,
+      "taylor_num_samples": 4.0
+    },
+    "best_output_dir": "results/search_Qwen-Instruct_blockwise_20/exp_001_taylor_seq_len32_taylor_num_samples4"
+  }
+}
