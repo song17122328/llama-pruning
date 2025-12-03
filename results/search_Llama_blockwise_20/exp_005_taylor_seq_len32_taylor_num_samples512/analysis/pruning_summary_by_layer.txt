@@ -3,36 +3,38 @@
 ================================================================================
 Layer    Attention剪枝          MLP剪枝                总参数剪枝               
 --------------------------------------------------------------------------------
-2        0 groups (0 params) 2 channels (24,576 params) 24,576 params      
-3        0 groups (0 params) 100 channels (1,228,800 params) 1,228,800 params   
-4        0 groups (0 params) 323 channels (3,969,024 params) 3,969,024 params   
-5        0 groups (0 params) 571 channels (7,016,448 params) 7,016,448 params   
-6        0 groups (0 params) 995 channels (12,226,560 params) 12,226,560 params  
-7        0 groups (0 params) 1558 channels (19,144,704 params) 19,144,704 params  
-8        0 groups (0 params) 1932 channels (23,740,416 params) 23,740,416 params  
-9        0 groups (0 params) 1959 channels (24,072,192 params) 24,072,192 params  
-10       0 groups (0 params) 2502 channels (30,744,576 params) 30,744,576 params  
-11       0 groups (0 params) 2533 channels (31,125,504 params) 31,125,504 params  
-12       0 groups (0 params) 3023 channels (37,146,624 params) 37,146,624 params  
-13       0 groups (0 params) 3500 channels (43,008,000 params) 43,008,000 params  
-14       0 groups (0 params) 2815 channels (34,590,720 params) 34,590,720 params  
-15       0 groups (0 params) 3226 channels (39,641,088 params) 39,641,088 params  
-16       0 groups (0 params) 4199 channels (51,597,312 params) 51,597,312 params  
-17       0 groups (0 params) 4328 channels (53,182,464 params) 53,182,464 params  
-18       0 groups (0 params) 4823 channels (59,265,024 params) 59,265,024 params  
-19       0 groups (0 params) 5680 channels (69,795,840 params) 69,795,840 params  
-20       0 groups (0 params) 5911 channels (72,634,368 params) 72,634,368 params  
-21       0 groups (0 params) 6443 channels (79,171,584 params) 79,171,584 params  
-22       0 groups (0 params) 6308 channels (77,512,704 params) 77,512,704 params  
-23       1 groups (5,242,880 params) 6844 channels (84,099,072 params) 89,341,952 params  
-24       0 groups (0 params) 7391 channels (90,820,608 params) 90,820,608 params  
-25       1 groups (5,242,880 params) 8249 channels (101,363,712 params) 106,606,592 params 
-26       0 groups (0 params) 8700 channels (106,905,600 params) 106,905,600 params 
-27       1 groups (5,242,880 params) 9820 channels (120,668,160 params) 125,911,040 params 
-28       0 groups (0 params) 8883 channels (109,154,304 params) 109,154,304 params 
-29       1 groups (5,242,880 params) 9166 channels (112,631,808 params) 117,874,688 params 
-30       0 groups (0 params) 5567 channels (68,407,296 params) 68,407,296 params  
-31       0 groups (0 params) 1643 channels (20,189,184 params) 20,189,184 params  
+0        0 groups (0 params) 51 channels (626,688 params) 626,688 params     
+1        0 groups (0 params) 27 channels (331,776 params) 331,776 params     
+2        0 groups (0 params) 584 channels (7,176,192 params) 7,176,192 params   
+3        0 groups (0 params) 1074 channels (13,197,312 params) 13,197,312 params  
+4        0 groups (0 params) 1214 channels (14,917,632 params) 14,917,632 params  
+5        0 groups (0 params) 1454 channels (17,866,752 params) 17,866,752 params  
+6        0 groups (0 params) 1851 channels (22,745,088 params) 22,745,088 params  
+7        0 groups (0 params) 2462 channels (30,253,056 params) 30,253,056 params  
+8        0 groups (0 params) 2906 channels (35,708,928 params) 35,708,928 params  
+9        0 groups (0 params) 3012 channels (37,011,456 params) 37,011,456 params  
+10       0 groups (0 params) 3536 channels (43,450,368 params) 43,450,368 params  
+11       0 groups (0 params) 3554 channels (43,671,552 params) 43,671,552 params  
+12       0 groups (0 params) 3946 channels (48,488,448 params) 48,488,448 params  
+13       0 groups (0 params) 4218 channels (51,830,784 params) 51,830,784 params  
+14       0 groups (0 params) 3520 channels (43,253,760 params) 43,253,760 params  
+15       0 groups (0 params) 3666 channels (45,047,808 params) 45,047,808 params  
+16       0 groups (0 params) 4323 channels (53,121,024 params) 53,121,024 params  
+17       0 groups (0 params) 4321 channels (53,096,448 params) 53,096,448 params  
+18       2 groups (10,485,760 params) 4555 channels (55,971,840 params) 66,457,600 params  
+19       2 groups (10,485,760 params) 4816 channels (59,179,008 params) 69,664,768 params  
+20       2 groups (10,485,760 params) 4791 channels (58,871,808 params) 69,357,568 params  
+21       1 groups (5,242,880 params) 4814 channels (59,154,432 params) 64,397,312 params  
+22       2 groups (10,485,760 params) 4903 channels (60,248,064 params) 70,733,824 params  
+23       4 groups (20,971,520 params) 5127 channels (63,000,576 params) 83,972,096 params  
+24       2 groups (10,485,760 params) 5436 channels (66,797,568 params) 77,283,328 params  
+25       2 groups (10,485,760 params) 5650 channels (69,427,200 params) 79,912,960 params  
+26       2 groups (10,485,760 params) 5786 channels (71,098,368 params) 81,584,128 params  
+27       1 groups (5,242,880 params) 6461 channels (79,392,768 params) 84,635,648 params  
+28       2 groups (10,485,760 params) 6245 channels (76,738,560 params) 87,224,320 params  
+29       3 groups (15,728,640 params) 6304 channels (77,463,552 params) 93,192,192 params  
+30       0 groups (0 params) 5610 channels (68,935,680 params) 68,935,680 params  
+31       0 groups (0 params) 3817 channels (46,903,296 params) 46,903,296 params  
 --------------------------------------------------------------------------------
-总计: 128998 groups, 1,606,049,792 params
+总计: 120059 groups, 1,606,049,792 params
 ================================================================================

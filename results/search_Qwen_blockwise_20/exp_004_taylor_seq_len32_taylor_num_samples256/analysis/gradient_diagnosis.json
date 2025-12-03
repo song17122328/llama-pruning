@@ -1,0 +1,73 @@
+{
+  "extreme_pruning_layers": [
+    {
+      "layer_idx": 1,
+      "pruning_rate": 0.5334142736486487,
+      "importance": 0.04770255158969981,
+      "gradient_mean": 0.004466247977688909,
+      "gradient_norm": 5.299510434269905
+    },
+    {
+      "layer_idx": 14,
+      "pruning_rate": 0.5344700168918919,
+      "importance": 0.11127372126321534,
+      "gradient_mean": 0.0016236493053535621,
+      "gradient_norm": 2.920113444328308
+    },
+    {
+      "layer_idx": 15,
+      "pruning_rate": 0.6369298986486487,
+      "importance": 0.10422306769603007,
+      "gradient_mean": 0.001727999731277426,
+      "gradient_norm": 3.0779608339071274
+    },
+    {
+      "layer_idx": 16,
+      "pruning_rate": 0.6996410472972973,
+      "importance": 0.10030496281546515,
+      "gradient_mean": 0.0015813068797190983,
+      "gradient_norm": 2.7727362041672072
+    },
+    {
+      "layer_idx": 17,
+      "pruning_rate": 0.6546663851351351,
+      "importance": 0.1027247116372392,
+      "gradient_mean": 0.0017625803593546152,
+      "gradient_norm": 3.196396922071775
+    },
+    {
+      "layer_idx": 18,
+      "pruning_rate": 0.5826646959459459,
+      "importance": 0.10972659893938012,
+      "gradient_mean": 0.0021310956217348576,
+      "gradient_norm": 3.6823144604762397
+    }
+  ],
+  "num_extreme_layers": 6,
+  "gradient_statistics": {
+    "mean_range": [
+      0.001222128514200449,
+      0.006646045949310064
+    ],
+    "mean_ratio": 5.4380904530724,
+    "norm_range": [
+      2.7727362041672072,
+      15.595981848736605
+    ],
+    "norm_ratio": 5.624762220341978
+  },
+  "diagnosis": [
+    {
+      "issue": "\u5927\u91cf\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "high",
+      "description": "6 \u5c42\u7684\u526a\u679d\u7387\u8d85\u8fc7 50.0%",
+      "recommendation": "\u5efa\u8bae\u9650\u5236\u526a\u679d\u7387\u8303\u56f4\uff08min_rate, max_rate\uff09\u6216\u4f7f\u7528\u6e29\u5ea6\u5e73\u6ed1"
+    },
+    {
+      "issue": "\u524d\u51e0\u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "severity": "critical",
+      "description": "\u524d5\u5c42\u4e2d\u6709 1 \u5c42\u88ab\u8fc7\u5ea6\u526a\u679d",
+      "recommendation": "\u524d\u51e0\u5c42\u901a\u5e38\u5f88\u91cd\u8981\uff0c\u5efa\u8bae\u4e3a\u5176\u8bbe\u7f6e\u8f83\u4f4e\u7684 max_rate"
+    }
+  ]
+}

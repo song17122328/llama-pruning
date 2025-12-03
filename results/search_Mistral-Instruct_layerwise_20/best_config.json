@@ -1,28 +1,28 @@
 {
   "params": {
     "taylor_seq_len": 32,
-    "taylor_num_samples": 4
+    "taylor_num_samples": 128
   },
   "metrics": {
-    "acc_mean": 0.5861825444765935,
+    "acc_mean": 0.6266381568511472,
     "acc_details": {
-      "boolq": 0.7220183486238532,
-      "piqa": 0.7383025027203483,
-      "hellaswag": 0.6362278430591516,
-      "winogrande": 0.6274664561957379,
-      "arc_easy": 0.601010101010101,
-      "arc_challenge": 0.3822525597269625,
-      "openbookqa": 0.396
+      "boolq": 0.7033639143730887,
+      "piqa": 0.79379760609358,
+      "hellaswag": 0.6937860983867755,
+      "winogrande": 0.5911602209944752,
+      "arc_easy": 0.7184343434343434,
+      "arc_challenge": 0.4539249146757679,
+      "openbookqa": 0.432
     },
-    "ppl": 9.284712791442873,
-    "pruning_ratio": 0.1999997739521694,
+    "ppl": 15.971412658691406,
+    "pruning_ratio": 0.1999986437130164,
     "gradient_statistics": {
-      "grad_mean_ratio": 2.071883268163617,
-      "grad_norm_ratio": 5.176603810952787,
-      "grad_mean_range": 0.0003541310628255,
-      "grad_norm_range": 12.956653171115454,
-      "extreme_pruning_layers": 8
+      "grad_mean_ratio": 4.521485519643952,
+      "grad_norm_ratio": 18.06319183452773,
+      "grad_mean_range": 0.0054548686991135,
+      "grad_norm_range": 217.12266233232288,
+      "extreme_pruning_layers": 5.0
     }
   },
-  "output_dir": "results/search_Mistral-Instruct_layerwise_20/exp_001_taylor_seq_len32_taylor_num_samples4"
+  "output_dir": "results/search_Mistral-Instruct_layerwise_20/exp_003_taylor_seq_len32_taylor_num_samples128"
 }

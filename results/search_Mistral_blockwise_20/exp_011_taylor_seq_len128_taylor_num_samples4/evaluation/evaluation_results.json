@@ -1,6 +1,6 @@
 {
   "model_path": "results/search_Mistral_blockwise_20/exp_011_taylor_seq_len128_taylor_num_samples4/pruned_model.bin",
-  "timestamp": "2025-12-02T02:56:30.932937",
+  "timestamp": "2025-12-02T19:39:02.932336",
   "metrics": {
     "model_info": {
       "total_params": 5798428672,
@@ -12,35 +12,103 @@
         "embedding": 134217728,
         "lm_head": 134217728,
         "final_norm": 4096,
-        "attention": 938475520,
-        "mlp": 4591251456,
+        "attention": 875560960,
+        "mlp": 4654166016,
         "input_layernorm": 131072,
         "post_attention_layernorm": 131072,
         "total_accounted": 5798428672,
         "unaccounted": 0,
         "match": true
       },
-      "attention_params": 938475520,
-      "mlp_params": 4591251456,
-      "attention_params_M": 938.47552,
-      "mlp_params_M": 4591.251456,
-      "attention_ratio": 0.1618499723091877,
-      "mlp_ratio": 0.7918095945839032,
+      "attention_params": 875560960,
+      "mlp_params": 4654166016,
+      "attention_params_M": 875.56096,
+      "mlp_params_M": 4654.166016,
+      "attention_ratio": 0.15099969483594605,
+      "mlp_ratio": 0.8026598720571448,
       "model_size_mb": 11059.625244140625,
       "model_size_gb": 10.800415277481079
     },
     "ppl_quick_128": {
-      "wikitext2 (wikitext-2-raw-v1)": 296.3374328613281,
-      "ptb": 463.9674377441406
+      "wikitext2 (wikitext-2-raw-v1)": 321.0852355957031,
+      "ptb": 488.8889465332031
     },
     "ppl_standard_2048_512": {
-      "wikitext2 (wikitext-2-raw-v1)": 116.7258071899414,
-      "ptb": 512.4203491210938
+      "wikitext2 (wikitext-2-raw-v1)": 116.42219543457031,
+      "ptb": 433.2092590332031
     },
     "ppl": {
-      "wikitext2 (wikitext-2-raw-v1)": 116.7258071899414,
-      "ptb": 512.4203491210938
+      "wikitext2 (wikitext-2-raw-v1)": 116.42219543457031,
+      "ptb": 433.2092590332031
     },
-    "zeroshot": null
+    "zeroshot": {
+      "boolq": {
+        "accuracy": 0.37889908256880733,
+        "full_results": {
+          "acc,none": 0.37889908256880733,
+          "acc_stderr,none": 0.008484678718565153,
+          "alias": "boolq"
+        }
+      },
+      "piqa": {
+        "accuracy": 0.6996735582154516,
+        "full_results": {
+          "acc,none": 0.6985854189336235,
+          "acc_stderr,none": 0.010706248242753826,
+          "acc_norm,none": 0.6996735582154516,
+          "acc_norm_stderr,none": 0.010695225308183266,
+          "alias": "piqa"
+        }
+      },
+      "hellaswag": {
+        "accuracy": 0.48207528380800635,
+        "full_results": {
+          "acc,none": 0.368352917745469,
+          "acc_stderr,none": 0.004813719952829762,
+          "acc_norm,none": 0.48207528380800635,
+          "acc_norm_stderr,none": 0.004986573992451796,
+          "alias": "hellaswag"
+        }
+      },
+      "winogrande": {
+        "accuracy": 0.5138121546961326,
+        "full_results": {
+          "acc,none": 0.5138121546961326,
+          "acc_stderr,none": 0.014047122916440271,
+          "alias": "winogrande"
+        }
+      },
+      "arc_easy": {
+        "accuracy": 0.43265993265993263,
+        "full_results": {
+          "acc,none": 0.4633838383838384,
+          "acc_stderr,none": 0.010232235063932931,
+          "acc_norm,none": 0.43265993265993263,
+          "acc_norm_stderr,none": 0.010166307932643004,
+          "alias": "arc_easy"
+        }
+      },
+      "arc_challenge": {
+        "accuracy": 0.32764505119453924,
+        "full_results": {
+          "acc,none": 0.29436860068259385,
+          "acc_stderr,none": 0.013318528460539387,
+          "acc_norm,none": 0.32764505119453924,
+          "acc_norm_stderr,none": 0.013715847940719344,
+          "alias": "arc_challenge"
+        }
+      },
+      "openbookqa": {
+        "accuracy": 0.288,
+        "full_results": {
+          "acc,none": 0.174,
+          "acc_stderr,none": 0.01697127125751611,
+          "acc_norm,none": 0.288,
+          "acc_norm_stderr,none": 0.020271503835075255,
+          "alias": "openbookqa"
+        }
+      }
+    },
+    "avg_zeroshot_acc": 0.4461092947346957
   }
 }
