@@ -212,11 +212,14 @@ class FinetuningWorkflow:
         # 微调后的模型bin文件路径
         finetuned_model_bin = self.finetuned_dir / 'pruned_model.bin'
 
+        # 评估结果JSON文件路径
+        eval_output_json = self.eval_dir / 'evaluation_results.json'
+
         # 构建评估命令
         cmd = [
             'python', 'evaluation/run_evaluation.py',
             '--model_path', str(finetuned_model_bin),  # 指定bin文件路径
-            '--output', str(self.eval_dir),
+            '--output', str(eval_output_json),  # 指定输出JSON文件
             '--metrics', 'ppl,zeroshot',  # 只评估PPL和zero-shot任务
             '--auto_select_gpu'  # 自动选择GPU（会使用CUDA_VISIBLE_DEVICES）
         ]
@@ -227,6 +230,7 @@ class FinetuningWorkflow:
         try:
             subprocess.run(cmd, env=env, check=True)
             print(f"\n✓ 评估完成")
+            print(f"✓ 评估结果已保存: {eval_output_json}")
             return True
         except subprocess.CalledProcessError as e:
             print(f"\n✗ 评估失败: {e}")
