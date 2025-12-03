@@ -2,15 +2,15 @@
   "model": "Llama",
   "pruning_method": "blockwise",
   "params": {
-    "taylor_seq_len": 64,
-    "taylor_num_samples": 128
+    "taylor_seq_len": 256.0,
+    "taylor_num_samples": 512.0
   },
   "metrics": {
-    "acc_mean": 0.5980432152155284,
-    "ppl": 13.171745300292969,
-    "grad_norm_ratio": 12.174176803043103,
-    "grad_mean_ratio": 17.122734902582707,
-    "extreme_pruning_layers": 5.0
+    "acc_mean": 0.5946244317993996,
+    "ppl": 13.38770866394043,
+    "grad_norm_ratio": Infinity,
+    "grad_mean_ratio": 20.139832799964147,
+    "extreme_pruning_layers": 0.0
   },
-  "output_dir": "results/search_Llama_blockwise_20/exp_007_taylor_seq_len64_taylor_num_samples128"
+  "output_dir": "results/search_Llama_blockwise_20/exp_020_taylor_seq_len256_taylor_num_samples512"
 }

@@ -18,31 +18,30 @@
   },
   "parameter_distribution": {
     "taylor_seq_len": {
-      "64": 2,
+      "256": 2,
       "128": 1,
       "32": 3
     },
     "taylor_num_samples": {
-      "128": 2,
       "512": 2,
-      "4": 1,
-      "256": 1
+      "256": 2,
+      "4": 2
     }
   },
   "architecture_comparison": {
     "Llama": {
-      "avg_acc": 0.6149157174107998,
-      "avg_ppl": 13.232676982879639,
+      "avg_acc": 0.6132063257027354,
+      "avg_ppl": 13.34065866470337,
       "count": 2
     },
     "Qwen": {
-      "avg_acc": 0.6181289441182383,
-      "avg_ppl": 12.11433219909668,
+      "avg_acc": 0.6147879335536064,
+      "avg_ppl": 13.943569660186768,
       "count": 2
     },
     "Mistral": {
-      "avg_acc": 0.6249450504756922,
-      "avg_ppl": 18.80859088897705,
+      "avg_acc": 0.6206489569148741,
+      "avg_ppl": 19.774690628051758,
       "count": 2
     }
   },
@@ -51,49 +50,49 @@
       "model": "Llama",
       "pruning_method": "blockwise",
       "params": {
-        "taylor_seq_len": 64,
-        "taylor_num_samples": 128
+        "taylor_seq_len": 256.0,
+        "taylor_num_samples": 512.0
       },
       "metrics": {
-        "acc_mean": 0.5980432152155284,
-        "ppl": 13.171745300292969,
-        "grad_norm_ratio": 12.174176803043103,
-        "grad_mean_ratio": 17.122734902582707,
-        "extreme_pruning_layers": 5.0
+        "acc_mean": 0.5946244317993996,
+        "ppl": 13.38770866394043,
+        "grad_norm_ratio": Infinity,
+        "grad_mean_ratio": 20.139832799964147,
+        "extreme_pruning_layers": 0.0
       },
-      "output_dir": "results/search_Llama_blockwise_20/exp_007_taylor_seq_len64_taylor_num_samples128"
+      "output_dir": "results/search_Llama_blockwise_20/exp_020_taylor_seq_len256_taylor_num_samples512"
     },
     "Qwen": {
       "model": "Qwen",
       "pruning_method": "layerwise",
       "params": {
-        "taylor_seq_len": 128,
-        "taylor_num_samples": 512
+        "taylor_seq_len": 128.0,
+        "taylor_num_samples": 256.0
       },
       "metrics": {
-        "acc_mean": 0.616085336041312,
-        "ppl": 10.80429458618164,
-        "grad_norm_ratio": 1.8675130204784358,
-        "grad_mean_ratio": 7.71247021936212,
+        "acc_mean": 0.6094033149120482,
+        "ppl": 14.462769508361816,
+        "grad_norm_ratio": 1.9072258251710201,
+        "grad_mean_ratio": 7.591298958622707,
         "extreme_pruning_layers": 5.0
       },
-      "output_dir": "results/search_Qwen_layerwise_20/exp_012_taylor_seq_len128_taylor_num_samples512"
+      "output_dir": "results/search_Qwen_layerwise_20/exp_014_taylor_seq_len128_taylor_num_samples256"
     },
     "Mistral": {
       "model": "Mistral",
       "pruning_method": "blockwise",
       "params": {
-        "taylor_seq_len": 64,
-        "taylor_num_samples": 128
+        "taylor_seq_len": 256.0,
+        "taylor_num_samples": 4.0
       },
       "metrics": {
-        "acc_mean": 0.5946708313292756,
-        "ppl": 13.291704177856445,
-        "grad_norm_ratio": 10.71940002699822,
-        "grad_mean_ratio": 2.901091684162015,
-        "extreme_pruning_layers": 8.0
+        "acc_mean": 0.5860786442076396,
+        "ppl": 15.22390365600586,
+        "grad_norm_ratio": 7.77998145578193,
+        "grad_mean_ratio": 2.0944992187758795,
+        "extreme_pruning_layers": 5.0
       },
-      "output_dir": "results/search_Mistral_blockwise_20/exp_007_taylor_seq_len64_taylor_num_samples128"
+      "output_dir": "results/search_Mistral_blockwise_20/exp_016_taylor_seq_len256_taylor_num_samples4"
     },
     "Llama-Instruct": {
       "model": "Llama-Instruct",
@@ -105,7 +104,7 @@
       "metrics": {
         "acc_mean": 0.631788219606071,
         "ppl": 13.293608665466309,
-        "grad_norm_ratio": 15.555576870039515,
+        "grad_norm_ratio": 15.555576870039516,
         "grad_mean_ratio": 14.58986921431517,
         "extreme_pruning_layers": 4.0
       },
@@ -137,7 +136,7 @@
       "metrics": {
         "acc_mean": 0.6552192696221086,
         "ppl": 24.325477600097656,
-        "grad_norm_ratio": 23.286089741919277,
+        "grad_norm_ratio": 23.28608974191928,
         "grad_mean_ratio": 5.428321698002359,
         "extreme_pruning_layers": 3.0
       },
