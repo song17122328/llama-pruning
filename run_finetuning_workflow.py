@@ -183,8 +183,12 @@ class FinetuningWorkflow:
             return False
 
 
-    def evaluate(self):
-        """评估微调后的模型"""
+    def evaluate(self, gpu_id=None):
+        """评估微调后的模型
+
+        Args:
+            gpu_id: 指定使用的GPU ID，如果为None则自动选择
+        """
         print(f"\n{'='*80}")
         print(f"评估微调后模型: {self.model} - {self.config_type}")
         print(f"{'='*80}")
@@ -195,21 +199,30 @@ class FinetuningWorkflow:
         # 创建评估输出目录
         self.eval_dir.mkdir(parents=True, exist_ok=True)
 
+        # 获取GPU ID（如果未指定）
+        if gpu_id is None:
+            gpu_id = get_best_gpu()
+
+        # 设置环境变量
+        env = os.environ.copy()
+        env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+
+        print(f"\n使用GPU: {gpu_id}")
+
         # 构建评估命令
         cmd = [
-            'python', 'run_evaluation.py',
+            'python', 'evaluation/run_evaluation.py',
             '--model_path', str(self.finetuned_dir),
-            '--output_dir', str(self.eval_dir),
-            '--eval_ppl',  # 评估PPL
-            '--eval_zeroshot'  # 评估zero-shot ACC
+            '--output', str(self.eval_dir),
+            '--metrics', 'ppl,zeroshot',  # 只评估PPL和zero-shot任务
+            '--auto_select_gpu'  # 自动选择GPU（会使用CUDA_VISIBLE_DEVICES）
         ]
 
-        print(f"\n执行命令: {' '.join(cmd)}")
-        print(f"\n⚠️  注意：请确保 run_evaluation.py 存在并且支持LoRA模型评估")
+        print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
 
-        # 取消注释以下行来实际运行评估
+        # 运行评估
         try:
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, env=env, check=True)
             print(f"\n✓ 评估完成")
             return True
         except subprocess.CalledProcessError as e:
@@ -329,7 +342,7 @@ def run_single_task(model, config, stage, gpu_id):
                 return (task_name, False, "微调失败")
 
         if stage in ['evaluate', 'all']:
-            success = workflow.evaluate()
+            success = workflow.evaluate(gpu_id=gpu_id)
             if not success:
                 return (task_name, False, "评估失败")
 
