@@ -1,0 +1,32 @@
+{
+  "model": "Qwen-Instruct",
+  "config_type": "best_ppl",
+  "pruned_model_info": {
+    "selection_criterion": "best_ppl",
+    "ppl": 12.693197250366211,
+    "acc_mean": 0.611630258512203,
+    "pruning_method": "layerwise",
+    "taylor_seq_len": "32.0",
+    "taylor_num_samples": "512.0",
+    "source_dir": "results/search_Qwen-Instruct_layerwise_20/exp_005_taylor_seq_len32_taylor_num_samples512",
+    "model": "Qwen-Instruct",
+    "task_accuracies": {
+      "boolq": 0.6877675840978593,
+      "piqa": 0.7676822633297062,
+      "hellaswag": 0.6886078470424218,
+      "winogrande": 0.5943172849250198,
+      "arc_easy": 0.6885521885521886,
+      "arc_challenge": 0.4564846416382253,
+      "openbookqa": 0.398
+    }
+  },
+  "lora_config": {
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "num_epochs": 2,
+    "learning_rate": 0.0001,
+    "batch_size": 64,
+    "micro_batch_size": 4
+  }
+}

@@ -87,6 +87,8 @@ class FinetuningWorkflow:
 
         # 构建微调命令
         # 注意：这里需要根据实际的微调脚本调整
+        CUDA_VISIBLE_DEVICES=0
+
         cmd = [
             'python', 'finetune_lora.py',
             '--pruned_model', str(self.pruned_dir / 'pruned_model.bin'),
@@ -105,16 +107,14 @@ class FinetuningWorkflow:
         print(f"如果需要，请修改此脚本中的命令构建逻辑")
 
         # 取消注释以下行来实际运行微调
-        # try:
-        #     subprocess.run(cmd, check=True)
-        #     print(f"\n✓ 微调完成")
-        #     return True
-        # except subprocess.CalledProcessError as e:
-        #     print(f"\n✗ 微调失败: {e}")
-        #     return False
+        try:
+            subprocess.run(cmd, check=True)
+            print(f"\n✓ 微调完成")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"\n✗ 微调失败: {e}")
+            return False
 
-        print(f"\n✓ 微调命令已准备（未执行）")
-        return True
 
     def evaluate(self):
         """评估微调后的模型"""
@@ -141,16 +141,14 @@ class FinetuningWorkflow:
         print(f"\n⚠️  注意：请确保 run_evaluation.py 存在并且支持LoRA模型评估")
 
         # 取消注释以下行来实际运行评估
-        # try:
-        #     subprocess.run(cmd, check=True)
-        #     print(f"\n✓ 评估完成")
-        #     return True
-        # except subprocess.CalledProcessError as e:
-        #     print(f"\n✗ 评估失败: {e}")
-        #     return False
+        try:
+            subprocess.run(cmd, check=True)
+            print(f"\n✓ 评估完成")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"\n✗ 评估失败: {e}")
+            return False
 
-        print(f"\n✓ 评估命令已准备（未执行）")
-        return True
 
     def compare_results(self):
         """对比微调前后的结果"""

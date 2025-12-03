@@ -51,9 +51,7 @@ except ImportError:
     print("请运行: pip install peft")
     sys.exit(1)
 
-from core.utils.get_best_gpu import get_best_gpu
-device = "cuda:"+str(get_best_gpu()) if torch.cuda.is_available() else "cpu"
-
+device = "cuda:0"
 class Prompter:
     """Alpaca 风格的提示词生成器"""
 

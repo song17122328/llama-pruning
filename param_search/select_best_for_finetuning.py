@@ -61,7 +61,7 @@ def copy_model_for_finetuning(source_dir, dest_dir, selection_info):
     # 需要复制的文件和文件夹
     items_to_copy = [
         'pruned_model.bin',      # 剪枝后的模型
-        'config.json',           # 模型配置
+        # 'config.json',           # 模型配置
         'evaluation',            # 评估结果
         'analysis',              # 分析数据
         'visualization',         # 可视化

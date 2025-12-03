@@ -1,0 +1,32 @@
+{
+  "model": "Llama",
+  "config_type": "best_ppl",
+  "pruned_model_info": {
+    "selection_criterion": "best_ppl",
+    "ppl": 11.82449722290039,
+    "acc_mean": 0.5664722526805187,
+    "pruning_method": "blockwise",
+    "taylor_seq_len": "32.0",
+    "taylor_num_samples": "64.0",
+    "source_dir": "results/search_Llama_blockwise_20/exp_002_taylor_seq_len32_taylor_num_samples64",
+    "model": "Llama",
+    "task_accuracies": {
+      "boolq": 0.6305810397553517,
+      "piqa": 0.736126224156692,
+      "hellaswag": 0.622585142401912,
+      "winogrande": 0.6708760852407262,
+      "arc_easy": 0.5694444444444444,
+      "arc_challenge": 0.3796928327645051,
+      "openbookqa": 0.356
+    }
+  },
+  "lora_config": {
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "num_epochs": 2,
+    "learning_rate": 0.0001,
+    "batch_size": 64,
+    "micro_batch_size": 4
+  }
+}
