@@ -242,6 +242,13 @@ def main(args):
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, config)
+
+    # 启用梯度检查点以节省显存（base模型需要）
+    if args.gradient_checkpointing:
+        model.enable_input_require_grads()
+        model.gradient_checkpointing_enable()
+        print("✓ 梯度检查点已启用 (节省显存)")
+
     model.print_trainable_parameters()
 
     # 加载训练数据集
@@ -293,6 +300,7 @@ def main(args):
         args=transformers.TrainingArguments(
             per_device_train_batch_size=args.micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
+            gradient_checkpointing=args.gradient_checkpointing,
             warmup_steps=100,
             num_train_epochs=args.num_epochs,
             learning_rate=args.learning_rate,
@@ -348,12 +356,11 @@ def main(args):
     # 保存完整的微调模型 (pruned_model.bin 格式)
     model.half()
     finetuned_model_path = output_path / "pruned_model.bin"
+
+    # 构建保存字典
     save_dict = {
         'model': model,
         'tokenizer': tokenizer,
-        'layer_pruning_rates': pruned_dict.get('layer_pruning_rates', {}),
-        'layer_importance': pruned_dict.get('layer_importance', {}),
-        'pruning_method': pruned_dict.get('pruning_method', 'unknown'),
         'finetuned': True,
         'finetune_config': {
             'data_path': args.data_path,
@@ -365,6 +372,17 @@ def main(args):
         }
     }
 
+    # 如果是剪枝模型，添加剪枝信息
+    if hasattr(args, 'pruned_model') and args.pruned_model:
+        save_dict['layer_pruning_rates'] = pruned_dict.get('layer_pruning_rates', {})
+        save_dict['layer_importance'] = pruned_dict.get('layer_importance', {})
+        save_dict['pruning_method'] = pruned_dict.get('pruning_method', 'unknown')
+    else:
+        # Base模型，记录是未剪枝的
+        save_dict['layer_pruning_rates'] = {}
+        save_dict['layer_importance'] = {}
+        save_dict['pruning_method'] = 'none (base model)'
+
     torch.save(save_dict, finetuned_model_path)
     print(f"✓ 微调模型保存到: {finetuned_model_path}")
 
@@ -372,7 +390,8 @@ def main(args):
     print(f"\n清理GPU缓存...")
     del model
     del tokenizer
-    del pruned_dict
+    if 'pruned_dict' in locals():
+        del pruned_dict
     del save_dict
     gc.collect()
     if torch.cuda.is_available():
@@ -467,6 +486,8 @@ if __name__ == "__main__":
                        help='添加EOS token')
     parser.add_argument('--group_by_length', default=False, action="store_true",
                        help="按长度分组 (更快但loss曲线奇怪)")
+    parser.add_argument('--gradient_checkpointing', default=False, action="store_true",
+                       help='启用梯度检查点以节省显存 (训练会稍慢，但能处理更大模型)')
     parser.add_argument('--skip_evaluation', default=True, action="store_true",
                        help='跳过自动评估')
 

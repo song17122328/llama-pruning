@@ -145,15 +145,28 @@ class FinetuningWorkflow:
 
         # 默认LoRA配置
         if lora_config is None:
-            lora_config = {
-                'lora_r': 8,
-                'lora_alpha': 16,
-                'lora_dropout': 0.05,
-                'num_epochs': 2,
-                'learning_rate': 1e-4,
-                'batch_size': 64,
-                'micro_batch_size': 4
-            }
+            # Base模型需要更小的batch size（完整8B模型显存需求更大）
+            if self.config_type == 'base':
+                lora_config = {
+                    'lora_r': 8,
+                    'lora_alpha': 16,
+                    'lora_dropout': 0.05,
+                    'num_epochs': 2,
+                    'learning_rate': 1e-4,
+                    'batch_size': 64,
+                    'micro_batch_size': 1  # Base模型使用更小的micro_batch_size
+                }
+            else:
+                # 剪枝模型配置
+                lora_config = {
+                    'lora_r': 8,
+                    'lora_alpha': 16,
+                    'lora_dropout': 0.05,
+                    'num_epochs': 2,
+                    'learning_rate': 1e-4,
+                    'batch_size': 64,
+                    'micro_batch_size': 4
+                }
 
         print(f"\nLoRA配置:")
         for k, v in lora_config.items():
@@ -217,6 +230,10 @@ class FinetuningWorkflow:
             '--batch_size', str(lora_config['batch_size']),
             '--micro_batch_size', str(lora_config['micro_batch_size'])
         ])
+
+        # Base模型启用梯度检查点以节省显存
+        if self.config_type == 'base':
+            cmd.append('--gradient_checkpointing')
 
         print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
         print(f"\n⚠️  注意：请确保 finetune_lora.py 存在并且参数正确")
