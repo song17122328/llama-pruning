@@ -438,10 +438,14 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
             all_mlp_indices = set(range(intermediate_size))
             keep_mlp_indices = sorted(list(all_mlp_indices - set(mlp_prune_indices)))
 
-            if len(keep_mlp_indices) == 0:
-                # 所有channels都被剪枝，替换为 ZeroMLP
+            # 最小维度阈值：小于等于此值时替换为 ZeroMLP
+            # 原因：intermediate_size=1 时存在数值不稳定和内存布局问题
+            MIN_MLP_DIM = 1
+
+            if len(keep_mlp_indices) <= MIN_MLP_DIM:
+                # 维度过小，替换为 ZeroMLP
                 # 利用残差连接：hidden = hidden + 0 = hidden（跳过MLP）
-                log(f"  ⚠️ MLP 被完全剪空（{intermediate_size} → 0 channels），替换为 ZeroMLP")
+                log(f"  ⚠️ MLP 维度过小（{intermediate_size} → {len(keep_mlp_indices)} channels），替换为 ZeroMLP")
                 layer.mlp = ZeroMLP()
                 pruning_stats['mlp'][layer_idx] = (intermediate_size, 0)
             else:
