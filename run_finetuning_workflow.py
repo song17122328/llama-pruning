@@ -3,8 +3,11 @@
 LoRA微调工作流管理脚本
 
 用法:
-    # 微调单个模型的某个配置
+    # 微调单个模型的某个配置（剪枝模型）
     python run_finetuning_workflow.py --model Llama --config best_acc --stage finetune
+
+    # 微调单个模型的base配置（原始HF模型）
+    python run_finetuning_workflow.py --model Llama --config base --stage finetune
 
     # 评估微调后的模型
     python run_finetuning_workflow.py --model Llama --config best_acc --stage evaluate
@@ -12,7 +15,8 @@ LoRA微调工作流管理脚本
     # 完整流程（微调+评估）
     python run_finetuning_workflow.py --model Llama --config best_acc --stage all
 
-    # 批量处理所有模型（顺序执行）
+    # 批量处理所有模型和所有配置（顺序执行）
+    # 注意：现在包含3个配置类型（best_acc, best_ppl, base），共18个任务
     python run_finetuning_workflow.py --batch-all --stage all
 
     # 批量处理所有模型（并行使用4个GPU）
@@ -22,11 +26,16 @@ LoRA微调工作流管理脚本
     python run_finetuning_workflow.py --evaluate-base --num-gpus 4
 
     # 说明：
+    # - 配置类型:
+    #   * best_acc: 准确率最优的剪枝配置
+    #   * best_ppl: PPL最优的剪枝配置
+    #   * base: 原始HF模型（未剪枝）
     # - 每个模型在单张卡上训练（不是分布式训练）
     # - --num-gpus 指定同时运行的任务数，每个任务占用1张卡
     # - 自动选择显存最大的N张GPU
     # - 任务会轮询分配到不同的GPU上
     # - --evaluate-base 评估原始base模型，结果保存到 results/base_evaluation/
+    # - base配置的微调结果保存到 results/finetuned/{model}/base_finetuned/
 """
 
 import argparse
@@ -96,15 +105,23 @@ def get_best_gpus(num_gpus):
 class FinetuningWorkflow:
     def __init__(self, model, config_type):
         self.model = model
-        self.config_type = config_type  # 'best_acc' or 'best_ppl'
+        self.config_type = config_type  # 'best_acc', 'best_ppl', or 'base'
 
         # 路径设置
-        self.pruned_dir = Path('results') / 'for_finetuning' / model / config_type
+        if config_type == 'base':
+            # Base模型使用HF格式路径
+            self.base_model_path = BASE_MODEL_PATHS[model]
+            self.pruned_dir = None  # Base模型没有pruned_dir
+        else:
+            # 剪枝模型路径
+            self.pruned_dir = Path('results') / 'for_finetuning' / model / config_type
+            self.base_model_path = None
+
         self.finetuned_dir = Path('results') / 'finetuned' / model / f'{config_type}_finetuned'
         self.eval_dir = Path('results') / 'finetuned_evaluation' / model / f'{config_type}_finetuned'
 
-        # 加载选择信息
-        self.selection_info = self.load_selection_info()
+        # 加载选择信息（base模型没有）
+        self.selection_info = self.load_selection_info() if config_type != 'base' else None
 
     def load_selection_info(self):
         """加载模型选择信息"""
@@ -142,7 +159,10 @@ class FinetuningWorkflow:
         for k, v in lora_config.items():
             print(f"  {k}: {v}")
 
-        print(f"\n剪枝模型目录: {self.pruned_dir}")
+        if self.config_type == 'base':
+            print(f"\nBase模型路径: {self.base_model_path}")
+        else:
+            print(f"\n剪枝模型目录: {self.pruned_dir}")
         print(f"微调输出目录: {self.finetuned_dir}")
 
         # 创建输出目录
@@ -150,13 +170,18 @@ class FinetuningWorkflow:
 
         # 保存微调配置
         config_file = self.finetuned_dir / 'finetuning_config.json'
+        config_data = {
+            'model': self.model,
+            'config_type': self.config_type,
+            'lora_config': lora_config
+        }
+        if self.config_type == 'base':
+            config_data['base_model_path'] = self.base_model_path
+        else:
+            config_data['pruned_model_info'] = self.selection_info
+
         with open(config_file, 'w') as f:
-            json.dump({
-                'model': self.model,
-                'config_type': self.config_type,
-                'pruned_model_info': self.selection_info,
-                'lora_config': lora_config
-            }, f, indent=2)
+            json.dump(config_data, f, indent=2)
 
         print(f"\n微调配置已保存: {config_file}")
 
@@ -171,9 +196,18 @@ class FinetuningWorkflow:
         print(f"\n使用GPU: {gpu_id}")
 
         # 构建微调命令
-        cmd = [
-            'python', 'finetune_lora.py',
-            '--pruned_model', str(self.pruned_dir / 'pruned_model.bin'),
+        cmd = ['python', 'finetune_lora.py']
+
+        # 根据config_type选择模型参数
+        if self.config_type == 'base':
+            # Base模型使用--base_model参数
+            cmd.extend(['--base_model', self.base_model_path])
+        else:
+            # 剪枝模型使用--pruned_model参数
+            cmd.extend(['--pruned_model', str(self.pruned_dir / 'pruned_model.bin')])
+
+        # 添加其他参数
+        cmd.extend([
             '--output_dir', str(self.finetuned_dir),
             '--lora_r', str(lora_config['lora_r']),
             '--lora_alpha', str(lora_config['lora_alpha']),
@@ -182,7 +216,7 @@ class FinetuningWorkflow:
             '--learning_rate', str(lora_config['learning_rate']),
             '--batch_size', str(lora_config['batch_size']),
             '--micro_batch_size', str(lora_config['micro_batch_size'])
-        ]
+        ])
 
         print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
         print(f"\n⚠️  注意：请确保 finetune_lora.py 存在并且参数正确")
@@ -264,9 +298,17 @@ class FinetuningWorkflow:
         print(f"{'='*80}")
 
         # 读取微调前的结果
-        before_eval = self.pruned_dir / 'evaluation' / 'evaluation_results.json'
+        if self.config_type == 'base':
+            # Base模型的微调前结果在base_evaluation目录
+            before_eval = Path('results') / 'base_evaluation' / self.model / 'evaluation_results.json'
+        else:
+            # 剪枝模型的微调前结果在pruned_dir
+            before_eval = self.pruned_dir / 'evaluation' / 'evaluation_results.json'
+
         if not before_eval.exists():
-            print(f"⚠️  找不到微调前的评估结果")
+            print(f"⚠️  找不到微调前的评估结果: {before_eval}")
+            if self.config_type == 'base':
+                print(f"提示: 请先运行 python {sys.argv[0]} --evaluate-base 评估base模型")
             return
 
         # 读取微调后的结果
@@ -300,8 +342,12 @@ class FinetuningWorkflow:
         report.append(f"微调前后性能对比")
         report.append(f"="*80)
         report.append(f"\n模型: {self.model}")
-        report.append(f"配置: {self.config_type} ({self.selection_info['selection_criterion']})")
-        report.append(f"剪枝方法: {self.selection_info['pruning_method']}")
+
+        if self.config_type == 'base':
+            report.append(f"配置: {self.config_type} (原始HF模型)")
+        else:
+            report.append(f"配置: {self.config_type} ({self.selection_info['selection_criterion']})")
+            report.append(f"剪枝方法: {self.selection_info['pruning_method']}")
 
         # PPL对比
         if 'metrics' in before and 'ppl' in before['metrics']:
@@ -473,8 +519,8 @@ def main():
     parser.add_argument('--model', type=str,
                        choices=['Llama', 'Llama-Instruct', 'Qwen', 'Qwen-Instruct', 'Mistral', 'Mistral-Instruct'],
                        help='模型名称')
-    parser.add_argument('--config', type=str, choices=['best_acc', 'best_ppl'],
-                       help='配置类型')
+    parser.add_argument('--config', type=str, choices=['best_acc', 'best_ppl', 'base'],
+                       help='配置类型 (best_acc/best_ppl为剪枝模型配置，base为原始HF模型)')
     parser.add_argument('--stage', type=str, choices=['finetune', 'evaluate', 'compare', 'all', 'evaluate_base'],
                        default='all', help='执行阶段')
     parser.add_argument('--batch-all', action='store_true',
@@ -550,7 +596,7 @@ def main():
     if args.batch_all:
         # 批量处理
         models = ['Llama', 'Llama-Instruct', 'Qwen', 'Qwen-Instruct', 'Mistral', 'Mistral-Instruct']
-        configs = ['best_acc', 'best_ppl']
+        configs = ['best_acc', 'best_ppl', 'base']
 
         print(f"\n{'='*80}")
         print(f"批量处理所有模型")

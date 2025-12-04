@@ -110,17 +110,36 @@ def main(args):
         os.environ["WANDB_DISABLED"] = "true"
         print("WandB 已禁用")
 
-    # 加载剪枝后的模型
-    print(f"\n加载剪枝模型: {args.pruned_model}")
-    pruned_dict = torch.load(args.pruned_model, map_location=args.device,weights_only=False)
-    tokenizer = pruned_dict['tokenizer']
-    model = pruned_dict['model']
-    print(f"✓ 模型加载成功")
+    # 加载模型
+    if hasattr(args, 'base_model') and args.base_model:
+        # 加载HF格式的base模型
+        print(f"\n加载HF Base模型: {args.base_model}")
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    # 获取原模型名称（用于保存）
-    pruned_model_path = Path(args.pruned_model)
-    original_model_name = pruned_model_path.parent.name
-    output_model_name = f"{original_model_name}_finetuned"
+        tokenizer = AutoTokenizer.from_pretrained(args.base_model, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            args.base_model,
+            trust_remote_code=True,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        print(f"✓ Base模型加载成功")
+
+        # 从路径获取模型名称
+        original_model_name = Path(args.base_model).name
+        output_model_name = f"{original_model_name}_finetuned"
+    else:
+        # 加载剪枝后的模型
+        print(f"\n加载剪枝模型: {args.pruned_model}")
+        pruned_dict = torch.load(args.pruned_model, map_location=args.device,weights_only=False)
+        tokenizer = pruned_dict['tokenizer']
+        model = pruned_dict['model']
+        print(f"✓ 模型加载成功")
+
+        # 获取原模型名称（用于保存）
+        pruned_model_path = Path(args.pruned_model)
+        original_model_name = pruned_model_path.parent.name
+        output_model_name = f"{original_model_name}_finetuned"
 
     # 设置输出目录
     if args.output_dir:
@@ -402,11 +421,13 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='LoRA 微调剪枝后的模型')
+    parser = argparse.ArgumentParser(description='LoRA 微调剪枝后的模型或HF Base模型')
 
     # 模型和数据路径
-    parser.add_argument('--pruned_model', type=str, required=True,
+    parser.add_argument('--pruned_model', type=str, default=None,
                        help='剪枝模型路径 (pruned_model.bin)')
+    parser.add_argument('--base_model', type=str, default=None,
+                       help='HF格式的base模型路径（用于微调原始模型）')
     parser.add_argument('--data_path', type=str, default="yahma/alpaca-cleaned",
                        help='训练数据集路径')
     parser.add_argument('--output_dir', type=str, default=None,
@@ -464,5 +485,11 @@ if __name__ == "__main__":
                        help='DDP local rank')
 
     args = parser.parse_args()
+
+    # 验证至少提供一个模型路径
+    if not args.pruned_model and not args.base_model:
+        parser.error("必须提供 --pruned_model 或 --base_model 其中之一")
+    if args.pruned_model and args.base_model:
+        parser.error("--pruned_model 和 --base_model 不能同时使用")
 
     main(args)
