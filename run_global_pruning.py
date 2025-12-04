@@ -449,27 +449,28 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
                 keep_mlp_indices_tensor = torch.tensor(keep_mlp_indices, device=layer.mlp.gate_proj.weight.device)
 
                 # 剪枝 gate_proj 和 up_proj（保留对应的行）
+                # 重要：使用 .contiguous() 确保内存连续，避免 SDPA 等操作报错
                 layer.mlp.gate_proj.weight = torch.nn.Parameter(
-                    layer.mlp.gate_proj.weight[keep_mlp_indices_tensor, :]
+                    layer.mlp.gate_proj.weight[keep_mlp_indices_tensor, :].contiguous()
                 )
                 # 剪枝 gate_proj bias（如果存在，用于 Qwen2.5 等模型）
                 if layer.mlp.gate_proj.bias is not None:
                     layer.mlp.gate_proj.bias = torch.nn.Parameter(
-                        layer.mlp.gate_proj.bias[keep_mlp_indices_tensor]
+                        layer.mlp.gate_proj.bias[keep_mlp_indices_tensor].contiguous()
                     )
 
                 layer.mlp.up_proj.weight = torch.nn.Parameter(
-                    layer.mlp.up_proj.weight[keep_mlp_indices_tensor, :]
+                    layer.mlp.up_proj.weight[keep_mlp_indices_tensor, :].contiguous()
                 )
                 # 剪枝 up_proj bias（如果存在）
                 if layer.mlp.up_proj.bias is not None:
                     layer.mlp.up_proj.bias = torch.nn.Parameter(
-                        layer.mlp.up_proj.bias[keep_mlp_indices_tensor]
+                        layer.mlp.up_proj.bias[keep_mlp_indices_tensor].contiguous()
                     )
 
                 # 剪枝 down_proj（保留对应的列）
                 layer.mlp.down_proj.weight = torch.nn.Parameter(
-                    layer.mlp.down_proj.weight[:, keep_mlp_indices_tensor]
+                    layer.mlp.down_proj.weight[:, keep_mlp_indices_tensor].contiguous()
                 )
                 # down_proj bias 不需要剪枝（只剪了输入维度，输出维度不变）
                 # if layer.mlp.down_proj.bias is not None:
