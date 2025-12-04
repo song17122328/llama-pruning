@@ -1,0 +1,1 @@
+python llama3.py --pruning_ratio 0.27 --device cuda --eval_device cuda --base_model /newdata/LLMs/Qwen2.5-7B --block_wise --block_mlp_layer_start 3 --block_mlp_layer_end 27 --block_attention_layer_start 3 --block_attention_layer_end 27 --save_ckpt_log_name Qwen_conservative_20 --pruner_type taylor --taylor param_first --max_seq_len 2048 --save_model
