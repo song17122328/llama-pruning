@@ -15,14 +15,20 @@ LoRA微调工作流管理脚本
     # 完整流程（微调+评估）
     python run_finetuning_workflow.py --model Llama --config best_acc --stage all
 
+    # 【新功能】处理单个模型的所有配置（自动跳过已完成）
+    python run_finetuning_workflow.py --model Llama-Instruct --model-all --skip-completed --stage all
+
+    # 【新功能】并行处理单个模型的所有配置
+    python run_finetuning_workflow.py --model Qwen --model-all --skip-completed --num-gpus 4 --stage all
+
     # 批量处理所有模型和所有配置（顺序执行）
     # 注意：现在包含8-9个配置类型（根据模型不同），共约48个任务
     #      - 6个通用配置: best_acc, best_ppl, base, wanda, magnitude, LLMPruner
     #      - 2个ShortGPT配置 (Llama/Llama-Instruct: remove_7/8; 其他: remove_6/7)
     python run_finetuning_workflow.py --batch-all --stage all
 
-    # 批量处理所有模型（并行使用4个GPU）
-    python run_finetuning_workflow.py --batch-all --stage finetune --num-gpus 4
+    # 批量处理所有模型（并行使用4个GPU，跳过已完成）
+    python run_finetuning_workflow.py --batch-all --skip-completed --stage finetune --num-gpus 4
 
     # 评估所有base模型（原始未剪枝模型，用于对比）
     python run_finetuning_workflow.py --evaluate-base --num-gpus 4
@@ -51,6 +57,8 @@ import os
 from pathlib import Path
 import sys
 import time
+from datetime import datetime
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.utils.get_best_gpu import get_best_gpu
 
@@ -64,6 +72,119 @@ BASE_MODEL_PATHS = {
     'Mistral': '/newdata/LLMs/Mistral-7B-v0.3',
     'Mistral-Instruct': '/newdata/LLMs/Mistral-7B-Instruct-v0.3'
 }
+
+
+def setup_logging(log_file=None):
+    """
+    设置日志系统，同时输出到终端和文件
+
+    Args:
+        log_file: 日志文件路径，如果为None则只输出到终端
+    """
+    # 创建logger
+    logger = logging.getLogger('finetuning_workflow')
+    logger.setLevel(logging.INFO)
+
+    # 清除已有的handlers（避免重复）
+    logger.handlers.clear()
+
+    # 格式化
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+    # 终端输出
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # 文件输出
+    if log_file:
+        file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        logger.info(f"日志已保存到: {log_file}")
+
+    return logger
+
+
+def check_task_completed(model, config_type, stage='all'):
+    """
+    检查任务是否已完成
+
+    Args:
+        model: 模型名称
+        config_type: 配置类型
+        stage: 执行阶段 ('finetune', 'evaluate', 'compare', 'all')
+
+    Returns:
+        bool: 是否已完成
+    """
+    finetuned_dir = Path('results') / 'finetuned' / model / f'{config_type}_finetuned'
+    eval_dir = Path('results') / 'finetuned_evaluation' / model / f'{config_type}_finetuned'
+
+    # 检查微调是否完成
+    finetune_completed = False
+    if stage in ['finetune', 'all']:
+        # 检查是否存在 pruned_model.bin（微调完成的标志）
+        model_file = finetuned_dir / 'pruned_model.bin'
+        # 或者检查是否存在 adapter_model.safetensors（LoRA权重）
+        lora_file = finetuned_dir / 'adapter_model.safetensors'
+        finetune_completed = model_file.exists() or lora_file.exists()
+
+    # 检查评估是否完成
+    evaluate_completed = False
+    if stage in ['evaluate', 'all']:
+        eval_result = eval_dir / 'evaluation_results.json'
+        evaluate_completed = eval_result.exists()
+
+    # 检查对比是否完成
+    compare_completed = False
+    if stage in ['compare', 'all']:
+        compare_report = eval_dir / 'comparison_report.txt'
+        compare_completed = compare_report.exists()
+
+    # 根据stage判断是否完成
+    if stage == 'finetune':
+        return finetune_completed
+    elif stage == 'evaluate':
+        return evaluate_completed
+    elif stage == 'compare':
+        return compare_completed
+    elif stage == 'all':
+        # all阶段需要所有步骤都完成
+        return finetune_completed and evaluate_completed and compare_completed
+
+    return False
+
+
+def get_all_configs_for_model(model):
+    """
+    获取某个模型的所有配置列表
+
+    Args:
+        model: 模型名称
+
+    Returns:
+        list: 配置列表
+    """
+    # 基础配置
+    configs = ['best_acc', 'best_ppl', 'base', 'wanda', 'magnitude', 'LLMPruner']
+
+    # ShortGPT根据模型类型有不同版本
+    shortgpt_configs = {
+        'Llama': ['ShortGPT_remove_7', 'ShortGPT_remove_8'],
+        'Llama-Instruct': ['ShortGPT_remove_7', 'ShortGPT_remove_8'],
+        'Mistral': ['ShortGPT_remove_6', 'ShortGPT_remove_7'],
+        'Mistral-Instruct': ['ShortGPT_remove_6', 'ShortGPT_remove_7'],
+        'Qwen': ['ShortGPT_remove_6', 'ShortGPT_remove_7'],
+        'Qwen-Instruct': ['ShortGPT_remove_6', 'ShortGPT_remove_7']
+    }
+
+    # 添加该模型的ShortGPT配置
+    configs.extend(shortgpt_configs.get(model, []))
+
+    return configs
 
 
 def get_best_gpus(num_gpus):
@@ -507,11 +628,27 @@ def evaluate_base_model(model, gpu_id=None):
         return False
 
 
-def run_single_task(model, config, stage, gpu_id):
-    """运行单个任务（在指定GPU上）"""
+def run_single_task(model, config, stage, gpu_id, skip_completed=False, logger=None):
+    """运行单个任务（在指定GPU上）
+
+    Args:
+        model: 模型名称
+        config: 配置类型
+        stage: 执行阶段
+        gpu_id: GPU ID
+        skip_completed: 是否跳过已完成的任务
+        logger: 日志对象
+    """
     task_name = f"{model}/{config}"
+    log_func = logger.info if logger else print
+
     try:
-        print(f"\n[GPU {gpu_id}] 开始处理: {task_name}")
+        # 检查任务是否已完成
+        if skip_completed and check_task_completed(model, config, stage):
+            log_func(f"[GPU {gpu_id}] ⊙ 跳过已完成: {task_name}")
+            return (task_name, True, "已完成（跳过）")
+
+        log_func(f"[GPU {gpu_id}] 开始处理: {task_name}")
         workflow = FinetuningWorkflow(model, config)
 
         if stage in ['finetune', 'all']:
@@ -527,11 +664,11 @@ def run_single_task(model, config, stage, gpu_id):
         if stage in ['compare', 'all']:
             workflow.compare_results()
 
-        print(f"\n[GPU {gpu_id}] ✓ 完成: {task_name}")
+        log_func(f"[GPU {gpu_id}] ✓ 完成: {task_name}")
         return (task_name, True, "成功")
 
     except Exception as e:
-        print(f"\n[GPU {gpu_id}] ✗ 处理 {task_name} 时出错: {e}")
+        log_func(f"[GPU {gpu_id}] ✗ 处理 {task_name} 时出错: {e}")
         return (task_name, False, str(e))
 
 
@@ -565,12 +702,28 @@ def main():
                        default='all', help='执行阶段')
     parser.add_argument('--batch-all', action='store_true',
                        help='批量处理所有模型和配置')
+    parser.add_argument('--model-all', action='store_true',
+                       help='处理指定模型的所有配置（需配合 --model 使用）')
     parser.add_argument('--num-gpus', type=int, default=1,
                        help='并行使用的GPU数量（默认1，顺序执行）')
     parser.add_argument('--evaluate-base', action='store_true',
                        help='评估base模型（原始未剪枝模型）')
+    parser.add_argument('--skip-completed', action='store_true',
+                       help='跳过已完成的任务（自动检测）')
+    parser.add_argument('--log-file', type=str, default=None,
+                       help='日志文件路径（默认: logs/finetuning_workflow_YYYYMMDD_HHMMSS.log）')
 
     args = parser.parse_args()
+
+    # 设置日志
+    if args.log_file is None and (args.batch_all or args.model_all or args.evaluate_base):
+        # 批量模式自动创建日志文件
+        log_dir = Path('logs')
+        log_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        args.log_file = str(log_dir / f'finetuning_workflow_{timestamp}.log')
+
+    logger = setup_logging(args.log_file)
 
     # 处理evaluate_base选项
     if args.evaluate_base or args.stage == 'evaluate_base':
@@ -633,6 +786,103 @@ def main():
 
         return
 
+    # 处理 model-all 选项：处理指定模型的所有配置
+    if args.model_all:
+        if not args.model:
+            parser.error("使用 --model-all 需要同时指定 --model")
+
+        configs = get_all_configs_for_model(args.model)
+
+        logger.info(f"\n{'='*80}")
+        logger.info(f"处理模型所有配置: {args.model}")
+        logger.info(f"{'='*80}")
+        logger.info(f"\n将处理 {len(configs)} 个配置: {', '.join(configs)}")
+        if args.skip_completed:
+            logger.info("启用跳过已完成任务功能")
+
+        # 构建任务列表
+        tasks = [(args.model, config) for config in configs]
+
+        if args.num_gpus > 1:
+            # 并行模式
+            logger.info(f"\n并行模式: 使用 {args.num_gpus} 个GPU")
+
+            # 获取最佳的N个GPU
+            gpu_ids = get_best_gpus(args.num_gpus)
+
+            # 使用线程池并行执行
+            results = []
+            with ThreadPoolExecutor(max_workers=args.num_gpus) as executor:
+                # 提交所有任务
+                future_to_task = {}
+                for i, (model, config) in enumerate(tasks):
+                    # 轮询分配GPU
+                    gpu_id = gpu_ids[i % len(gpu_ids)]
+                    future = executor.submit(run_single_task, model, config, args.stage, gpu_id,
+                                           args.skip_completed, logger)
+                    future_to_task[future] = (model, config)
+
+                # 等待任务完成
+                for future in as_completed(future_to_task):
+                    task_name, success, msg = future.result()
+                    results.append((task_name, success, msg))
+
+            # 打印结果摘要
+            logger.info(f"\n{'='*80}")
+            logger.info(f"处理完成")
+            logger.info(f"{'='*80}")
+            success_count = sum(1 for _, success, _ in results if success)
+            logger.info(f"\n成功: {success_count}/{len(results)}")
+
+            # 统计跳过的任务
+            skipped_count = sum(1 for _, success, msg in results if success and "跳过" in msg)
+            if skipped_count > 0:
+                logger.info(f"跳过: {skipped_count}")
+
+            if success_count < len(results):
+                logger.info("\n失败的任务:")
+                for task_name, success, msg in results:
+                    if not success:
+                        logger.info(f"  ✗ {task_name}: {msg}")
+        else:
+            # 顺序模式
+            logger.info(f"\n顺序模式: 逐个处理")
+            success_count = 0
+            skipped_count = 0
+
+            for model, config in tasks:
+                try:
+                    # 检查是否跳过
+                    if args.skip_completed and check_task_completed(model, config, args.stage):
+                        logger.info(f"⊙ 跳过已完成: {model}/{config}")
+                        skipped_count += 1
+                        success_count += 1
+                        continue
+
+                    workflow = FinetuningWorkflow(model, config)
+
+                    if args.stage in ['finetune', 'all']:
+                        workflow.finetune()
+
+                    if args.stage in ['evaluate', 'all']:
+                        workflow.evaluate()
+
+                    if args.stage in ['compare', 'all']:
+                        workflow.compare_results()
+
+                    success_count += 1
+
+                except Exception as e:
+                    logger.error(f"\n✗ 处理 {model}/{config} 时出错: {e}")
+                    continue
+
+            logger.info(f"\n✓ 处理完成")
+            logger.info(f"成功: {success_count}/{len(tasks)}")
+            if skipped_count > 0:
+                logger.info(f"跳过: {skipped_count}")
+
+        return
+
     if args.batch_all:
         # 批量处理
         models = ['Llama', 'Llama-Instruct', 'Qwen', 'Qwen-Instruct', 'Mistral', 'Mistral-Instruct']
@@ -670,7 +920,9 @@ def main():
 
         if args.num_gpus > 1:
             # 并行模式
-            print(f"\n并行模式: 使用 {args.num_gpus} 个GPU")
+            logger.info(f"\n并行模式: 使用 {args.num_gpus} 个GPU")
+            if args.skip_completed:
+                logger.info("启用跳过已完成任务功能")
 
             # 获取最佳的N个GPU
             gpu_ids = get_best_gpus(args.num_gpus)
@@ -683,7 +935,8 @@ def main():
                 for i, (model, config) in enumerate(tasks):
                     # 轮询分配GPU
                     gpu_id = gpu_ids[i % len(gpu_ids)]
-                    future = executor.submit(run_single_task, model, config, args.stage, gpu_id)
+                    future = executor.submit(run_single_task, model, config, args.stage, gpu_id,
+                                           args.skip_completed, logger)
                     future_to_task[future] = (model, config)
 
                 # 等待任务完成
@@ -692,22 +945,40 @@ def main():
                     results.append((task_name, success, msg))
 
             # 打印结果摘要
-            print(f"\n{'='*80}")
-            print(f"批量处理完成")
-            print(f"{'='*80}")
+            logger.info(f"\n{'='*80}")
+            logger.info(f"批量处理完成")
+            logger.info(f"{'='*80}")
             success_count = sum(1 for _, success, _ in results if success)
-            print(f"\n成功: {success_count}/{len(results)}")
+            logger.info(f"\n成功: {success_count}/{len(results)}")
+
+            # 统计跳过的任务
+            skipped_count = sum(1 for _, success, msg in results if success and "跳过" in msg)
+            if skipped_count > 0:
+                logger.info(f"跳过: {skipped_count}")
 
             if success_count < len(results):
-                print("\n失败的任务:")
+                logger.info("\n失败的任务:")
                 for task_name, success, msg in results:
                     if not success:
-                        print(f"  ✗ {task_name}: {msg}")
+                        logger.info(f"  ✗ {task_name}: {msg}")
         else:
             # 顺序模式
-            print(f"\n顺序模式: 逐个处理")
+            logger.info(f"\n顺序模式: 逐个处理")
+            if args.skip_completed:
+                logger.info("启用跳过已完成任务功能")
+
+            success_count = 0
+            skipped_count = 0
+
             for model, config in tasks:
                 try:
+                    # 检查是否跳过
+                    if args.skip_completed and check_task_completed(model, config, args.stage):
+                        logger.info(f"⊙ 跳过已完成: {model}/{config}")
+                        skipped_count += 1
+                        success_count += 1
+                        continue
+
                     workflow = FinetuningWorkflow(model, config)
 
                     if args.stage in ['finetune', 'all']:
@@ -719,11 +990,16 @@ def main():
                     if args.stage in ['compare', 'all']:
                         workflow.compare_results()
 
+                    success_count += 1
+
                 except Exception as e:
-                    print(f"\n✗ 处理 {model}/{config} 时出错: {e}")
+                    logger.error(f"\n✗ 处理 {model}/{config} 时出错: {e}")
                     continue
 
-            print(f"\n✓ 批量处理完成")
+            logger.info(f"\n✓ 批量处理完成")
+            logger.info(f"成功: {success_count}/{len(tasks)}")
+            if skipped_count > 0:
+                logger.info(f"跳过: {skipped_count}")
     else:
         # 单个处理
         if not args.model or not args.config:
