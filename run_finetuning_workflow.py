@@ -145,28 +145,18 @@ class FinetuningWorkflow:
 
         # 默认LoRA配置
         if lora_config is None:
-            # Base模型需要更小的batch size（完整8B模型显存需求更大）
-            if self.config_type == 'base':
-                lora_config = {
-                    'lora_r': 8,
-                    'lora_alpha': 16,
-                    'lora_dropout': 0.05,
-                    'num_epochs': 2,
-                    'learning_rate': 1e-4,
-                    'batch_size': 64,
-                    'micro_batch_size': 1  # Base模型使用更小的micro_batch_size
-                }
-            else:
-                # 剪枝模型配置
-                lora_config = {
-                    'lora_r': 8,
-                    'lora_alpha': 16,
-                    'lora_dropout': 0.05,
-                    'num_epochs': 2,
-                    'learning_rate': 1e-4,
-                    'batch_size': 64,
-                    'micro_batch_size': 4
-                }
+            # 为了实验公平性，所有配置使用相同的micro_batch_size=1
+            # 这样gradient_accumulation_steps对所有模型都是64步
+            # 虽然剪枝模型可以用更大的batch，但为了可比性统一配置
+            lora_config = {
+                'lora_r': 8,
+                'lora_alpha': 16,
+                'lora_dropout': 0.05,
+                'num_epochs': 2,
+                'learning_rate': 1e-4,
+                'batch_size': 64,
+                'micro_batch_size': 1  # 统一使用1以保证实验公平性
+            }
 
         print(f"\nLoRA配置:")
         for k, v in lora_config.items():
@@ -231,9 +221,10 @@ class FinetuningWorkflow:
             '--micro_batch_size', str(lora_config['micro_batch_size'])
         ])
 
-        # Base模型启用梯度检查点以节省显存
-        if self.config_type == 'base':
-            cmd.append('--gradient_checkpointing')
+        # 为了实验公平性，所有配置都启用梯度检查点
+        # 虽然剪枝模型可以不用，但为了保证训练过程一致性，统一启用
+        # gradient_checkpointing在数学上等价，只影响计算方式（节省显存但略慢）
+        cmd.append('--gradient_checkpointing')
 
         print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
         print(f"\n⚠️  注意：请确保 finetune_lora.py 存在并且参数正确")
