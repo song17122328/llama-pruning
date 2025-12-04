@@ -41,7 +41,7 @@ def main():
                        help='数据集选择（默认: wikitext2）')
     parser.add_argument('--run_evaluation', action='store_true', default=True,
                        help='运行评估（默认: True）')
-    parser.add_argument('--eval_metrics', type=str, default='ppl,zeroshot,speed,memory',
+    parser.add_argument('--eval_metrics', type=str, default='ppl,zeroshot',
                        help='评估指标（默认: ppl,zeroshot,speed,memory）')
     parser.add_argument('--finetune', action='store_true',
                        help='剪枝后进行 LoRA 微调')

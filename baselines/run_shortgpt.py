@@ -80,8 +80,8 @@ def main():
     # 评估参数
     parser.add_argument('--run_evaluation', action='store_true', default=True,
                        help='运行评估（默认: True）')
-    parser.add_argument('--eval_metrics', type=str, default='ppl,zeroshot,speed,memory',
-                       help='评估指标（默认: ppl,zeroshot,speed,memory）')
+    parser.add_argument('--eval_metrics', type=str, default='ppl,zeroshot',
+                       help='评估指标（默认: ppl,zeroshot')
 
     # 微调参数
     parser.add_argument('--finetune', action='store_true',
@@ -340,7 +340,7 @@ def main():
             zeroshot_tasks=['boolq', 'piqa', 'hellaswag', 'winogrande', 'arc_easy', 'arc_challenge', 'openbookqa'],
             speed_samples=50,
             verbose=True,
-            use_custom_zeroshot=True,
+            use_custom_zeroshot=False,
             zeroshot_batch_size=8
         )
 

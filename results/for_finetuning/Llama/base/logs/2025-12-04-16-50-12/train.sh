@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B --output_name for_finetuning/Llama/base --pruning_ratio 0 --temperature 0.0

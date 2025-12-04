@@ -732,8 +732,8 @@ def select_groups_to_prune(df: pd.DataFrame, pruning_ratio: float, total_params:
 
     # 如果没有超过，说明要剪掉所有
     if prune_mask.sum() == 0:
-        print("⚠️ 警告：目标剪枝量太小，至少剪掉1个group")
-        prune_mask.iloc[0] = True
+        print("⚠️ 警告：目标剪枝量太小")
+        # prune_mask.iloc[0] = True
 
     groups_to_prune = df[prune_mask].copy()
     actual_pruned_params = groups_to_prune['cost'].sum()

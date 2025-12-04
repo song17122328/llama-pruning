@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Mistral-7B-Instruct-v0.3/ --n_remove_layers 6 --output_name /data/home/yuanxiaosong/llama-pruning/results/for_finetuning/Mistral-Instruct/ShortGPT_remove_6 --eval_metrics ppl,zeroshot

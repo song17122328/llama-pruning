@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Qwen2.5-7B-Instruct --output_name for_finetuning/Qwen-Instruct/base --pruning_ratio 0 --temperature 0

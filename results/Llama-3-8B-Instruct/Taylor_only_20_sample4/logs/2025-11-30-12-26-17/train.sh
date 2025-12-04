@@ -1,1 +1,0 @@
-python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --output_name Llama-3-8B-Instruct/Taylor_only_20_sample4 --pruning_ratio 0.2 --temperature 0.0

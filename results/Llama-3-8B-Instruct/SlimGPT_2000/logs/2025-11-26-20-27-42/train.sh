@@ -1,1 +1,0 @@
-python baselines/run_slimgpt.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --pruning_ratio 0.2 --output_name SlimGPT_2000

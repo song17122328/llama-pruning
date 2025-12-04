@@ -125,7 +125,7 @@ def evaluate_single_model(
     zeroshot_tasks: List[str] = None,
     speed_samples: int = 50,
     verbose: bool = True,
-    use_custom_zeroshot: bool = True,
+    use_custom_zeroshot: bool = False,
     zeroshot_batch_size: int = 8,
     slicegpt_base_model: str = None,
     slicegpt_sparsity: float = None

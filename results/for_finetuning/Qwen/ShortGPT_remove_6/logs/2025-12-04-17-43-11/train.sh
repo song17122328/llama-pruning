@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Llama-3-8B/ --n_remove_layers 6 --output_name /data/home/yuanxiaosong/llama-pruning/results/for_finetuning/Qwen/ShortGPT_remove_6 --run_evaluation

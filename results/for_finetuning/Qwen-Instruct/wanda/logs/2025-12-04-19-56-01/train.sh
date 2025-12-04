@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Qwen2.5-7B-Instruct --output_name for_finetuning/Qwen-Instruct/wanda --pruning_ratio 0.2 --importance_method wanda --dataset c4 --temperature 0.0 --epsilon 0 --run_evaluation ppl,zeroshot,speed,memory

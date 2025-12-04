@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-v0.3/ --output_name for_finetuning/Mistral/base --pruning_ratio 0 --temperature 0 --run_evaluation 

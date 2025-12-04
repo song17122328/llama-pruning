@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-Instruct-v0.3 --output_name for_finetuning/Mistral-Instruct/magnitude --pruning_ratio 0.2 --importance_method magnitude --dataset wikitext2 --temperature 0.0 --epsilon 0 --run_evaluation ppl,zeroshot

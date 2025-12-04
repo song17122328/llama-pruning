@@ -1,0 +1,12 @@
+- Training Parameters: 
+  - base_model: /newdata/LLMs/Qwen2.5-7B-Instruct/
+  - n_remove_layers: 7
+  - output_name: /data/home/yuanxiaosong/llama-pruning/results/for_finetuning/Qwen-Instruct/ShortGPT_remove_7
+  - dataset: wikitext2
+  - num_samples: 128
+  - seq_len: 128
+  - stride: 128
+  - run_evaluation: True
+  - eval_metrics: ppl,zeroshot
+  - finetune: False
+  - device: cuda:7
