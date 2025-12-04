@@ -1,31 +1,15 @@
 {
   "model_name": "剪枝后模型",
-  "total_params": 5798428672,
+  "total_params": 5798408192,
   "embedding_params": 134217728,
   "lm_head_params": 134217728,
   "layers": [
     {
       "layer_idx": 0,
-      "total": 20480,
-      "attention": {
-        "type": "ZeroAttention",
-        "total": 0,
-        "q_proj": 0,
-        "k_proj": 0,
-        "v_proj": 0,
-        "o_proj": 0,
-        "num_heads": 0,
-        "num_kv_heads": 0
-      },
-      "mlp": {
-        "type": "LlamaMLP",
-        "gate_proj": 4096,
-        "up_proj": 4096,
-        "down_proj": 4096,
-        "total": 12288,
-        "intermediate_size": 1
-      },
-      "norm": 8192,
+      "total": 0,
+      "attention": {},
+      "mlp": {},
+      "norm": 0,
       "is_zero_layer": false
     },
     {
@@ -713,6 +697,6 @@
   ],
   "layer_summary": {
     "num_layers": 32,
-    "total_layer_params": 5529989120
+    "total_layer_params": 5529968640
   }
 }

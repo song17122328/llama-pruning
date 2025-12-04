@@ -1,0 +1,12 @@
+- Training Parameters: 
+  - base_model: /newdata/LLMs/Mistral-7B-Instruct-v0.3
+  - n_remove_layers: 6
+  - output_name: for_finetuning/Mistral-Instruct/ShortGPT_remove_6
+  - dataset: c4
+  - num_samples: 128
+  - seq_len: 128
+  - stride: 128
+  - run_evaluation: True
+  - eval_metrics: ppl,zeroshot
+  - finetune: False
+  - device: cuda:2

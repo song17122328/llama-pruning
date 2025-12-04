@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Mistral-7B-Instruct-v0.3 --n_remove_layers 7 --dataset c4 --output_name for_finetuning/Mistral-Instruct/ShortGPT_remove_7

@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Qwen2.5-7B-Instruct --n_remove_layers 6 --dataset c4 --output_name for_finetuning/Qwen-Instruct/ShortGPT_remove_6
