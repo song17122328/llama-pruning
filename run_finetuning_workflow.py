@@ -16,7 +16,9 @@ LoRA微调工作流管理脚本
     python run_finetuning_workflow.py --model Llama --config best_acc --stage all
 
     # 批量处理所有模型和所有配置（顺序执行）
-    # 注意：现在包含3个配置类型（best_acc, best_ppl, base），共18个任务
+    # 注意：现在包含8-9个配置类型（根据模型不同），共约48个任务
+    #      - 6个通用配置: best_acc, best_ppl, base, wanda, magnitude, LLMPruner
+    #      - 2个ShortGPT配置 (Llama/Llama-Instruct: remove_7/8; 其他: remove_6/7)
     python run_finetuning_workflow.py --batch-all --stage all
 
     # 批量处理所有模型（并行使用4个GPU）
@@ -30,6 +32,10 @@ LoRA微调工作流管理脚本
     #   * best_acc: 准确率最优的剪枝配置
     #   * best_ppl: PPL最优的剪枝配置
     #   * base: 原始HF模型（未剪枝）
+    #   * wanda: Wanda剪枝方法
+    #   * magnitude: Magnitude剪枝方法
+    #   * LLMPruner: LLM-Pruner baseline
+    #   * ShortGPT_remove_6/7/8: ShortGPT baseline (不同层数)
     # - 每个模型在单张卡上训练（不是分布式训练）
     # - --num-gpus 指定同时运行的任务数，每个任务占用1张卡
     # - 自动选择显存最大的N张GPU
@@ -124,10 +130,16 @@ class FinetuningWorkflow:
         self.selection_info = self.load_selection_info() if config_type != 'base' else None
 
     def load_selection_info(self):
-        """加载模型选择信息"""
+        """加载模型选择信息（仅用于best_acc/best_ppl）"""
         info_file = self.pruned_dir / 'selection_info.json'
         if not info_file.exists():
-            raise FileNotFoundError(f"选择信息文件不存在: {info_file}")
+            # 对于baseline方法（wanda, magnitude, LLMPruner, ShortGPT），
+            # 没有selection_info.json是正常的，返回基本信息
+            return {
+                'selection_criterion': self.config_type,
+                'pruning_method': self.config_type,
+                'model': self.model
+            }
 
         with open(info_file, 'r') as f:
             return json.load(f)
@@ -545,8 +557,10 @@ def main():
     parser.add_argument('--model', type=str,
                        choices=['Llama', 'Llama-Instruct', 'Qwen', 'Qwen-Instruct', 'Mistral', 'Mistral-Instruct'],
                        help='模型名称')
-    parser.add_argument('--config', type=str, choices=['best_acc', 'best_ppl', 'base'],
-                       help='配置类型 (best_acc/best_ppl为剪枝模型配置，base为原始HF模型)')
+    parser.add_argument('--config', type=str,
+                       choices=['best_acc', 'best_ppl', 'base', 'wanda', 'magnitude',
+                               'LLMPruner', 'ShortGPT_remove_6', 'ShortGPT_remove_7', 'ShortGPT_remove_8'],
+                       help='配置类型 (best_acc/best_ppl/wanda/magnitude/LLMPruner/ShortGPT_*为剪枝模型，base为原始HF模型)')
     parser.add_argument('--stage', type=str, choices=['finetune', 'evaluate', 'compare', 'all', 'evaluate_base'],
                        default='all', help='执行阶段')
     parser.add_argument('--batch-all', action='store_true',
@@ -622,16 +636,37 @@ def main():
     if args.batch_all:
         # 批量处理
         models = ['Llama', 'Llama-Instruct', 'Qwen', 'Qwen-Instruct', 'Mistral', 'Mistral-Instruct']
-        configs = ['best_acc', 'best_ppl', 'base']
+        # 包含所有配置类型：best系列、base、经典baseline
+        configs = ['best_acc', 'best_ppl', 'base', 'wanda', 'magnitude', 'LLMPruner']
+
+        # ShortGPT根据模型类型有不同版本
+        # Llama/Llama-Instruct: remove_7, remove_8
+        # Mistral/Mistral-Instruct/Qwen/Qwen-Instruct: remove_6, remove_7
+        shortgpt_configs = {
+            'Llama': ['ShortGPT_remove_7', 'ShortGPT_remove_8'],
+            'Llama-Instruct': ['ShortGPT_remove_7', 'ShortGPT_remove_8'],
+            'Mistral': ['ShortGPT_remove_6', 'ShortGPT_remove_7'],
+            'Mistral-Instruct': ['ShortGPT_remove_6', 'ShortGPT_remove_7'],
+            'Qwen': ['ShortGPT_remove_6', 'ShortGPT_remove_7'],
+            'Qwen-Instruct': ['ShortGPT_remove_6', 'ShortGPT_remove_7']
+        }
 
         print(f"\n{'='*80}")
         print(f"批量处理所有模型")
         print(f"{'='*80}")
-        total_tasks = len(models) * len(configs)
-        print(f"\n将处理 {len(models)} × {len(configs)} = {total_tasks} 个配置")
 
-        # 构建任务列表
-        tasks = [(model, config) for model in models for config in configs]
+        # 构建任务列表（根据模型类型添加ShortGPT配置）
+        tasks = []
+        for model in models:
+            for config in configs:
+                tasks.append((model, config))
+            # 添加该模型的ShortGPT配置
+            for config in shortgpt_configs[model]:
+                tasks.append((model, config))
+
+        total_tasks = len(tasks)
+        print(f"\n将处理 {total_tasks} 个配置")
+        print(f"  - 每个模型 {len(configs)} 个通用配置 + {len(shortgpt_configs[models[0]])} 个ShortGPT配置")
 
         if args.num_gpus > 1:
             # 并行模式
