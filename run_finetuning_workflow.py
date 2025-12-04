@@ -198,6 +198,20 @@ class FinetuningWorkflow:
 
         print(f"\n使用GPU: {gpu_id}")
 
+        # 检查是否存在检查点（自动恢复训练）
+        checkpoint_dir = None
+        if self.finetuned_dir.exists():
+            # 查找最新的检查点目录 (checkpoint-xxx 格式)
+            checkpoints = sorted([
+                d for d in self.finetuned_dir.iterdir()
+                if d.is_dir() and d.name.startswith('checkpoint-')
+            ], key=lambda x: int(x.name.split('-')[1]))
+
+            if checkpoints:
+                checkpoint_dir = checkpoints[-1]  # 使用最新的检查点
+                print(f"\n✓ 发现检查点: {checkpoint_dir}")
+                print(f"  将从检查点恢复训练...")
+
         # 构建微调命令
         cmd = ['python', 'finetune_lora.py']
 
@@ -225,6 +239,10 @@ class FinetuningWorkflow:
         # 虽然剪枝模型可以不用，但为了保证训练过程一致性，统一启用
         # gradient_checkpointing在数学上等价，只影响计算方式（节省显存但略慢）
         cmd.append('--gradient_checkpointing')
+
+        # 如果存在检查点，添加恢复参数
+        if checkpoint_dir:
+            cmd.extend(['--resume_from_checkpoint', str(checkpoint_dir)])
 
         print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
         print(f"\n⚠️  注意：请确保 finetune_lora.py 存在并且参数正确")
