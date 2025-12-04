@@ -132,22 +132,23 @@ def prune_attention_by_gqa_groups(layer, keep_kv_indices, head_dim=128, gqa_rati
     keep_kv_channels = torch.LongTensor(keep_kv_channels)
 
     # 3. 剪枝各个projection层
+    # 重要：使用 .contiguous() 确保内存连续，避免 SDPA 报错
     # q_proj: output channels
-    layer.self_attn.q_proj.weight.data = layer.self_attn.q_proj.weight.data[keep_q_channels, :]
+    layer.self_attn.q_proj.weight.data = layer.self_attn.q_proj.weight.data[keep_q_channels, :].contiguous()
     if layer.self_attn.q_proj.bias is not None:
-        layer.self_attn.q_proj.bias.data = layer.self_attn.q_proj.bias.data[keep_q_channels]
+        layer.self_attn.q_proj.bias.data = layer.self_attn.q_proj.bias.data[keep_q_channels].contiguous()
 
     # k_proj, v_proj: output channels
-    layer.self_attn.k_proj.weight.data = layer.self_attn.k_proj.weight.data[keep_kv_channels, :]
+    layer.self_attn.k_proj.weight.data = layer.self_attn.k_proj.weight.data[keep_kv_channels, :].contiguous()
     if layer.self_attn.k_proj.bias is not None:
-        layer.self_attn.k_proj.bias.data = layer.self_attn.k_proj.bias.data[keep_kv_channels]
+        layer.self_attn.k_proj.bias.data = layer.self_attn.k_proj.bias.data[keep_kv_channels].contiguous()
 
-    layer.self_attn.v_proj.weight.data = layer.self_attn.v_proj.weight.data[keep_kv_channels, :]
+    layer.self_attn.v_proj.weight.data = layer.self_attn.v_proj.weight.data[keep_kv_channels, :].contiguous()
     if layer.self_attn.v_proj.bias is not None:
-        layer.self_attn.v_proj.bias.data = layer.self_attn.v_proj.bias.data[keep_kv_channels]
+        layer.self_attn.v_proj.bias.data = layer.self_attn.v_proj.bias.data[keep_kv_channels].contiguous()
 
     # o_proj: input channels (它接收concat后的Q heads)
-    layer.self_attn.o_proj.weight.data = layer.self_attn.o_proj.weight.data[:, keep_q_channels]
+    layer.self_attn.o_proj.weight.data = layer.self_attn.o_proj.weight.data[:, keep_q_channels].contiguous()
     # 注意：o_proj 的 bias 不需要剪枝（它的维度是 output_dim，我们只剪了 input_dim）
     # 但对于 Qwen2.5 等模型，o_proj 可能有 bias，我们需要保留它
     # if layer.self_attn.o_proj.bias is not None:

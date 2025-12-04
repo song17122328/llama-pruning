@@ -805,15 +805,16 @@ def main():
                 _, sorted_indices = torch.sort(mlp_importance, descending=True)
                 keep_indices_mlp = sorted(sorted_indices[:target_channels].tolist())
 
-                layer.mlp.gate_proj.weight.data = layer.mlp.gate_proj.weight.data[keep_indices_mlp, :]
-                layer.mlp.up_proj.weight.data = layer.mlp.up_proj.weight.data[keep_indices_mlp, :]
+                # 使用 .contiguous() 确保内存连续，避免 SDPA 和其他操作报错
+                layer.mlp.gate_proj.weight.data = layer.mlp.gate_proj.weight.data[keep_indices_mlp, :].contiguous()
+                layer.mlp.up_proj.weight.data = layer.mlp.up_proj.weight.data[keep_indices_mlp, :].contiguous()
 
                 if layer.mlp.gate_proj.bias is not None:
-                    layer.mlp.gate_proj.bias.data = layer.mlp.gate_proj.bias.data[keep_indices_mlp]
+                    layer.mlp.gate_proj.bias.data = layer.mlp.gate_proj.bias.data[keep_indices_mlp].contiguous()
                 if layer.mlp.up_proj.bias is not None:
-                    layer.mlp.up_proj.bias.data = layer.mlp.up_proj.bias.data[keep_indices_mlp]
+                    layer.mlp.up_proj.bias.data = layer.mlp.up_proj.bias.data[keep_indices_mlp].contiguous()
 
-                layer.mlp.down_proj.weight.data = layer.mlp.down_proj.weight.data[:, keep_indices_mlp]
+                layer.mlp.down_proj.weight.data = layer.mlp.down_proj.weight.data[:, keep_indices_mlp].contiguous()
 
                 layer.mlp.gate_proj.out_features = target_channels
                 layer.mlp.up_proj.out_features = target_channels
