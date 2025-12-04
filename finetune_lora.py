@@ -353,6 +353,18 @@ def main(args):
     model = model.merge_and_unload()
     print(f"✓ LoRA 权重已合并")
 
+    # 禁用梯度检查点以便序列化保存
+    # gradient checkpointing 注册的钩子（hooks）无法被 pickle 序列化
+    if args.gradient_checkpointing:
+        if hasattr(model, 'gradient_checkpointing_disable'):
+            model.gradient_checkpointing_disable()
+        # 移除 input_require_grads 钩子
+        if hasattr(model, '_forward_hooks'):
+            model._forward_hooks.clear()
+        if hasattr(model, '_forward_pre_hooks'):
+            model._forward_pre_hooks.clear()
+        print(f"✓ 已禁用梯度检查点以便保存")
+
     # 保存完整的微调模型 (pruned_model.bin 格式)
     model.half()
     finetuned_model_path = output_path / "pruned_model.bin"
