@@ -358,12 +358,26 @@ def main(args):
     if args.gradient_checkpointing:
         if hasattr(model, 'gradient_checkpointing_disable'):
             model.gradient_checkpointing_disable()
-        # 移除 input_require_grads 钩子
-        if hasattr(model, '_forward_hooks'):
-            model._forward_hooks.clear()
-        if hasattr(model, '_forward_pre_hooks'):
-            model._forward_pre_hooks.clear()
-        print(f"✓ 已禁用梯度检查点以便保存")
+
+        # 递归移除所有模块的钩子（包括子模块）
+        def remove_all_hooks(module):
+            """递归移除模块及其所有子模块的钩子"""
+            # 清除当前模块的钩子
+            if hasattr(module, '_forward_hooks'):
+                module._forward_hooks.clear()
+            if hasattr(module, '_forward_pre_hooks'):
+                module._forward_pre_hooks.clear()
+            if hasattr(module, '_backward_hooks'):
+                module._backward_hooks.clear()
+            if hasattr(module, '_backward_pre_hooks'):
+                module._backward_pre_hooks.clear()
+
+            # 递归处理所有子模块
+            for child in module.children():
+                remove_all_hooks(child)
+
+        remove_all_hooks(model)
+        print(f"✓ 已禁用梯度检查点并清除所有钩子")
 
     # 保存完整的微调模型 (pruned_model.bin 格式)
     model.half()
