@@ -463,6 +463,7 @@ def apply_global_pruning(model, groups_to_prune_df, head_dim=128, gqa_ratio=4, l
                         layer.mlp.gate_proj.bias[keep_mlp_indices_tensor].contiguous()
                     )
 
+
                 layer.mlp.up_proj.weight = torch.nn.Parameter(
                     layer.mlp.up_proj.weight[keep_mlp_indices_tensor, :].contiguous()
                 )
