@@ -486,16 +486,33 @@ class FinetuningWorkflow:
             after_ppl = after['metrics']['ppl'] if 'metrics' in after and 'ppl' in after['metrics'] else None
 
             report.append(f"\n{'-'*80}")
-            report.append(f"PPL (WikiText2):")
-            report.append(f"  微调前: {before_ppl.get('wikitext2 (wikitext-2-raw-v1)', 'N/A'):.2f}")
-            if after_ppl:
-                report.append(f"  微调后: {after_ppl.get('wikitext2 (wikitext-2-raw-v1)', 'N/A'):.2f}")
-                before_val = before_ppl.get('wikitext2 (wikitext-2-raw-v1)', 0)
-                after_val = after_ppl.get('wikitext2 (wikitext-2-raw-v1)', 0)
-                if before_val and after_val:
-                    diff = after_val - before_val
-                    pct = (diff / before_val) * 100
-                    report.append(f"  变化: {diff:+.2f} ({pct:+.2f}%)")
+            report.append(f"PPL:")
+
+            # WikiText2 PPL
+            report.append(f"  WikiText2:")
+            before_wt2 = before_ppl.get('wikitext2 (wikitext-2-raw-v1)', None)
+            if before_wt2 is not None:
+                report.append(f"    微调前: {before_wt2:.2f}")
+                if after_ppl:
+                    after_wt2 = after_ppl.get('wikitext2 (wikitext-2-raw-v1)', None)
+                    if after_wt2 is not None:
+                        report.append(f"    微调后: {after_wt2:.2f}")
+                        diff = after_wt2 - before_wt2
+                        pct = (diff / before_wt2) * 100
+                        report.append(f"    变化: {diff:+.2f} ({pct:+.2f}%)")
+
+            # PTB PPL
+            report.append(f"  PTB:")
+            before_ptb = before_ppl.get('ptb', None)
+            if before_ptb is not None:
+                report.append(f"    微调前: {before_ptb:.2f}")
+                if after_ppl:
+                    after_ptb = after_ppl.get('ptb', None)
+                    if after_ptb is not None:
+                        report.append(f"    微调后: {after_ptb:.2f}")
+                        diff = after_ptb - before_ptb
+                        pct = (diff / before_ptb) * 100
+                        report.append(f"    变化: {diff:+.2f} ({pct:+.2f}%)")
 
         # Zero-shot ACC对比
         if 'metrics' in before and 'zeroshot' in before['metrics']:
