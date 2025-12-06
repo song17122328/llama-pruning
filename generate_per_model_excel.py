@@ -17,9 +17,18 @@ def extract_comparison_data(comparison_file):
     with open(comparison_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # 提取微调前的PPL
-    ppl_match = re.search(r'微调前:\s+([\d.]+)', content)
-    ppl_before = float(ppl_match.group(1)) if ppl_match else None
+    # 提取WikiText2的微调前PPL
+    wt2_match = re.search(r'WikiText2:[\s\S]*?微调前:\s+([\d.]+)', content)
+    ppl_wt2_before = float(wt2_match.group(1)) if wt2_match else None
+
+    # 提取PTB的微调前PPL
+    ptb_match = re.search(r'PTB:[\s\S]*?微调前:\s+([\d.]+)', content)
+    ppl_ptb_before = float(ptb_match.group(1)) if ptb_match else None
+
+    # 如果没有找到新格式，尝试旧格式（兼容性）
+    if ppl_wt2_before is None:
+        old_ppl_match = re.search(r'微调前:\s+([\d.]+)', content)
+        ppl_wt2_before = float(old_ppl_match.group(1)) if old_ppl_match else None
 
     # 提取微调前的平均准确率
     avg_match = re.search(r'平均\s+:\s+([\d.]+)\s+→', content)
@@ -34,7 +43,9 @@ def extract_comparison_data(comparison_file):
         tasks[task_name] = before
 
     return {
-        'ppl_before': ppl_before,
+        'ppl_before': ppl_wt2_before,  # 兼容旧代码
+        'ppl_wt2_before': ppl_wt2_before,
+        'ppl_ptb_before': ppl_ptb_before,
         'avg_acc_before': avg_before,
         'tasks_before': tasks
     }
@@ -95,8 +106,12 @@ def process_model(model_name, finetuned_eval_dir):
         if not comparison_data:
             before_data = load_before_results(model_name, config_name)
             if before_data:
+                ppl_wt2 = before_data['metrics']['ppl'].get('wikitext2 (wikitext-2-raw-v1)', None)
+                ppl_ptb = before_data['metrics']['ppl'].get('ptb', None)
                 comparison_data = {
-                    'ppl_before': before_data['metrics']['ppl'].get('wikitext2 (wikitext-2-raw-v1)', None),
+                    'ppl_before': ppl_wt2,  # 兼容旧代码
+                    'ppl_wt2_before': ppl_wt2,
+                    'ppl_ptb_before': ppl_ptb,
                     'avg_acc_before': before_data['metrics'].get('avg_zeroshot_acc', None),
                     'tasks_before': {
                         task: data['accuracy']
@@ -113,18 +128,31 @@ def process_model(model_name, finetuned_eval_dir):
             '参数量(B)': round(metrics['model_info']['total_params_B'], 2),
         }
 
-        # PPL数据
-        ppl_after = metrics['ppl'].get('wikitext2 (wikitext-2-raw-v1)', None)
-        ppl_before = comparison_data['ppl_before'] if comparison_data else None
+        # PPL数据 - WikiText2
+        ppl_wt2_after = metrics['ppl'].get('wikitext2 (wikitext-2-raw-v1)', None)
+        ppl_wt2_before = comparison_data.get('ppl_wt2_before', comparison_data.get('ppl_before', None)) if comparison_data else None
 
-        row['微调前PPL'] = round(ppl_before, 2) if ppl_before else 'N/A'
-        row['微调后PPL'] = round(ppl_after, 2) if ppl_after else 'N/A'
+        row['微调前PPL_WikiText2'] = round(ppl_wt2_before, 2) if ppl_wt2_before else 'N/A'
+        row['微调后PPL_WikiText2'] = round(ppl_wt2_after, 2) if ppl_wt2_after else 'N/A'
 
-        if ppl_before and ppl_after:
-            ppl_change = ((ppl_after - ppl_before) / ppl_before) * 100
-            row['PPL变化(%)'] = round(ppl_change, 2)
+        if ppl_wt2_before and ppl_wt2_after:
+            ppl_wt2_change = ((ppl_wt2_after - ppl_wt2_before) / ppl_wt2_before) * 100
+            row['PPL变化(%)_WikiText2'] = round(ppl_wt2_change, 2)
         else:
-            row['PPL变化(%)'] = 'N/A'
+            row['PPL变化(%)_WikiText2'] = 'N/A'
+
+        # PPL数据 - PTB
+        ppl_ptb_after = metrics['ppl'].get('ptb', None)
+        ppl_ptb_before = comparison_data.get('ppl_ptb_before', None) if comparison_data else None
+
+        row['微调前PPL_PTB'] = round(ppl_ptb_before, 2) if ppl_ptb_before else 'N/A'
+        row['微调后PPL_PTB'] = round(ppl_ptb_after, 2) if ppl_ptb_after else 'N/A'
+
+        if ppl_ptb_before and ppl_ptb_after:
+            ppl_ptb_change = ((ppl_ptb_after - ppl_ptb_before) / ppl_ptb_before) * 100
+            row['PPL变化(%)_PTB'] = round(ppl_ptb_change, 2)
+        else:
+            row['PPL变化(%)_PTB'] = 'N/A'
 
         # Zero-shot准确率数据
         avg_acc_after = metrics.get('avg_zeroshot_acc', None)
@@ -212,7 +240,9 @@ def main():
 
         with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
             # 主要指标sheet
-            main_cols = ['配置', '参数量(B)', '微调前PPL', '微调后PPL', 'PPL变化(%)',
+            main_cols = ['配置', '参数量(B)',
+                        '微调前PPL_WikiText2', '微调后PPL_WikiText2', 'PPL变化(%)_WikiText2',
+                        '微调前PPL_PTB', '微调后PPL_PTB', 'PPL变化(%)_PTB',
                         '微调前平均ACC', '微调后平均ACC', 'ACC变化(%)']
             df[main_cols].to_excel(writer, sheet_name='主要指标', index=False)
 
@@ -236,7 +266,9 @@ def main():
 
         with pd.ExcelWriter(all_excel_file, engine='openpyxl') as writer:
             # 主要指标sheet
-            main_cols = ['模型', '配置', '参数量(B)', '微调前PPL', '微调后PPL', 'PPL变化(%)',
+            main_cols = ['模型', '配置', '参数量(B)',
+                        '微调前PPL_WikiText2', '微调后PPL_WikiText2', 'PPL变化(%)_WikiText2',
+                        '微调前PPL_PTB', '微调后PPL_PTB', 'PPL变化(%)_PTB',
                         '微调前平均ACC', '微调后平均ACC', 'ACC变化(%)']
             all_df[main_cols].to_excel(writer, sheet_name='主要指标', index=False)
 

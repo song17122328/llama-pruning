@@ -17,9 +17,18 @@ def extract_comparison_data(comparison_file):
     with open(comparison_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # 提取微调前的PPL
-    ppl_match = re.search(r'微调前:\s+([\d.]+)', content)
-    ppl_before = float(ppl_match.group(1)) if ppl_match else None
+    # 提取WikiText2的微调前PPL
+    wt2_match = re.search(r'WikiText2:[\s\S]*?微调前:\s+([\d.]+)', content)
+    ppl_wt2_before = float(wt2_match.group(1)) if wt2_match else None
+
+    # 提取PTB的微调前PPL
+    ptb_match = re.search(r'PTB:[\s\S]*?微调前:\s+([\d.]+)', content)
+    ppl_ptb_before = float(ptb_match.group(1)) if ptb_match else None
+
+    # 如果没有找到新格式，尝试旧格式（兼容性）
+    if ppl_wt2_before is None:
+        old_ppl_match = re.search(r'微调前:\s+([\d.]+)', content)
+        ppl_wt2_before = float(old_ppl_match.group(1)) if old_ppl_match else None
 
     # 提取微调前的平均准确率
     avg_match = re.search(r'平均\s+:\s+([\d.]+)\s+→', content)
@@ -34,7 +43,9 @@ def extract_comparison_data(comparison_file):
         tasks[task_name] = before
 
     return {
-        'ppl_before': ppl_before,
+        'ppl_before': ppl_wt2_before,  # 兼容旧代码
+        'ppl_wt2_before': ppl_wt2_before,
+        'ppl_ptb_before': ppl_ptb_before,
         'avg_acc_before': avg_before,
         'tasks_before': tasks
     }
@@ -106,8 +117,12 @@ def main():
                 print(f"  Loading before results from for_finetuning...")
                 before_data = load_before_results(model_name, config_name)
                 if before_data:
+                    ppl_wt2 = before_data['metrics']['ppl'].get('wikitext2 (wikitext-2-raw-v1)', None)
+                    ppl_ptb = before_data['metrics']['ppl'].get('ptb', None)
                     comparison_data = {
-                        'ppl_before': before_data['metrics']['ppl'].get('wikitext2 (wikitext-2-raw-v1)', None),
+                        'ppl_before': ppl_wt2,  # 兼容旧代码
+                        'ppl_wt2_before': ppl_wt2,
+                        'ppl_ptb_before': ppl_ptb,
                         'avg_acc_before': before_data['metrics'].get('avg_zeroshot_acc', None),
                         'tasks_before': {
                             task: data['accuracy']
