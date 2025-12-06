@@ -154,6 +154,9 @@ def main():
             # 各个任务的详细准确率
             tasks = ['boolq', 'piqa', 'hellaswag', 'winogrande', 'arc_easy', 'arc_challenge', 'openbookqa']
             zeroshot = metrics.get('zeroshot', {})
+            # 处理zeroshot为None的情况
+            if zeroshot is None:
+                zeroshot = {}
             tasks_before = comparison_data['tasks_before'] if comparison_data else {}
 
             for task in tasks:
@@ -169,6 +172,11 @@ def main():
                         row[f'{task}_change'] = round(change, 4)
                     else:
                         row[f'{task}_change'] = 'N/A'
+                else:
+                    # 如果任务数据不存在，填充N/A
+                    row[f'{task}_before'] = 'N/A'
+                    row[f'{task}_after'] = 'N/A'
+                    row[f'{task}_change'] = 'N/A'
 
             results.append(row)
 
