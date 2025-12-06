@@ -1,6 +1,6 @@
 {
-  "model": "Llama-Instruct",
-  "config_type": "base",
+  "model": "Qwen",
+  "config_type": "LLMPruner",
   "lora_config": {
     "lora_r": 8,
     "lora_alpha": 16,
@@ -10,5 +10,9 @@
     "batch_size": 64,
     "micro_batch_size": 4
   },
-  "pruned_model_info": null
+  "pruned_model_info": {
+    "selection_criterion": "LLMPruner",
+    "pruning_method": "LLMPruner",
+    "model": "Qwen"
+  }
 }

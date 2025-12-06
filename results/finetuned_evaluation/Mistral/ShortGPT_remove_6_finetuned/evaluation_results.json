@@ -1,0 +1,46 @@
+{
+  "model_path": "results/finetuned/Mistral/ShortGPT_remove_6_finetuned/pruned_model.bin",
+  "timestamp": "2025-12-05T18:49:27.687899",
+  "metrics": {
+    "model_info": {
+      "total_params": 5939351552,
+      "trainable_params": 0,
+      "total_params_M": 5939.351552,
+      "total_params_B": 5.939351552,
+      "num_layers": 26,
+      "module_params": {
+        "embedding": 134217728,
+        "lm_head": 134217728,
+        "final_norm": 4096,
+        "attention": 1090519040,
+        "mlp": 4580179968,
+        "input_layernorm": 106496,
+        "post_attention_layernorm": 106496,
+        "total_accounted": 5939351552,
+        "unaccounted": 0,
+        "match": true
+      },
+      "attention_params": 1090519040,
+      "mlp_params": 4580179968,
+      "attention_params_M": 1090.51904,
+      "mlp_params_M": 4580.179968,
+      "attention_ratio": 0.1836091079055224,
+      "mlp_ratio": 0.7711582532031941,
+      "model_size_mb": 11328.414184570312,
+      "model_size_gb": 11.062904477119446
+    },
+    "ppl_quick_128": {
+      "wikitext2 (wikitext-2-raw-v1)": 21.173080444335938,
+      "ptb": 87.32763671875
+    },
+    "ppl_standard_2048_512": {
+      "wikitext2 (wikitext-2-raw-v1)": 8.775751113891602,
+      "ptb": 43.014102935791016
+    },
+    "ppl": {
+      "wikitext2 (wikitext-2-raw-v1)": 8.775751113891602,
+      "ptb": 43.014102935791016
+    },
+    "zeroshot": null
+  }
+}

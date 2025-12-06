@@ -16,7 +16,13 @@ LoRA微调工作流管理脚本
     python run_finetuning_workflow.py --model Llama --config best_acc --stage all
 
     # 【新功能】处理单个模型的所有配置（自动跳过已完成）
+    python run_finetuning_workflow.py --model Llama --model-all --skip-completed --stage all
     python run_finetuning_workflow.py --model Llama-Instruct --model-all --skip-completed --stage all
+    python run_finetuning_workflow.py --model Qwen --model-all --skip-completed --stage all
+    python run_finetuning_workflow.py --model Qwen-Instruct --model-all --skip-completed --stage all
+    python run_finetuning_workflow.py --model Mistral --model-all --skip-completed --stage all
+    python run_finetuning_workflow.py --model Mistral-Instruct --model-all --skip-completed --stage all
+
 
     # 【新功能】并行处理单个模型的所有配置
     python run_finetuning_workflow.py --model Qwen --model-all --skip-completed --num-gpus 4 --stage all
@@ -61,17 +67,6 @@ from datetime import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.utils.get_best_gpu import get_best_gpu
-
-
-# Base模型路径映射
-BASE_MODEL_PATHS = {
-    'Llama': '/newdata/LLMs/Llama-3-8B',
-    'Llama-Instruct': '/newdata/LLMs/Llama-3-8B-Instruct',
-    'Qwen': '/newdata/LLMs/Qwen2.5-7B',
-    'Qwen-Instruct': '/newdata/LLMs/Qwen2.5-7B-Instruct',
-    'Mistral': '/newdata/LLMs/Mistral-7B-v0.3',
-    'Mistral-Instruct': '/newdata/LLMs/Mistral-7B-Instruct-v0.3'
-}
 
 
 def setup_logging(log_file=None):
@@ -234,15 +229,8 @@ class FinetuningWorkflow:
         self.model = model
         self.config_type = config_type  # 'best_acc', 'best_ppl', or 'base'
 
-        # 路径设置
-        if config_type == 'base':
-            # Base模型使用HF格式路径
-            self.base_model_path = BASE_MODEL_PATHS[model]
-            self.pruned_dir = None  # Base模型没有pruned_dir
-        else:
-            # 剪枝模型路径
-            self.pruned_dir = Path('results') / 'for_finetuning' / model / config_type
-            self.base_model_path = None
+       # 剪枝模型路径
+        self.pruned_dir = Path('results') / 'for_finetuning' / model / config_type
 
         self.finetuned_dir = Path('results') / 'finetuned' / model / f'{config_type}_finetuned'
         self.eval_dir = Path('results') / 'finetuned_evaluation' / model / f'{config_type}_finetuned'
@@ -295,10 +283,7 @@ class FinetuningWorkflow:
         for k, v in lora_config.items():
             print(f"  {k}: {v}")
 
-        if self.config_type == 'base':
-            print(f"\nBase模型路径: {self.base_model_path}")
-        else:
-            print(f"\n剪枝模型目录: {self.pruned_dir}")
+        print(f"\n剪枝模型目录: {self.pruned_dir}")
         print(f"微调输出目录: {self.finetuned_dir}")
 
         # 创建输出目录
@@ -311,10 +296,7 @@ class FinetuningWorkflow:
             'config_type': self.config_type,
             'lora_config': lora_config
         }
-        if self.config_type == 'base':
-            config_data['base_model_path'] = self.base_model_path
-        else:
-            config_data['pruned_model_info'] = self.selection_info
+        config_data['pruned_model_info'] = self.selection_info
 
         with open(config_file, 'w') as f:
             json.dump(config_data, f, indent=2)
@@ -348,13 +330,8 @@ class FinetuningWorkflow:
         # 构建微调命令
         cmd = ['python', 'finetune_lora.py']
 
-        # 根据config_type选择模型参数
-        if self.config_type == 'base':
-            # Base模型使用--base_model参数
-            cmd.extend(['--base_model', self.base_model_path])
-        else:
-            # 剪枝模型使用--pruned_model参数
-            cmd.extend(['--pruned_model', str(self.pruned_dir / 'pruned_model.bin')])
+        # 剪枝模型使用--pruned_model参数
+        cmd.extend(['--pruned_model', str(self.pruned_dir / 'pruned_model.bin')])
 
         # 添加其他参数
         cmd.extend([
@@ -456,13 +433,8 @@ class FinetuningWorkflow:
         print(f"对比微调前后结果: {self.model} - {self.config_type}")
         print(f"{'='*80}")
 
-        # 读取微调前的结果
-        if self.config_type == 'base':
-            # Base模型的微调前结果在base_evaluation目录
-            before_eval = Path('results') / 'base_evaluation' / self.model / 'evaluation_results.json'
-        else:
-            # 剪枝模型的微调前结果在pruned_dir
-            before_eval = self.pruned_dir / 'evaluation' / 'evaluation_results.json'
+
+        before_eval = self.pruned_dir / 'evaluation' / 'evaluation_results.json'
 
         if not before_eval.exists():
             print(f"⚠️  找不到微调前的评估结果: {before_eval}")
@@ -561,73 +533,6 @@ class FinetuningWorkflow:
         return '\n'.join(report)
 
 
-def evaluate_base_model(model, gpu_id=None):
-    """
-    评估base模型（原始未剪枝模型）
-
-    Args:
-        model: 模型名称
-        gpu_id: 指定使用的GPU ID，如果为None则自动选择
-
-    Returns:
-        bool: 是否成功
-    """
-    print(f"\n{'='*80}")
-    print(f"评估Base模型: {model}")
-    print(f"{'='*80}")
-
-    # 获取模型路径
-    if model not in BASE_MODEL_PATHS:
-        print(f"✗ 错误: 未知模型 {model}")
-        return False
-
-    model_path = BASE_MODEL_PATHS[model]
-    if not Path(model_path).exists():
-        print(f"✗ 错误: 模型路径不存在: {model_path}")
-        return False
-
-    print(f"\n模型路径: {model_path}")
-
-    # 设置输出目录
-    output_dir = Path('results') / 'base_evaluation' / model
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # 评估结果JSON文件路径
-    eval_output_json = output_dir / 'evaluation_results.json'
-
-    print(f"评估输出: {eval_output_json}")
-
-    # 获取GPU ID（如果未指定）
-    if gpu_id is None:
-        gpu_id = get_best_gpu()
-
-    # 设置环境变量
-    env = os.environ.copy()
-    env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-
-    print(f"\n使用GPU: {gpu_id}")
-
-    # 构建评估命令
-    cmd = [
-        'python', 'evaluation/run_evaluation.py',
-        '--model_path', model_path,
-        '--output', str(eval_output_json),
-        '--metrics', 'ppl,zeroshot'
-    ]
-
-    print(f"\n执行命令: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
-
-    # 运行评估
-    try:
-        subprocess.run(cmd, env=env, check=True)
-        print(f"\n✓ {model} 评估完成")
-        print(f"✓ 评估结果已保存: {eval_output_json}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"\n✗ {model} 评估失败: {e}")
-        return False
-
-
 def run_single_task(model, config, stage, gpu_id, skip_completed=False, logger=None):
     """运行单个任务（在指定GPU上）
 
@@ -672,22 +577,6 @@ def run_single_task(model, config, stage, gpu_id, skip_completed=False, logger=N
         return (task_name, False, str(e))
 
 
-def run_base_eval_task(model, gpu_id):
-    """运行base模型评估任务（在指定GPU上）"""
-    try:
-        print(f"\n[GPU {gpu_id}] 开始评估base模型: {model}")
-        success = evaluate_base_model(model, gpu_id=gpu_id)
-
-        if success:
-            print(f"\n[GPU {gpu_id}] ✓ 完成: {model}")
-            return (model, True, "成功")
-        else:
-            return (model, False, "评估失败")
-
-    except Exception as e:
-        print(f"\n[GPU {gpu_id}] ✗ 评估 {model} 时出错: {e}")
-        return (model, False, str(e))
-
 
 def main():
     parser = argparse.ArgumentParser(description='LoRA微调工作流管理')
@@ -698,7 +587,7 @@ def main():
                        choices=['best_acc', 'best_ppl', 'base', 'wanda', 'magnitude',
                                'LLMPruner', 'ShortGPT_remove_6', 'ShortGPT_remove_7', 'ShortGPT_remove_8'],
                        help='配置类型 (best_acc/best_ppl/wanda/magnitude/LLMPruner/ShortGPT_*为剪枝模型，base为原始HF模型)')
-    parser.add_argument('--stage', type=str, choices=['finetune', 'evaluate', 'compare', 'all', 'evaluate_base'],
+    parser.add_argument('--stage', type=str, choices=['finetune', 'evaluate', 'compare', 'all'],
                        default='all', help='执行阶段')
     parser.add_argument('--batch-all', action='store_true',
                        help='批量处理所有模型和配置')
@@ -716,75 +605,17 @@ def main():
     args = parser.parse_args()
 
     # 设置日志
-    if args.log_file is None and (args.batch_all or args.model_all or args.evaluate_base):
+    if args.log_file is None and (args.batch_all or args.model_all):
         # 批量模式自动创建日志文件
         log_dir = Path('logs')
         log_dir.mkdir(exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        args.log_file = str(log_dir / f'finetuning_workflow_{timestamp}.log')
+        if args.batch_all:
+            args.log_file = str(log_dir / f'finetuning_workflow-batch_all.log')
+        elif args.model_all:
+            args.log_file = str(log_dir / f'【finetuning_workflow】-【{args.model}】.log')
+
 
     logger = setup_logging(args.log_file)
-
-    # 处理evaluate_base选项
-    if args.evaluate_base or args.stage == 'evaluate_base':
-        models = ['Llama', 'Llama-Instruct', 'Qwen', 'Qwen-Instruct', 'Mistral', 'Mistral-Instruct']
-
-        print(f"\n{'='*80}")
-        print(f"评估Base模型")
-        print(f"{'='*80}")
-        print(f"\n将评估 {len(models)} 个Base模型")
-
-        if args.num_gpus > 1:
-            # 并行模式
-            print(f"\n并行模式: 使用 {args.num_gpus} 个GPU")
-
-            # 获取最佳的N个GPU
-            gpu_ids = get_best_gpus(args.num_gpus)
-
-            # 使用线程池并行执行
-            results = []
-            with ThreadPoolExecutor(max_workers=args.num_gpus) as executor:
-                # 提交所有任务
-                future_to_model = {}
-                for i, model in enumerate(models):
-                    # 轮询分配GPU
-                    gpu_id = gpu_ids[i % len(gpu_ids)]
-                    future = executor.submit(run_base_eval_task, model, gpu_id)
-                    future_to_model[future] = model
-
-                # 等待任务完成
-                for future in as_completed(future_to_model):
-                    model_name, success, msg = future.result()
-                    results.append((model_name, success, msg))
-
-            # 打印结果摘要
-            print(f"\n{'='*80}")
-            print(f"批量评估完成")
-            print(f"{'='*80}")
-            success_count = sum(1 for _, success, _ in results if success)
-            print(f"\n成功: {success_count}/{len(results)}")
-
-            if success_count < len(results):
-                print("\n失败的模型:")
-                for model_name, success, msg in results:
-                    if not success:
-                        print(f"  ✗ {model_name}: {msg}")
-        else:
-            # 顺序模式
-            print(f"\n顺序模式: 逐个评估")
-            success_count = 0
-            for model in models:
-                try:
-                    if evaluate_base_model(model):
-                        success_count += 1
-                except Exception as e:
-                    print(f"\n✗ 评估 {model} 时出错: {e}")
-                    continue
-
-            print(f"\n✓ 批量评估完成")
-            print(f"成功: {success_count}/{len(models)}")
-
-        return
 
     # 处理 model-all 选项：处理指定模型的所有配置
     if args.model_all:

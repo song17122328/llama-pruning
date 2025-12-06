@@ -1,6 +1,6 @@
 {
-  "model": "Llama-Instruct",
-  "config_type": "base",
+  "model": "Llama",
+  "config_type": "magnitude",
   "lora_config": {
     "lora_r": 8,
     "lora_alpha": 16,
@@ -10,5 +10,9 @@
     "batch_size": 64,
     "micro_batch_size": 4
   },
-  "pruned_model_info": null
+  "pruned_model_info": {
+    "selection_criterion": "magnitude",
+    "pruning_method": "magnitude",
+    "model": "Llama"
+  }
 }

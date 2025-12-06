@@ -1,7 +1,7 @@
 - Training Parameters: 
   - base_model: /newdata/LLMs/Qwen2.5-7B
-  - n_remove_layers: 7
-  - output_name: for_finetuning/Qwen/ShortGPT_remove_7
+  - n_remove_layers: 6
+  - output_name: for_finetuning/Qwen/ShortGPT_remove_6
   - dataset: c4
   - num_samples: 128
   - seq_len: 128
@@ -9,4 +9,4 @@
   - run_evaluation: True
   - eval_metrics: ppl,zeroshot
   - finetune: False
-  - device: cuda:0
+  - device: cuda:1

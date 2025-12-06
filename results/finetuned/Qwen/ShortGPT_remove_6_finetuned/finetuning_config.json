@@ -1,0 +1,18 @@
+{
+  "model": "Qwen",
+  "config_type": "ShortGPT_remove_6",
+  "lora_config": {
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "num_epochs": 2,
+    "learning_rate": 0.0001,
+    "batch_size": 64,
+    "micro_batch_size": 4
+  },
+  "pruned_model_info": {
+    "selection_criterion": "ShortGPT_remove_6",
+    "pruning_method": "ShortGPT_remove_6",
+    "model": "Qwen"
+  }
+}
