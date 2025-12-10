@@ -151,10 +151,10 @@ def create_summary_folder(models, metric='acc'):
     summary_dir = Path('param_search') / 'top_results' / metric / 'summary'
     summary_dir.mkdir(parents=True, exist_ok=True)
 
-    # 移动cross_model_best.json到summary文件夹
+    # 移动cross_model_best.json到summary文件夹并重命名
     cross_model_file = Path('param_search') / 'top_results' / metric / 'cross_model_best.json'
     if cross_model_file.exists():
-        summary_json = summary_dir / 'cross_model_best.json'
+        summary_json = summary_dir / f'{metric}_cross_model_best.json'
         shutil.copy2(cross_model_file, summary_json)
         cross_model_file.unlink()  # 删除原文件
 
@@ -307,7 +307,7 @@ def main():
 
     copied_count = create_summary_folder(models, metric='acc')
     print(f"✓ Summary文件夹已创建: param_search/top_results/acc/summary/")
-    print(f"✓ 已复制 cross_model_best.json")
+    print(f"✓ 已复制 acc_cross_model_best.json")
     print(f"✓ 已复制 {copied_count} 个模型的 pruning_ratio.png")
 
     print(f"\n✓ 分析完成！所有结果已保存到 param_search/top_results/acc/\n")
