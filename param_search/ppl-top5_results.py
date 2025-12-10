@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-展示每个模型PPL前5的实验结果，并生成JSON文件和提取per-layer分析
+展示每个模型PPL前5的实验结果，并导出per-layer分析和可视化
 
 用法:
     python param_search/ppl-top5_results.py
@@ -8,6 +8,7 @@
 
 import csv
 import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -67,6 +68,7 @@ def load_per_layer_analysis(model, method, seq_len, samples):
 
                 analysis_data = {
                     'config_name': config_dir.name,
+                    'config_dir': config_dir,  # 保存config_dir路径用于后续复制visualization
                     'selection_info': selection_info,
                     'per_layer_summary': None,
                     'layer_importance': None,
@@ -106,64 +108,42 @@ def load_per_layer_analysis(model, method, seq_len, samples):
     return None
 
 
-def export_to_json(model, results, top_n=5):
-    """导出结果到JSON文件"""
+def export_results(model, results, top_n=5):
+    """导出per-layer分析和可视化文件"""
     output_dir = Path('param_search') / 'top_results' / 'ppl' / model
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    tasks = ['boolq', 'piqa', 'hellaswag', 'winogrande', 'arc_easy', 'arc_challenge', 'openbookqa']
-
-    export_data = {
-        'model': model,
-        'metric': 'perplexity',
-        'generated_at': datetime.now().isoformat(),
-        'top_results': []
-    }
+    exported_count = 0
 
     for i, row in enumerate(results[:top_n], 1):
         method = row.get('pruning_method', 'N/A')
         seq_len = row.get('taylor_seq_len', 'N/A')
         samples = row.get('taylor_num_samples', 'N/A')
 
-        result_entry = {
-            'rank': i,
-            'pruning_method': method,
-            'taylor_seq_len': float(seq_len) if seq_len != 'N/A' else None,
-            'taylor_num_samples': float(samples) if samples != 'N/A' else None,
-            'ppl': float(row['ppl']) if row.get('ppl') and row['ppl'] else None,
-            'acc_mean': float(row['acc_mean']),
-            'grad_norm_ratio': float(row['grad_norm_ratio']) if row.get('grad_norm_ratio') and row['grad_norm_ratio'] not in ['', 'Infinity'] else None,
-            'task_accuracies': {},
-            'per_layer_analysis': None
-        }
-
-        # 提取各任务ACC
-        for task in tasks:
-            col_name = f'acc_{task}'
-            if col_name in row and row[col_name]:
-                result_entry['task_accuracies'][task] = float(row[col_name])
-
         # 尝试加载per-layer分析
         if method != 'N/A' and seq_len != 'N/A' and samples != 'N/A':
             analysis = load_per_layer_analysis(model, method, seq_len, samples)
             if analysis:
-                result_entry['per_layer_analysis'] = analysis
+                # 保存per-layer summary文本
+                if analysis.get('per_layer_summary'):
+                    summary_file = output_dir / f'rank{i}_per_layer_summary.txt'
+                    with open(summary_file, 'w', encoding='utf-8') as f:
+                        f.write(analysis['per_layer_summary'])
 
-        export_data['top_results'].append(result_entry)
+                # 复制visualization文件夹
+                config_dir = analysis.get('config_dir')
+                if config_dir:
+                    viz_source = config_dir / 'visualization'
+                    if viz_source.exists() and viz_source.is_dir():
+                        viz_dest = output_dir / f'rank{i}_visualization'
+                        # 如果目标文件夹已存在，先删除
+                        if viz_dest.exists():
+                            shutil.rmtree(viz_dest)
+                        # 复制整个文件夹
+                        shutil.copytree(viz_source, viz_dest)
+                        exported_count += 1
 
-    # 保存JSON文件
-    json_file = output_dir / 'top5_results.json'
-    with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(export_data, f, indent=2, ensure_ascii=False)
-
-    # 如果有per-layer summary文本，也单独保存
-    for i, result in enumerate(export_data['top_results'], 1):
-        if result['per_layer_analysis'] and result['per_layer_analysis']['per_layer_summary']:
-            summary_file = output_dir / f'rank{i}_per_layer_summary.txt'
-            with open(summary_file, 'w', encoding='utf-8') as f:
-                f.write(result['per_layer_analysis']['per_layer_summary'])
-
-    return json_file
+    return exported_count
 
 
 def display_top5(model, results, top_n=5):
@@ -233,16 +213,14 @@ def main():
     print("="*100)
 
     # 为每个模型处理并导出结果
-    exported_files = []
     for model in models:
         results = load_and_rank_results(model)
         display_top5(model, results, top_n=5)
 
-        # 导出JSON文件
+        # 导出per-layer分析和可视化文件
         if results:
-            json_file = export_to_json(model, results, top_n=5)
-            exported_files.append((model, json_file))
-            print(f"  ✓ 已导出: {json_file}")
+            exported_count = export_results(model, results, top_n=5)
+            print(f"  ✓ 已导出 {exported_count} 个可视化文件夹到 param_search/top_results/ppl/{model}/")
 
     # 生成跨模型对比（每个模型的最佳结果）
     print(f"\n\n{'='*100}")
