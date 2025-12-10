@@ -146,6 +146,33 @@ def export_results(model, results, top_n=5):
     return exported_count
 
 
+def create_summary_folder(models, metric='acc'):
+    """创建summary文件夹并复制cross_model_best.json和各模型的pruning_ratio.png"""
+    summary_dir = Path('param_search') / 'top_results' / metric / 'summary'
+    summary_dir.mkdir(parents=True, exist_ok=True)
+
+    # 移动cross_model_best.json到summary文件夹
+    cross_model_file = Path('param_search') / 'top_results' / metric / 'cross_model_best.json'
+    if cross_model_file.exists():
+        summary_json = summary_dir / 'cross_model_best.json'
+        shutil.copy2(cross_model_file, summary_json)
+        cross_model_file.unlink()  # 删除原文件
+
+    # 复制每个模型的pruning_ratio.png
+    copied_count = 0
+    for model in models:
+        # 从rank1_visualization复制pruning_ratio.png
+        viz_dir = Path('param_search') / 'top_results' / metric / model / 'rank1_visualization'
+        pruning_ratio_src = viz_dir / 'pruning_ratio.png'
+
+        if pruning_ratio_src.exists():
+            pruning_ratio_dest = summary_dir / f'{model}_pruning_ratio.png'
+            shutil.copy2(pruning_ratio_src, pruning_ratio_dest)
+            copied_count += 1
+
+    return copied_count
+
+
 def display_top5(model, results, top_n=5):
     """显示前N个结果"""
     if not results:
@@ -272,6 +299,17 @@ def main():
         json.dump(cross_model_data, f, indent=2, ensure_ascii=False)
 
     print(f"\n✓ 跨模型对比已导出: {cross_model_file}")
+
+    # 创建summary文件夹
+    print(f"\n{'='*100}")
+    print("生成Summary文件夹")
+    print(f"{'='*100}\n")
+
+    copied_count = create_summary_folder(models, metric='acc')
+    print(f"✓ Summary文件夹已创建: param_search/top_results/acc/summary/")
+    print(f"✓ 已复制 cross_model_best.json")
+    print(f"✓ 已复制 {copied_count} 个模型的 pruning_ratio.png")
+
     print(f"\n✓ 分析完成！所有结果已保存到 param_search/top_results/acc/\n")
 
 
