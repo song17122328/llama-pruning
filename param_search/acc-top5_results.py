@@ -166,7 +166,7 @@ def create_summary_folder(models, metric='acc'):
         pruning_ratio_src = viz_dir / 'pruning_ratio.png'
 
         if pruning_ratio_src.exists():
-            pruning_ratio_dest = summary_dir / f'{model}_pruning_ratio.png'
+            pruning_ratio_dest = summary_dir / f'{metric}_{model}_pruning_ratio.png'
             shutil.copy2(pruning_ratio_src, pruning_ratio_dest)
             copied_count += 1
 
