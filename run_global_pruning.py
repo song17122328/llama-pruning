@@ -661,22 +661,22 @@ def main():
     parser.add_argument('--importance_method', type=str, default='taylor',
                        choices=['taylor', 'wanda', 'taylor_2nd', 'magnitude'],
                        help='重要性计算方法（默认: taylor）')
-    parser.add_argument('--dataset', type=str, default='wikitext2',
+    parser.add_argument('--dataset', type=str, default='c4',
                        choices=['wikitext2', 'ptb', 'c4', 'wikitext_zh', 'c4_zh'],
-                       help='校准数据集选择（默认: wikitext2）\n'
+                       help='校准数据集选择（默认: c4\n'
                             '  英文: wikitext2, ptb, c4\n'
                             '  中文: wikitext_zh, c4_zh (推荐用于 Qwen/ChatGLM 等中文模型)')
-    parser.add_argument('--gradient_batch_size', type=int, default=4,
-                       help='梯度计算批次大小（默认: 4）')
+    parser.add_argument('--gradient_batch_size', type=int, default=8,
+                       help='梯度计算批次大小（默认: 8）')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',
                        help='使用梯度检查点节省显存')
 
     # H-GSP 核心参数
     parser.add_argument('--temperature', type=float, default=1.0,
                        help='H-GSP 温度参数 T,当temperature为0时表示只用全局Taylor（默认: 1.0，推荐范围: 0.5-2.0）')
-    parser.add_argument('--tau', type=float, default=None,
+    parser.add_argument('--tau', type=float, default=-100,
                        help='H-GSP 门控阈值 τ（默认: None 自动计算25分位数）\n'
-                            '  - tau=0: 纯 Block-wise 模式（只用块级重要性）\n'
+                            '  - tau=-100: 纯 Block-wise 模式（只用块级重要性）\n'
                             '  - tau=inf: 纯 Layer-wise 模式（只用层级重要性）\n'
                             '  - tau=None: 自动模式（推荐，根据数据自适应）')
     parser.add_argument('--epsilon', type=float, default=0,
@@ -689,18 +689,18 @@ def main():
                        help='冻结后N层不剪枝（默认: 0）')
 
     # H-GSP 内部参数（用于调试和优化）
-    parser.add_argument('--taylor_num_samples', type=int, default=256,
-                       help='Taylor 重要性计算的样本数（默认: 256）')
-    parser.add_argument('--taylor_seq_len', type=int, default=32,
-                       help='Taylor 重要性计算的序列长度（默认: 32）')
-    parser.add_argument('--layer_importance_num_samples', type=int, default=50,
-                       help='层重要性分析的样本数（默认: 50）')
-    parser.add_argument('--layer_importance_seq_len', type=int, default=32,
-                       help='层重要性分析的序列长度（默认: 32）')
-    parser.add_argument('--block_importance_num_samples', type=int, default=50,
-                       help='块重要性分析的样本数（默认: 50）')
-    parser.add_argument('--block_importance_seq_len', type=int, default=32,
-                       help='块重要性分析的序列长度（默认: 32）')
+    parser.add_argument('--taylor_num_samples', type=int, default=128,
+                       help='Taylor 重要性计算的样本数（默认: 128）')
+    parser.add_argument('--taylor_seq_len', type=int, default=128,
+                       help='Taylor 重要性计算的序列长度（默认: 128）')
+    parser.add_argument('--layer_importance_num_samples', type=int, default=128,
+                       help='层重要性分析的样本数（默认: 128）')
+    parser.add_argument('--layer_importance_seq_len', type=int, default=128,
+                       help='层重要性分析的序列长度（默认: 128）')
+    parser.add_argument('--block_importance_num_samples', type=int, default=128,
+                       help='块重要性分析的样本数（默认: 128）')
+    parser.add_argument('--block_importance_seq_len', type=int, default=128,
+                       help='块重要性分析的序列长度（默认: 128）')
 
     # GQA 配置
     parser.add_argument('--head_dim', type=int, default=128,
@@ -709,7 +709,7 @@ def main():
                        help='Q:KV 比例（默认: 4）')
 
     # 评估参数
-    parser.add_argument('--run_evaluation', type=str, default="ppl, zeroshot,speed,memory",
+    parser.add_argument('--run_evaluation', type=str, default="ppl, zeroshot",
                        help='评估类型: ppl, zeroshot, efficiency, all（多个用逗号分隔）')
     parser.add_argument('--eval_ppl_datasets', type=str, default='wikitext2,ptb',
                        help='PPL评估数据集（默认: wikitext2,ptb）')
@@ -1112,7 +1112,6 @@ def main():
 
     else:
         logger.log(f"\n[Step 3.5] 计算层重要性（H-GSP Layer-wise 重要性）...")
-        logger.log(f"  方法: 基于相似度（ShortGPT 方法）")
         logger.log(f"  样本数: {LAYER_IMPORTANCE_NUM_SAMPLES}, 序列长度: {LAYER_IMPORTANCE_SEQ_LEN}")
 
         from core.importance.layer_analyzer import LayerImportanceAnalyzer

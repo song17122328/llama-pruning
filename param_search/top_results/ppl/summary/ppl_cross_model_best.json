@@ -1,0 +1,54 @@
+{
+  "metric": "perplexity",
+  "generated_at": "2025-12-10T12:15:38.884408",
+  "best_results": [
+    {
+      "model": "Mistral-Instruct",
+      "method": "TAYLOR",
+      "seq_len": "64.0",
+      "samples": "64.0",
+      "acc": 0.6023214202991259,
+      "ppl": 9.088897705078125
+    },
+    {
+      "model": "Mistral",
+      "method": "LAYERWISE",
+      "seq_len": "64.0",
+      "samples": "64.0",
+      "acc": 0.5332410866356959,
+      "ppl": 9.685235977172852
+    },
+    {
+      "model": "Qwen",
+      "method": "BLOCKWISE",
+      "seq_len": "64.0",
+      "samples": "512.0",
+      "acc": 0.563268671996839,
+      "ppl": 11.45234203338623
+    },
+    {
+      "model": "Llama",
+      "method": "BLOCKWISE",
+      "seq_len": "32.0",
+      "samples": "64.0",
+      "acc": 0.5664722526805187,
+      "ppl": 11.82449722290039
+    },
+    {
+      "model": "Qwen-Instruct",
+      "method": "LAYERWISE",
+      "seq_len": "32.0",
+      "samples": "512.0",
+      "acc": 0.611630258512203,
+      "ppl": 12.693197250366211
+    },
+    {
+      "model": "Llama-Instruct",
+      "method": "LAYERWISE",
+      "seq_len": "32.0",
+      "samples": "512.0",
+      "acc": 0.6246718489937659,
+      "ppl": 13.198046684265137
+    }
+  ]
+}
