@@ -35,22 +35,6 @@ def main():
     parser.add_argument('--output_name', type=str, default=None,
                        help='输出目录名称（默认: Magnitude_{pruning_ratio}）')
 
-    # 可选参数
-    parser.add_argument('--dataset', type=str, default='wikitext2',
-                       choices=['wikitext2', 'ptb', 'c4'],
-                       help='数据集选择（默认: wikitext2）')
-    parser.add_argument('--run_evaluation', action='store_true', default=True,
-                       help='运行评估（默认: True）')
-    parser.add_argument('--eval_metrics', type=str, default='ppl,zeroshot',
-                       help='评估指标（默认: ppl,zeroshot,speed,memory）')
-    parser.add_argument('--finetune', action='store_true',
-                       help='剪枝后进行 LoRA 微调')
-
-    # H-GSP 参数（可选，用于混合评分）
-    parser.add_argument('--temperature', type=float, default=0.0,
-                       help='H-GSP 温度参数（默认: 0.0，即纯 Magnitude）')
-    parser.add_argument('--epsilon', type=float, default=0,
-                       help='H-GSP 坍缩阈值（默认: 0）')
 
     # 其他
     parser.add_argument('--device', type=str, default=None,
@@ -79,9 +63,6 @@ def main():
         "--output_name", args.output_name,
         "--pruning_ratio", str(args.pruning_ratio),
         "--importance_method", "magnitude",
-        "--dataset", args.dataset,
-        "--temperature", str(args.temperature),
-        "--epsilon", str(args.epsilon)
     ]
 
     # 添加评估参数

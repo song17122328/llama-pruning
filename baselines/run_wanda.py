@@ -44,9 +44,9 @@ def main():
     # Wanda 特定参数
     parser.add_argument('--calibration_samples', type=int, default=128,
                        help='校准数据集样本数（默认: 128）')
-    parser.add_argument('--dataset', type=str, default='wikitext2',
+    parser.add_argument('--dataset', type=str, default='c4',
                        choices=['wikitext2', 'ptb', 'c4'],
-                       help='校准数据集（默认: wikitext2）')
+                       help='校准数据集（默认: c4')
 
     # 评估参数
     parser.add_argument('--run_evaluation', action='store_true', default=True,
