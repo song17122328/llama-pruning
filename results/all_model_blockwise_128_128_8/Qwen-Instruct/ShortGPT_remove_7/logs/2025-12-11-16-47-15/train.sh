@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Qwen2.5-7B-Instruct --n_remove_layers 7 --output_name all_model_blockwise_128_128_8/Qwen-Instruct/ShortGPT_remove_7

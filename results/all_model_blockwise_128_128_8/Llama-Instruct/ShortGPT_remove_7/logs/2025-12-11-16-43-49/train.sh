@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --n_remove_layers 7 --output_name all_model_blockwise_128_128_8/Llama-Instruct/ShortGPT_remove_7

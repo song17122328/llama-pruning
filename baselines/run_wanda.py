@@ -41,31 +41,6 @@ def main():
     parser.add_argument('--output_name', type=str, default=None,
                        help='输出目录名称（默认: Wanda_{pruning_ratio}）')
 
-    # Wanda 特定参数
-    parser.add_argument('--calibration_samples', type=int, default=128,
-                       help='校准数据集样本数（默认: 128）')
-    parser.add_argument('--dataset', type=str, default='c4',
-                       choices=['wikitext2', 'ptb', 'c4'],
-                       help='校准数据集（默认: c4')
-
-    # 评估参数
-    parser.add_argument('--run_evaluation', action='store_true', default=True,
-                       help='运行评估（默认: True）')
-    parser.add_argument('--eval_metrics', type=str, default='ppl,zeroshot',
-                       help='评估指标（默认: ppl,zeroshot,speed,memory）')
-    parser.add_argument('--finetune', action='store_true',
-                       help='剪枝后进行 LoRA 微调')
-
-    # H-GSP 参数（可选，用于混合评分）
-    parser.add_argument('--temperature', type=float, default=0.0,
-                       help='H-GSP 温度参数（默认: 0.0，即纯 Wanda）')
-    parser.add_argument('--epsilon', type=float, default=0,
-                       help='H-GSP 坍缩阈值（默认: 0不坍缩）')
-
-    # 其他
-    parser.add_argument('--device', type=str, default=None,
-                       help='设备（默认: 自动选择）')
-
     args = parser.parse_args()
 
     # 设置默认输出名称
@@ -80,13 +55,6 @@ def main():
     print(f"  - 重要性: |W| × ||X||_2 (L2 Norm)")
     print(f"  - Hook 位置: 正确捕获 SwiGLU 作用后的激活")
     print(f"  - 优化: 矩阵乘法，避免巨大中间矩阵")
-    print(f"\n配置:")
-    print(f"  模型: {args.base_model}")
-    print(f"  剪枝率: {args.pruning_ratio:.1%}")
-    print(f"  校准样本: {args.calibration_samples} (注: 实际使用内部固定值 128)")
-    print(f"  校准数据集: {args.dataset}")
-    print(f"  输出: results/{args.output_name}/")
-    print(f"{'='*80}\n")
 
     # 构建命令
     # 注意: run_global_pruning.py 内部固定使用 TAYLOR_NUM_SAMPLES=128
@@ -97,22 +65,8 @@ def main():
         "--output_name", args.output_name,
         "--pruning_ratio", str(args.pruning_ratio),
         "--importance_method", "wanda",
-        "--dataset", args.dataset,
-        "--temperature", str(args.temperature),
-        "--epsilon", str(args.epsilon)
+        "--temperature", "0.0"
     ]
-
-    # 添加评估参数
-    if args.run_evaluation:
-        cmd.extend(["--run_evaluation", args.eval_metrics])
-
-    # 添加微调参数
-    if args.finetune:
-        cmd.append("--finetune")
-
-    # 添加设备参数
-    if args.device:
-        cmd.extend(["--device", args.device])
 
     # 打印命令
     print("执行命令:")

@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B-Instruct --output_name for_finetuning/Llama-Instruct/magnitude --pruning_ratio 0.2 --importance_method magnitude --temperature 0.0

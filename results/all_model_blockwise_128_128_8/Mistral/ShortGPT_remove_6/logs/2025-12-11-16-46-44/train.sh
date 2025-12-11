@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Mistral-7B-v0.3 --n_remove_layers 6 --output_name all_model_blockwise_128_128_8/Mistral/ShortGPT_remove_6

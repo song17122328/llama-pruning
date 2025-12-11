@@ -63,19 +63,8 @@ def main():
         "--output_name", args.output_name,
         "--pruning_ratio", str(args.pruning_ratio),
         "--importance_method", "magnitude",
+        "--temperature", "0.0",  
     ]
-
-    # 添加评估参数
-    if args.run_evaluation:
-        cmd.extend(["--run_evaluation", args.eval_metrics])
-
-    # 添加微调参数
-    if args.finetune:
-        cmd.append("--finetune")
-
-    # 添加设备参数
-    if args.device:
-        cmd.extend(["--device", args.device])
 
     # 打印命令
     print("执行命令:")

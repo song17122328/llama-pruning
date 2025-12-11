@@ -1832,6 +1832,7 @@ def main():
         logger.log(f"  ⚠️ 图表生成失败: {e}")
         logger.log(f"  提示: 请确保安装了 matplotlib: pip install matplotlib")
 
+    args.run_evaluation = False  # 临时禁用评估以节省时间
     # ========== Step 11: 运行评估测试（可选）==========
     if args.run_evaluation:
         logger.log(f"\n[Step 11] 运行评估测试...")
