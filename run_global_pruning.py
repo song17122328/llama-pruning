@@ -102,6 +102,10 @@ def generate_pruning_charts(pruning_data, model_name, output_dir, use_english=Fa
     mlp_pruning_ratios = []
     attention_pruning_ratios = []
 
+    # 提取每层的 Attention 和 MLP 各自的剪枝率
+    attention_reduction_ratios = []  # Attention剪枝参数 / 原始Attention参数
+    mlp_reduction_ratios = []        # MLP剪枝参数 / 原始MLP参数
+
     for layer in layers:
         if 'total' in layer and 'reduction_ratio' in layer['total']:
             layer_indices.append(layer['layer_idx'])
@@ -125,6 +129,22 @@ def generate_pruning_charts(pruning_data, model_name, output_dir, use_english=Fa
                 attention_pruning_ratios.append(attention_reduced / total_original * 100)
             else:
                 attention_pruning_ratios.append(0)
+
+            # Attention 自身的剪枝率 = Attention剪枝参数 / 原始Attention总参数
+            if 'attention' in layer and layer['attention'].get('original', 0) > 0:
+                attention_original = layer['attention']['original']
+                attention_reduced = layer['attention'].get('reduced', 0)
+                attention_reduction_ratios.append(attention_reduced / attention_original * 100)
+            else:
+                attention_reduction_ratios.append(0)
+
+            # MLP 自身的剪枝率 = MLP剪枝参数 / 原始MLP总参数
+            if 'mlp' in layer and layer['mlp'].get('original', 0) > 0:
+                mlp_original = layer['mlp']['original']
+                mlp_reduced = layer['mlp'].get('reduced', 0)
+                mlp_reduction_ratios.append(mlp_reduced / mlp_original * 100)
+            else:
+                mlp_reduction_ratios.append(0)
 
     if not pruning_ratios:
         return
@@ -309,6 +329,96 @@ def generate_pruning_charts(pruning_data, model_name, output_dir, use_english=Fa
     plt.close()
 
     print(f"  ✓ 已生成: {breakdown_chart_path}")
+
+    # ========== 生成 Attention 自身剪枝率图表 ==========
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # 设置颜色（红色系）
+    colors = ['#e74c3c' if r >= 50 else '#3498db' for r in attention_reduction_ratios]
+
+    # 绘制柱状图
+    bars = ax.bar(layer_indices, attention_reduction_ratios, color=colors,
+                  edgecolor='black', linewidth=0.5)
+
+    # 添加数值标签
+    for bar, ratio in zip(bars, attention_reduction_ratios):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+               f'{ratio:.1f}%',
+               ha='center', va='bottom', fontsize=8)
+
+    # 设置坐标轴
+    if use_english:
+        ax.set_xlabel('Layer Index', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Attention Pruning Ratio (%)', fontsize=12, fontweight='bold')
+        title = f'{model_name} - Attention Module Pruning Ratio per Layer'
+    else:
+        ax.set_xlabel('层索引', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Attention 剪枝率 (%)', fontsize=12, fontweight='bold')
+        title = f'{model_name} - 各层 Attention 模块剪枝率'
+
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    ax.set_xticks(layer_indices)
+    ax.set_xticklabels([str(i) for i in layer_indices], fontsize=9)
+    ax.set_ylim(0, 105)
+
+    # 添加网格线
+    for y in [20, 40, 60, 80, 100]:
+        ax.axhline(y=y, color='lightgray', linestyle=':', linewidth=0.8, alpha=0.6, zorder=1)
+
+    plt.tight_layout()
+
+    # 保存图表
+    attention_chart_path = output_path / "attention_pruning_ratio.png"
+    plt.savefig(str(attention_chart_path), dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"  ✓ 已生成: {attention_chart_path}")
+
+    # ========== 生成 MLP 自身剪枝率图表 ==========
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # 设置颜色（蓝色系）
+    colors = ['#e74c3c' if r >= 50 else '#3498db' for r in mlp_reduction_ratios]
+
+    # 绘制柱状图
+    bars = ax.bar(layer_indices, mlp_reduction_ratios, color=colors,
+                  edgecolor='black', linewidth=0.5)
+
+    # 添加数值标签
+    for bar, ratio in zip(bars, mlp_reduction_ratios):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+               f'{ratio:.1f}%',
+               ha='center', va='bottom', fontsize=8)
+
+    # 设置坐标轴
+    if use_english:
+        ax.set_xlabel('Layer Index', fontsize=12, fontweight='bold')
+        ax.set_ylabel('MLP Pruning Ratio (%)', fontsize=12, fontweight='bold')
+        title = f'{model_name} - MLP Module Pruning Ratio per Layer'
+    else:
+        ax.set_xlabel('层索引', fontsize=12, fontweight='bold')
+        ax.set_ylabel('MLP 剪枝率 (%)', fontsize=12, fontweight='bold')
+        title = f'{model_name} - 各层 MLP 模块剪枝率'
+
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    ax.set_xticks(layer_indices)
+    ax.set_xticklabels([str(i) for i in layer_indices], fontsize=9)
+    ax.set_ylim(0, 105)
+
+    # 添加网格线
+    for y in [20, 40, 60, 80, 100]:
+        ax.axhline(y=y, color='lightgray', linestyle=':', linewidth=0.8, alpha=0.6, zorder=1)
+
+    plt.tight_layout()
+
+    # 保存图表
+    mlp_chart_path = output_path / "mlp_pruning_ratio.png"
+    plt.savefig(str(mlp_chart_path), dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"  ✓ 已生成: {mlp_chart_path}")
 
 
 def get_model_gqa_config(model):
