@@ -98,12 +98,33 @@ def generate_pruning_charts(pruning_data, model_name, output_dir, use_english=Fa
     retention_ratios = []
     layer_indices = []
 
+    # 提取每层的 MLP 和 Attention 剪枝比重（占总参数的比例）
+    mlp_pruning_ratios = []
+    attention_pruning_ratios = []
+
     for layer in layers:
         if 'total' in layer and 'reduction_ratio' in layer['total']:
             layer_indices.append(layer['layer_idx'])
             pruning_ratio = layer['total']['reduction_ratio']
             pruning_ratios.append(pruning_ratio * 100)
             retention_ratios.append((1.0 - pruning_ratio) * 100)
+
+            # 计算 MLP 和 Attention 的剪枝比重（剪枝参数数 / 原始层总参数）
+            total_original = layer['total']['original']
+
+            # MLP 剪枝比重 = MLP剪枝参数 / 原始层总参数
+            if total_original > 0 and 'mlp' in layer:
+                mlp_reduced = layer['mlp'].get('reduced', 0)
+                mlp_pruning_ratios.append(mlp_reduced / total_original * 100)
+            else:
+                mlp_pruning_ratios.append(0)
+
+            # Attention 剪枝比重 = Attention剪枝参数 / 原始层总参数
+            if total_original > 0 and 'attention' in layer:
+                attention_reduced = layer['attention'].get('reduced', 0)
+                attention_pruning_ratios.append(attention_reduced / total_original * 100)
+            else:
+                attention_pruning_ratios.append(0)
 
     if not pruning_ratios:
         return
@@ -213,6 +234,81 @@ def generate_pruning_charts(pruning_data, model_name, output_dir, use_english=Fa
         plt.close()
 
         print(f"  ✓ 已生成: {chart_path}")
+
+    # ========== 生成剪枝比重细分图表（MLP vs Attention）==========
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # 创建堆叠柱状图
+    width = 0.8
+    x_pos = range(len(layer_indices))
+
+    # 绘制 MLP 剪枝比重（底部，蓝色）
+    bars_mlp = ax.bar(x_pos, mlp_pruning_ratios, width,
+                      label='MLP' if use_english else 'MLP 剪枝比重',
+                      color='#3498db', edgecolor='black', linewidth=0.5)
+
+    # 绘制 Attention 剪枝比重（堆叠在 MLP 上方，红色）
+    bars_attn = ax.bar(x_pos, attention_pruning_ratios, width,
+                       bottom=mlp_pruning_ratios,
+                       label='Attention' if use_english else 'Attention 剪枝比重',
+                       color='#e74c3c', edgecolor='black', linewidth=0.5)
+
+    # 添加数值标签（显示 MLP 和 Attention 的比重）
+    for i, (mlp_ratio, attn_ratio) in enumerate(zip(mlp_pruning_ratios, attention_pruning_ratios)):
+        # MLP 标签（在 MLP 柱子中间）
+        if mlp_ratio > 2:  # 只有当比重足够大时才显示
+            ax.text(i, mlp_ratio / 2, f'{mlp_ratio:.1f}%',
+                   ha='center', va='center', fontsize=7, color='white', fontweight='bold')
+
+        # Attention 标签（在 Attention 柱子中间）
+        if attn_ratio > 2:  # 只有当比重足够大时才显示
+            ax.text(i, mlp_ratio + attn_ratio / 2, f'{attn_ratio:.1f}%',
+                   ha='center', va='center', fontsize=7, color='white', fontweight='bold')
+
+        # 总剪枝率标签（在柱子顶部）
+        total_ratio = mlp_ratio + attn_ratio
+        ax.text(i, total_ratio + 1, f'{total_ratio:.1f}%',
+               ha='center', va='bottom', fontsize=8, fontweight='bold')
+
+    # 设置坐标轴
+    if use_english:
+        ax.set_xlabel('Layer Index', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Pruning Ratio (% of Total Layer Params)', fontsize=12, fontweight='bold')
+        title = f'{model_name} - Pruning Breakdown: MLP vs Attention'
+        if layer_target_ratio:
+            title += f' (Target: {layer_target_ratio:.1f}%)'
+    else:
+        ax.set_xlabel('层索引', fontsize=12, fontweight='bold')
+        ax.set_ylabel('剪枝比重 (占总参数的百分比)', fontsize=12, fontweight='bold')
+        title = f'{model_name} - 剪枝比重细分：MLP vs Attention'
+        if layer_target_ratio:
+            title += f' (目标: {layer_target_ratio:.1f}%)'
+
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels([str(i) for i in layer_indices], fontsize=9)
+    ax.set_ylim(0, 105)
+
+    # 添加网格线
+    for y in [20, 40, 60, 80, 100]:
+        ax.axhline(y=y, color='lightgray', linestyle=':', linewidth=0.8, alpha=0.6, zorder=1)
+
+    # 添加目标线（总剪枝目标）
+    if layer_target_ratio is not None:
+        ax.axhline(y=layer_target_ratio, color='#ff8c00', linestyle='--', linewidth=2.5, alpha=0.9,
+                  label=f'{"Target" if use_english else "目标剪枝率"}: {layer_target_ratio:.1f}%', zorder=3)
+
+    # 添加图例
+    ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
+
+    plt.tight_layout()
+
+    # 保存图表
+    breakdown_chart_path = output_path / "pruning_ratio_breakdown.png"
+    plt.savefig(str(breakdown_chart_path), dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"  ✓ 已生成: {breakdown_chart_path}")
 
 
 def get_model_gqa_config(model):
