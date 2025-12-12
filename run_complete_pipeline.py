@@ -295,15 +295,13 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
 
         # 执行命令
         log(f"[GPU {gpu_id}] 执行命令: {' '.join(cmd)}")
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=7200)  # 2小时超时
+        result = subprocess.run(cmd, env=env, timeout=7200)  # 2小时超时
 
         if result.returncode == 0:
             log(f"[GPU {gpu_id}] ✓ 剪枝完成: {method}")
             return True
         else:
             log(f"[GPU {gpu_id}] ✗ 剪枝失败: {method}")
-            if result.stderr:
-                log(f"  错误信息: {result.stderr[:500]}")
             return False
 
     except subprocess.TimeoutExpired:

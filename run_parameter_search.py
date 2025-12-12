@@ -168,14 +168,13 @@ def run_complete_pipeline(model, taylor_seq_len, block_seq_len, output_prefix, g
         log(f"[GPU {gpu_id}] 执行命令: {' '.join(cmd)}")
         # 完整流程可能需要很长时间（剪枝 + 评估 + 微调 + 评估）
         # 估计时间: 剪枝2h + 评估1h + 微调4h + 评估1h = 8h
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=28800)  # 8小时超时
+        result = subprocess.run(cmd, env=env, timeout=28800)  # 8小时超时
 
         if result.returncode == 0:
             log(f"[GPU {gpu_id}] ✓ 完整流程完成")
             return True
         else:
-            log(f"[GPU {gpu_id}] ✗ 流程失败: {result.stderr[:500]}")
-            log(f"[GPU {gpu_id}] stdout: {result.stdout[:500]}")
+            log(f"[GPU {gpu_id}] ✗ 流程失败")
             return False
 
     except subprocess.TimeoutExpired:
