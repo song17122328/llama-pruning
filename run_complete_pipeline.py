@@ -177,8 +177,12 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
-    # 特别说明：对于 LLM-Pruner，需要同时设置 CUDA_VISIBLE_DEVICES 和 --device cuda
-    # CUDA_VISIBLE_DEVICES 限制可见的 GPU，--device cuda 让 LLM-Pruner 使用 cuda:0（即被限制后的第一个GPU）
+    # 重要说明：GPU 设备配置
+    # 1. CUDA_VISIBLE_DEVICES 限制可见的 GPU（例如设为 7，则只有 GPU 7 可见）
+    # 2. 所有剪枝方法都需要明确指定 --device cuda 或 --device cuda:0
+    #    - 因为 CUDA_VISIBLE_DEVICES 限制后，cuda:0 映射到原始的 GPU 7
+    #    - 如果不指定，某些方法可能尝试使用 cuda:2 等不可见设备，导致错误
+    # 3. 这样确保所有方法都使用正确的 GPU，避免设备冲突
     log(f"[GPU {gpu_id}] 设置环境变量: CUDA_VISIBLE_DEVICES={gpu_id}")
 
     try:
@@ -195,7 +199,8 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
                 '--block_importance_num_samples', str(params['y1']),
                 '--block_importance_seq_len', str(params['y2']),
                 '--gradient_batch_size', str(params['z']),
-                '--pruning_ratio', '0.2'
+                '--pruning_ratio', '0.2',
+                '--device', 'cuda'  # 使用第一个可见GPU（由CUDA_VISIBLE_DEVICES限制）
             ]
 
         elif method == 'magnitude':
@@ -209,7 +214,8 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
                 '--taylor_seq_len', str(params['x2']),
                 '--gradient_batch_size', str(params['z']),
                 '--pruning_ratio', '0.2',
-                '--temperature', '0.0'
+                '--temperature', '0.0',
+                '--device', 'cuda'  # 使用第一个可见GPU（由CUDA_VISIBLE_DEVICES限制）
             ]
 
         elif method == 'wanda':
@@ -223,7 +229,8 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
                 '--taylor_seq_len', str(params['x2']),
                 '--gradient_batch_size', str(params['z']),
                 '--pruning_ratio', '0.2',
-                '--temperature', '0.0'
+                '--temperature', '0.0',
+                '--device', 'cuda'  # 使用第一个可见GPU（由CUDA_VISIBLE_DEVICES限制）
             ]
 
         elif method == 'LLM-Pruner':
@@ -273,7 +280,8 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
                 '--num_samples', str(params['y1']),
                 '--seq_len', str(params['y2']),
                 '--stride', str(params['y2']),
-                '--output_name', str(output_dir)
+                '--output_name', str(output_dir),
+                '--device', 'cuda'  # 使用第一个可见GPU（由CUDA_VISIBLE_DEVICES限制）
             ]
         else:
             log(f"[GPU {gpu_id}] ✗ 未知的剪枝方法: {method}")
