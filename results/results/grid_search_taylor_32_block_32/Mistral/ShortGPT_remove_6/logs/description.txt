@@ -1,0 +1,12 @@
+- Training Parameters: 
+  - base_model: /newdata/LLMs/Mistral-7B-v0.3
+  - n_remove_layers: 6
+  - output_name: results/grid_search_taylor_32_block_32/Mistral/ShortGPT_remove_6
+  - dataset: wikitext2
+  - num_samples: 256
+  - seq_len: 32
+  - stride: 32
+  - run_evaluation: True
+  - eval_metrics: ppl,zeroshot
+  - finetune: False
+  - device: cuda

@@ -1,0 +1,1 @@
+python baselines/run_shortgpt.py --base_model /newdata/LLMs/Mistral-7B-v0.3 --n_remove_layers 6 --num_samples 256 --seq_len 256 --stride 256 --output_name results/grid_search_taylor_32_block_256/Mistral/ShortGPT_remove_6 --device cuda
