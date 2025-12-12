@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-参数网格搜索脚本
+参数网格搜索脚本（完整流程版本）
 
-自动搜索不同的校准参数组合，找出最优配置。
+自动搜索不同的校准参数组合，对每个组合运行完整的流程：
+剪枝 → 评估 → 微调 → 评估
 
 搜索空间：
 - taylor_seq_len: [32, 64, 128, 256]
@@ -20,7 +21,7 @@
     --model: 模型名称 (Llama, Llama-Instruct, Mistral, Mistral-Instruct, Qwen, Qwen-Instruct)
     --output_prefix: 输出目录前缀
     --gpu: 使用的 GPU ID（默认: 自动选择）
-    --skip-completed: 跳过已完成的实验（检查 evaluation_results.json）
+    --skip-completed: 跳过已完成的实验（检查微调后评估结果）
 """
 
 import argparse
@@ -84,68 +85,65 @@ def get_best_gpu():
         return 0
 
 
-def run_pruning(model, taylor_seq_len, block_seq_len, output_dir, gpu_id, logger):
+def run_complete_pipeline(model, taylor_seq_len, block_seq_len, output_prefix, gpu_id, logger):
     """
-    运行剪枝实验
+    运行完整流程：剪枝 → 评估 → 微调 → 评估
 
     Args:
         model: 模型名称
         taylor_seq_len: Taylor 重要性计算的序列长度
         block_seq_len: Block/Layer 重要性计算的序列长度
-        output_dir: 输出目录
+        output_prefix: 输出目录前缀
         gpu_id: GPU ID
         logger: 日志对象
     """
-    base_model_path = MODEL_PATHS[model]
     log = logger.info
 
-    log(f"[GPU {gpu_id}] 开始剪枝: taylor_seq_len={taylor_seq_len}, block_seq_len={block_seq_len}")
+    log(f"[GPU {gpu_id}] 开始完整流程: taylor_seq_len={taylor_seq_len}, block_seq_len={block_seq_len}")
 
-    # 设置环境变量
-    env = os.environ.copy()
-    env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-
-    # 构建命令（使用 blockwise 方法）
+    # 构建命令（调用 run_complete_pipeline.py）
     cmd = [
-        'python', 'run_global_pruning.py',
-        '--base_model', base_model_path,
-        '--output_name', str(output_dir),
-        '--taylor_num_samples', str(NUM_SAMPLES),
-        '--taylor_seq_len', str(taylor_seq_len),
-        '--layer_importance_num_samples', str(NUM_SAMPLES),
-        '--layer_importance_seq_len', str(block_seq_len),
-        '--block_importance_num_samples', str(NUM_SAMPLES),
-        '--block_importance_seq_len', str(block_seq_len),
-        '--gradient_batch_size', str(GRADIENT_BATCH_SIZE),
-        '--pruning_ratio', '0.2',
-        '--device', 'cuda'  # 使用第一个可见GPU
+        'python', 'run_complete_pipeline.py',
+        '--model', model,
+        '--x1', str(NUM_SAMPLES),          # taylor_num_samples
+        '--x2', str(taylor_seq_len),       # taylor_seq_len
+        '--y1', str(NUM_SAMPLES),          # layer/block_importance_num_samples
+        '--y2', str(block_seq_len),        # layer/block_importance_seq_len
+        '--z', str(GRADIENT_BATCH_SIZE),   # gradient_batch_size
+        '--output_prefix', output_prefix,
+        '--gpu', str(gpu_id),
+        '--skip-completed'
     ]
 
     try:
         log(f"[GPU {gpu_id}] 执行命令: {' '.join(cmd)}")
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=7200)  # 2小时超时
+        # 完整流程可能需要很长时间（剪枝 + 评估 + 微调 + 评估）
+        # 估计时间: 剪枝2h + 评估1h + 微调4h + 评估1h = 8h
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=28800)  # 8小时超时
 
         if result.returncode == 0:
-            log(f"[GPU {gpu_id}] ✓ 剪枝完成")
+            log(f"[GPU {gpu_id}] ✓ 完整流程完成")
             return True
         else:
-            log(f"[GPU {gpu_id}] ✗ 剪枝失败: {result.stderr[:500]}")
+            log(f"[GPU {gpu_id}] ✗ 流程失败: {result.stderr[:500]}")
             return False
 
     except subprocess.TimeoutExpired:
-        log(f"[GPU {gpu_id}] ✗ 剪枝超时")
+        log(f"[GPU {gpu_id}] ✗ 流程超时（超过8小时）")
         return False
     except Exception as e:
-        log(f"[GPU {gpu_id}] ✗ 剪枝异常: {e}")
+        log(f"[GPU {gpu_id}] ✗ 流程异常: {e}")
         return False
 
 
-def collect_results(search_results_dir, model, logger):
+def collect_results(output_prefix, model, logger):
     """
     收集所有实验结果并生成汇总报告
 
+    读取每个配置的 Excel 汇总文件
+
     Args:
-        search_results_dir: 搜索结果根目录
+        output_prefix: 输出目录前缀
         model: 模型名称
         logger: 日志对象
     """
@@ -159,30 +157,42 @@ def collect_results(search_results_dir, model, logger):
     for taylor_len in TAYLOR_SEQ_LENS:
         for block_len in BLOCK_SEQ_LENS:
             config_name = f"taylor_{taylor_len}_block_{block_len}"
-            result_dir = search_results_dir / model / config_name
+            config_prefix = f"{output_prefix}_{config_name}"
 
-            # 读取评估结果
-            eval_file = result_dir / "evaluation" / "evaluation_results.json"
+            # 读取该配置的 Excel 汇总文件
+            excel_file = Path('results') / config_prefix / model / f"{model}_results.xlsx"
 
-            if eval_file.exists():
+            if excel_file.exists():
                 try:
-                    with open(eval_file, 'r') as f:
-                        eval_data = json.load(f)
+                    # 读取 Excel 文件
+                    df = pd.read_excel(excel_file)
 
-                    result = {
+                    # 计算平均值
+                    # Excel 文件包含所有方法的微调前后结果
+                    config_results = {
                         'taylor_seq_len': taylor_len,
                         'block_seq_len': block_len,
-                        'config': config_name,
-                        'ppl': eval_data.get('wiki2', {}).get('ppl', float('inf')),
-                        'avg_acc': eval_data.get('avg_acc', 0.0)
+                        'config': config_name
                     }
 
-                    # 添加各个任务的准确率
-                    for task in ['arc_challenge', 'arc_easy', 'boolq', 'hellaswag', 'openbookqa', 'piqa', 'winogrande']:
-                        result[f'{task}_acc'] = eval_data.get(task, {}).get('acc,none', 0.0)
+                    # 从 Excel 中提取微调后的 PPL 和 Accuracy
+                    if 'ppl_after' in df.columns and 'acc_after' in df.columns:
+                        avg_ppl_after = df['ppl_after'].mean()
+                        avg_acc_after = df['acc_after'].mean()
 
-                    results.append(result)
-                    log(f"✓ {config_name}: PPL={result['ppl']:.2f}, Avg Acc={result['avg_acc']:.4f}")
+                        config_results['avg_ppl'] = avg_ppl_after
+                        config_results['avg_acc'] = avg_acc_after
+
+                        # 同时记录每个方法的结果
+                        for _, row in df.iterrows():
+                            method = row.get('method', '')
+                            config_results[f'{method}_ppl'] = row.get('ppl_after', float('inf'))
+                            config_results[f'{method}_acc'] = row.get('acc_after', 0.0)
+
+                        results.append(config_results)
+                        log(f"✓ {config_name}: Avg PPL={avg_ppl_after:.2f}, Avg Acc={avg_acc_after:.4f}")
+                    else:
+                        log(f"⊗ Excel 格式错误 {config_name}")
 
                 except Exception as e:
                     log(f"✗ 读取失败 {config_name}: {e}")
@@ -197,11 +207,11 @@ def collect_results(search_results_dir, model, logger):
     df = pd.DataFrame(results)
 
     # 排序
-    df_sorted_ppl = df.sort_values('ppl')
+    df_sorted_ppl = df.sort_values('avg_ppl')
     df_sorted_acc = df.sort_values('avg_acc', ascending=False)
 
     # 保存结果
-    output_dir = search_results_dir / model
+    output_dir = Path('results') / f"{output_prefix}_summary" / model
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 保存 CSV
@@ -218,14 +228,14 @@ def collect_results(search_results_dir, model, logger):
             'config': best_ppl['config'],
             'taylor_seq_len': int(best_ppl['taylor_seq_len']),
             'block_seq_len': int(best_ppl['block_seq_len']),
-            'ppl': float(best_ppl['ppl']),
+            'avg_ppl': float(best_ppl['avg_ppl']),
             'avg_acc': float(best_ppl['avg_acc'])
         },
         'best_acc': {
             'config': best_acc['config'],
             'taylor_seq_len': int(best_acc['taylor_seq_len']),
             'block_seq_len': int(best_acc['block_seq_len']),
-            'ppl': float(best_acc['ppl']),
+            'avg_ppl': float(best_acc['avg_ppl']),
             'avg_acc': float(best_acc['avg_acc'])
         }
     }
@@ -239,22 +249,22 @@ def collect_results(search_results_dir, model, logger):
     log("\n" + "="*80)
     log("搜索结果摘要")
     log("="*80)
-    log(f"\n最佳 PPL 配置:")
+    log(f"\n最佳 PPL 配置（跨所有方法平均）:")
     log(f"  - Config: {best_ppl['config']}")
     log(f"  - Taylor Seq Len: {best_ppl['taylor_seq_len']}")
     log(f"  - Block Seq Len: {best_ppl['block_seq_len']}")
-    log(f"  - PPL: {best_ppl['ppl']:.2f}")
+    log(f"  - Avg PPL: {best_ppl['avg_ppl']:.2f}")
     log(f"  - Avg Acc: {best_ppl['avg_acc']:.4f}")
 
-    log(f"\n最佳 Accuracy 配置:")
+    log(f"\n最佳 Accuracy 配置（跨所有方法平均）:")
     log(f"  - Config: {best_acc['config']}")
     log(f"  - Taylor Seq Len: {best_acc['taylor_seq_len']}")
     log(f"  - Block Seq Len: {best_acc['block_seq_len']}")
-    log(f"  - PPL: {best_acc['ppl']:.2f}")
+    log(f"  - Avg PPL: {best_acc['avg_ppl']:.2f}")
     log(f"  - Avg Acc: {best_acc['avg_acc']:.4f}")
 
-    log("\n所有配置（按 PPL 排序）:")
-    log(df_sorted_ppl.to_string(index=False))
+    log("\n所有配置（按平均 PPL 排序）:")
+    log(df_sorted_ppl[['config', 'taylor_seq_len', 'block_seq_len', 'avg_ppl', 'avg_acc']].to_string(index=False))
 
 
 def main():
@@ -276,22 +286,23 @@ def main():
     if args.gpu is None:
         args.gpu = get_best_gpu()
 
-    # 创建输出目录
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    search_results_dir = Path('results') / args.output_prefix / timestamp
-    search_results_dir.mkdir(parents=True, exist_ok=True)
+    # 创建日志目录
+    log_dir = Path('results') / f"{args.output_prefix}_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     # 设置日志
-    log_file = search_results_dir / 'grid_search.log'
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    log_file = log_dir / f'grid_search_{timestamp}.log'
     logger = setup_logging(log_file)
     log = logger.info
 
     log("="*80)
-    log("参数网格搜索")
+    log("参数网格搜索（完整流程）")
     log("="*80)
     log(f"模型: {args.model}")
     log(f"GPU: {args.gpu}")
-    log(f"输出目录: {search_results_dir}")
+    log(f"输出前缀: {args.output_prefix}")
+    log(f"日志文件: {log_file}")
     log(f"跳过已完成: {args.skip_completed}")
     log("")
     log("搜索空间:")
@@ -300,6 +311,13 @@ def main():
     log(f"  - num_samples: {NUM_SAMPLES} (固定)")
     log(f"  - gradient_batch_size: {GRADIENT_BATCH_SIZE} (固定)")
     log(f"  - 总实验数: {len(TAYLOR_SEQ_LENS) * len(BLOCK_SEQ_LENS)}")
+    log("")
+    log("每个实验包含完整流程：")
+    log("  1. 剪枝（6种方法）")
+    log("  2. 评估剪枝后模型")
+    log("  3. LoRA 微调")
+    log("  4. 评估微调后模型")
+    log("  5. 导出 Excel 汇总")
     log("="*80)
 
     # 生成所有参数组合
@@ -311,23 +329,23 @@ def main():
 
     for idx, (taylor_len, block_len) in enumerate(param_combinations, 1):
         config_name = f"taylor_{taylor_len}_block_{block_len}"
-        output_dir = search_results_dir / args.model / config_name
+        output_prefix = f"{args.output_prefix}_{config_name}"
 
         log(f"\n[{idx}/{total}] 实验: {config_name}")
 
-        # 检查是否已完成
-        eval_file = output_dir / "evaluation" / "evaluation_results.json"
-        if args.skip_completed and eval_file.exists():
+        # 检查是否已完成（检查 Excel 输出文件）
+        excel_file = Path('results') / output_prefix / args.model / f"{args.model}_results.xlsx"
+        if args.skip_completed and excel_file.exists():
             log(f"⊗ 跳过（已完成）")
             completed += 1
             continue
 
-        # 运行剪枝
-        success = run_pruning(
+        # 运行完整流程（剪枝 → 评估 → 微调 → 评估）
+        success = run_complete_pipeline(
             model=args.model,
             taylor_seq_len=taylor_len,
             block_seq_len=block_len,
-            output_dir=output_dir,
+            output_prefix=output_prefix,
             gpu_id=args.gpu,
             logger=logger
         )
@@ -342,10 +360,11 @@ def main():
     log(f"搜索完成: {completed} 成功, {failed} 失败")
     log("="*80)
 
-    collect_results(search_results_dir, args.model, logger)
+    collect_results(args.output_prefix, args.model, logger)
 
     log("\n✓ 参数搜索全部完成！")
-    log(f"结果目录: {search_results_dir / args.model}")
+    log(f"汇总结果目录: results/{args.output_prefix}_summary/{args.model}/")
+    log(f"日志文件: {log_file}")
 
 
 if __name__ == '__main__':
