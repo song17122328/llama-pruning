@@ -1,1 +1,0 @@
-python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-v0.3 --output_name results/grid_search_taylor_32_block_64/Mistral/magnitude --importance_method magnitude --taylor_num_samples 256 --taylor_seq_len 32 --gradient_batch_size 8 --pruning_ratio 0.2 --temperature 0.0 --device cuda
