@@ -76,6 +76,52 @@ SHORTGPT_LAYERS = {
     'Qwen-Instruct': [6, 7]
 }
 
+# LLM-Pruner 模型特定参数配置
+LLM_PRUNER_CONFIGS = {
+    'Llama': {
+        'pruning_ratio': '0.28',
+        'block_mlp_layer_start': '4',
+        'block_mlp_layer_end': '30',
+        'block_attention_layer_start': '4',
+        'block_attention_layer_end': '30'
+    },
+    'Llama-Instruct': {
+        'pruning_ratio': '0.28',
+        'block_mlp_layer_start': '4',
+        'block_mlp_layer_end': '30',
+        'block_attention_layer_start': '4',
+        'block_attention_layer_end': '30'
+    },
+    'Mistral': {
+        'pruning_ratio': '0.25',
+        'block_mlp_layer_start': '4',
+        'block_mlp_layer_end': '30',
+        'block_attention_layer_start': '4',
+        'block_attention_layer_end': '30'
+    },
+    'Mistral-Instruct': {
+        'pruning_ratio': '0.25',
+        'block_mlp_layer_start': '4',
+        'block_mlp_layer_end': '30',
+        'block_attention_layer_start': '4',
+        'block_attention_layer_end': '30'
+    },
+    'Qwen': {
+        'pruning_ratio': '0.27',
+        'block_mlp_layer_start': '3',
+        'block_mlp_layer_end': '27',
+        'block_attention_layer_start': '3',
+        'block_attention_layer_end': '27'
+    },
+    'Qwen-Instruct': {
+        'pruning_ratio': '0.27',
+        'block_mlp_layer_start': '3',
+        'block_mlp_layer_end': '27',
+        'block_attention_layer_start': '3',
+        'block_attention_layer_end': '27'
+    }
+}
+
 
 def setup_logging(log_file=None):
     """设置日志系统"""
@@ -185,17 +231,28 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
             # 注意：LLM-Pruner 需要 CUDA_VISIBLE_DEVICES 环境变量（已在上面设置）+ --device cuda 参数
             # 这样 LLM-Pruner 会使用 cuda:0，而 cuda:0 实际映射到 CUDA_VISIBLE_DEVICES 指定的 GPU
             log(f"[GPU {gpu_id}] LLM-Pruner 特殊设置: CUDA_VISIBLE_DEVICES={gpu_id}, --device cuda")
+
+            # 获取模型特定的 LLM-Pruner 配置
+            llm_pruner_config = LLM_PRUNER_CONFIGS.get(model)
+            if not llm_pruner_config:
+                log(f"[GPU {gpu_id}] ✗ 未找到模型 {model} 的 LLM-Pruner 配置")
+                return False
+
+            log(f"[GPU {gpu_id}] 使用 LLM-Pruner 配置: pruning_ratio={llm_pruner_config['pruning_ratio']}, "
+                f"MLP layers={llm_pruner_config['block_mlp_layer_start']}-{llm_pruner_config['block_mlp_layer_end']}, "
+                f"Attention layers={llm_pruner_config['block_attention_layer_start']}-{llm_pruner_config['block_attention_layer_end']}")
+
             cmd = [
                 'python', '/data/home/yuanxiaosong/LLM-Pruner_baseline/llama3.py',
-                '--pruning_ratio', '0.28',
+                '--pruning_ratio', llm_pruner_config['pruning_ratio'],
                 '--device', 'cuda',          # 使用 cuda（cuda:0）
                 '--eval_device', 'cuda',     # 评估也使用 cuda
                 '--base_model', base_model_path,
                 '--block_wise',
-                '--block_mlp_layer_start', '4',
-                '--block_mlp_layer_end', '30',
-                '--block_attention_layer_start', '4',
-                '--block_attention_layer_end', '30',
+                '--block_mlp_layer_start', llm_pruner_config['block_mlp_layer_start'],
+                '--block_mlp_layer_end', llm_pruner_config['block_mlp_layer_end'],
+                '--block_attention_layer_start', llm_pruner_config['block_attention_layer_start'],
+                '--block_attention_layer_end', llm_pruner_config['block_attention_layer_end'],
                 '--save_ckpt_log_name', str(output_dir),
                 '--pruner_type', 'taylor',
                 '--taylor', 'param_first',
