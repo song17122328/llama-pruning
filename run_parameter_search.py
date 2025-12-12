@@ -329,12 +329,20 @@ def main():
                        help='GPU ID（默认: 自动选择）')
     parser.add_argument('--skip-completed', action='store_true',
                        help='跳过已完成的实验')
+    parser.add_argument('--taylor-seq-lens', type=int, nargs='+', default=None,
+                       help='Taylor序列长度列表（默认: 32 64 128 256）')
+    parser.add_argument('--block-seq-lens', type=int, nargs='+', default=None,
+                       help='Block序列长度列表（默认: 32 64 128 256）')
 
     args = parser.parse_args()
 
     # 设置 GPU
     if args.gpu is None:
         args.gpu = get_best_gpu()
+
+    # 使用自定义参数或默认值
+    taylor_seq_lens = args.taylor_seq_lens if args.taylor_seq_lens else TAYLOR_SEQ_LENS
+    block_seq_lens = args.block_seq_lens if args.block_seq_lens else BLOCK_SEQ_LENS
 
     # 创建日志目录
     log_dir = Path('results') / f"{args.output_prefix}_logs"
@@ -356,11 +364,11 @@ def main():
     log(f"跳过已完成: {args.skip_completed}")
     log("")
     log("搜索空间:")
-    log(f"  - taylor_seq_len: {TAYLOR_SEQ_LENS}")
-    log(f"  - block_seq_len: {BLOCK_SEQ_LENS}")
+    log(f"  - taylor_seq_len: {taylor_seq_lens}")
+    log(f"  - block_seq_len: {block_seq_lens}")
     log(f"  - num_samples: {NUM_SAMPLES} (固定)")
     log(f"  - gradient_batch_size: {GRADIENT_BATCH_SIZE} (固定)")
-    log(f"  - 总实验数: {len(TAYLOR_SEQ_LENS) * len(BLOCK_SEQ_LENS)}")
+    log(f"  - 总实验数: {len(taylor_seq_lens) * len(block_seq_lens)}")
     log("")
     log("每个实验包含完整流程：")
     log("  1. 剪枝（6种方法）")
@@ -371,7 +379,7 @@ def main():
     log("="*80)
 
     # 生成所有参数组合
-    param_combinations = list(product(TAYLOR_SEQ_LENS, BLOCK_SEQ_LENS))
+    param_combinations = list(product(taylor_seq_lens, block_seq_lens))
     total = len(param_combinations)
 
     completed = 0
