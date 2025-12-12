@@ -334,6 +334,7 @@ def evaluate_model(model_path, output_json, gpu_id, logger):
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
     log(f"[GPU {gpu_id}] 评估模型: {model_path}")
+    log(f"[GPU {gpu_id}] {'-'*60}")
 
     cmd = [
         'python', 'evaluation/run_evaluation.py',
@@ -343,15 +344,15 @@ def evaluate_model(model_path, output_json, gpu_id, logger):
     ]
 
     try:
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=3600)
+        # 不捕获输出，直接显示到终端
+        result = subprocess.run(cmd, env=env, timeout=3600)
 
+        log(f"[GPU {gpu_id}] {'-'*60}")
         if result.returncode == 0:
             log(f"[GPU {gpu_id}] ✓ 评估完成")
             return True
         else:
-            log(f"[GPU {gpu_id}] ✗ 评估失败")
-            if result.stderr:
-                log(f"  错误信息: {result.stderr[:500]}")
+            log(f"[GPU {gpu_id}] ✗ 评估失败（返回码: {result.returncode}）")
             return False
 
     except subprocess.TimeoutExpired:
@@ -382,6 +383,7 @@ def finetune_model(pruned_model_path, output_dir, gpu_id, logger):
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
     log(f"[GPU {gpu_id}] 微调模型: {pruned_model_path}")
+    log(f"[GPU {gpu_id}] {'-'*60}")
 
     cmd = [
         'python', 'finetune_lora.py',
@@ -398,15 +400,15 @@ def finetune_model(pruned_model_path, output_dir, gpu_id, logger):
     ]
 
     try:
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=14400)  # 4小时超时
+        # 不捕获输出，直接显示到终端
+        result = subprocess.run(cmd, env=env, timeout=14400)  # 4小时超时
 
+        log(f"[GPU {gpu_id}] {'-'*60}")
         if result.returncode == 0:
             log(f"[GPU {gpu_id}] ✓ 微调完成")
             return True
         else:
-            log(f"[GPU {gpu_id}] ✗ 微调失败")
-            if result.stderr:
-                log(f"  错误信息: {result.stderr[:500]}")
+            log(f"[GPU {gpu_id}] ✗ 微调失败（返回码: {result.returncode}）")
             return False
 
     except subprocess.TimeoutExpired:
