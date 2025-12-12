@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 """
-推荐使用方式
-python run_batch_finetune_all_models.py --model Llama --all-methods --skip-completed
-python run_batch_finetune_all_models.py --model Llama-Instruct --all-methods --skip-completed
-python run_batch_finetune_all_models.py --model Mistral --all-methods --skip-completed
-python run_batch_finetune_all_models.py --model Mistral-Instruct --all-methods --skip-completed
-python run_batch_finetune_all_models.py --model Qwen --all-methods --skip-completed
-python run_batch_finetune_all_models.py --model Qwen-Instruct --all-methods --skip-completed
 批量微调和评估 all_model_blockwise_128_128_8 下的所有剪枝模型
 
 目录结构:
