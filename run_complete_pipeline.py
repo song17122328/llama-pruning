@@ -401,7 +401,7 @@ def finetune_model(pruned_model_path, output_dir, gpu_id, logger):
 
     try:
         # 不捕获输出，直接显示到终端
-        result = subprocess.run(cmd, env=env, timeout=14400)  # 4小时超时
+        result = subprocess.run(cmd, env=env, timeout=28800)  # 8小时超时
 
         log(f"[GPU {gpu_id}] {'-'*60}")
         if result.returncode == 0:
