@@ -185,13 +185,19 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
     # 3. 这样确保所有方法都使用正确的 GPU，避免设备冲突
     log(f"[GPU {gpu_id}] 设置环境变量: CUDA_VISIBLE_DEVICES={gpu_id}")
 
+    # 注意：run_global_pruning.py 会自动在 output_name 前面加上 'results/' 前缀
+    # 所以如果 output_dir 已经包含 'results/'，需要去掉以避免重复
+    output_name = str(output_dir)
+    if output_name.startswith('results/'):
+        output_name = output_name[len('results/'):]
+
     try:
         if method == 'blockwise':
             # blockwise 方法
             cmd = [
                 'python', 'run_global_pruning.py',
                 '--base_model', base_model_path,
-                '--output_name', str(output_dir),
+                '--output_name', output_name,
                 '--taylor_num_samples', str(params['x1']),
                 '--taylor_seq_len', str(params['x2']),
                 '--layer_importance_num_samples', str(params['y1']),
@@ -208,7 +214,7 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
             cmd = [
                 'python', 'run_global_pruning.py',
                 '--base_model', base_model_path,
-                '--output_name', str(output_dir),
+                '--output_name', output_name,
                 '--importance_method', 'magnitude',
                 '--taylor_num_samples', str(params['x1']),
                 '--taylor_seq_len', str(params['x2']),
@@ -223,7 +229,7 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
             cmd = [
                 'python', 'run_global_pruning.py',
                 '--base_model', base_model_path,
-                '--output_name', str(output_dir),
+                '--output_name', output_name,
                 '--importance_method', 'wanda',
                 '--taylor_num_samples', str(params['x1']),
                 '--taylor_seq_len', str(params['x2']),
@@ -260,7 +266,7 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
                 '--block_mlp_layer_end', llm_pruner_config['block_mlp_layer_end'],
                 '--block_attention_layer_start', llm_pruner_config['block_attention_layer_start'],
                 '--block_attention_layer_end', llm_pruner_config['block_attention_layer_end'],
-                '--save_ckpt_log_name', str(output_dir),
+                '--save_ckpt_log_name', output_name,
                 '--pruner_type', 'taylor',
                 '--taylor', 'param_first',
                 '--num_examples', str(params['x1']),
@@ -280,7 +286,7 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
                 '--num_samples', str(params['y1']),
                 '--seq_len', str(params['y2']),
                 '--stride', str(params['y2']),
-                '--output_name', str(output_dir),
+                '--output_name', output_name,
                 '--device', 'cuda'  # 使用第一个可见GPU（由CUDA_VISIBLE_DEVICES限制）
             ]
         else:
