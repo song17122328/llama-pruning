@@ -131,6 +131,10 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
+    # 特别说明：对于 LLM-Pruner，需要同时设置 CUDA_VISIBLE_DEVICES 和 --device cuda
+    # CUDA_VISIBLE_DEVICES 限制可见的 GPU，--device cuda 让 LLM-Pruner 使用 cuda:0（即被限制后的第一个GPU）
+    log(f"[GPU {gpu_id}] 设置环境变量: CUDA_VISIBLE_DEVICES={gpu_id}")
+
     try:
         if method == 'blockwise':
             # blockwise 方法
@@ -178,11 +182,14 @@ def run_pruning(model, method, params, output_dir, gpu_id, logger):
 
         elif method == 'LLM-Pruner':
             # LLM-Pruner baseline
+            # 注意：LLM-Pruner 需要 CUDA_VISIBLE_DEVICES 环境变量（已在上面设置）+ --device cuda 参数
+            # 这样 LLM-Pruner 会使用 cuda:0，而 cuda:0 实际映射到 CUDA_VISIBLE_DEVICES 指定的 GPU
+            log(f"[GPU {gpu_id}] LLM-Pruner 特殊设置: CUDA_VISIBLE_DEVICES={gpu_id}, --device cuda")
             cmd = [
                 'python', '/data/home/yuanxiaosong/LLM-Pruner_baseline/llama3.py',
                 '--pruning_ratio', '0.28',
-                '--device', 'cuda',
-                '--eval_device', 'cuda',
+                '--device', 'cuda',          # 使用 cuda（cuda:0）
+                '--eval_device', 'cuda',     # 评估也使用 cuda
                 '--base_model', base_model_path,
                 '--block_wise',
                 '--block_mlp_layer_start', '4',
