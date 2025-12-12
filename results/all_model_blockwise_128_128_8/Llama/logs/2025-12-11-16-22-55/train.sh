@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Llama-3-8B --output_name all_model_blockwise_128_128_8/Llama
