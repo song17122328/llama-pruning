@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Qwen2.5-7B --output_name all_model_blockwise_128_128_8/Qwen/magnitude --pruning_ratio 0.2 --importance_method magnitude --temperature 0.0

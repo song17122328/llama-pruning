@@ -1,0 +1,1 @@
+python run_global_pruning.py --base_model /newdata/LLMs/Mistral-7B-Instruct-v0.3 --output_name all_model_blockwise_128_128_8/Mistral-Instruct/wanda --pruning_ratio 0.2 --importance_method wanda --temperature 0.0
