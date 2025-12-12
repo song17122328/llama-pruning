@@ -605,6 +605,8 @@ def main():
                        help='指定要运行的方法（默认运行所有方法）')
     parser.add_argument('--skip-completed', action='store_true',
                        help='跳过已完成的步骤')
+    parser.add_argument('--gpu', type=int, default=None,
+                       help='手动指定GPU ID（如果不指定则自动选择）')
     parser.add_argument('--num-gpus', type=int, default=1,
                        help='并行使用的GPU数量')
 
@@ -681,7 +683,13 @@ def main():
 
     # 顺序模式
     for method in methods:
-        gpu_id = get_best_gpu()
+        # GPU选择：手动指定优先，否则自动选择
+        if args.gpu is not None:
+            gpu_id = args.gpu
+            logger.info(f"使用手动指定的 GPU {gpu_id}")
+        else:
+            gpu_id = get_best_gpu()
+
         method_name, success, results = process_single_method(
             args.model, method, params, args.output_prefix,
             gpu_id, args.skip_completed, logger

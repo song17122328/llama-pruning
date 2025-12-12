@@ -115,6 +115,7 @@ def run_complete_pipeline(model, taylor_seq_len, block_seq_len, output_prefix, g
         '--y2', str(block_seq_len),        # layer/block_importance_seq_len
         '--z', str(GRADIENT_BATCH_SIZE),   # gradient_batch_size
         '--output_prefix', output_prefix,
+        '--gpu', str(gpu_id),              # 手动指定GPU，避免自动选择
         '--skip-completed'
     ]
 
