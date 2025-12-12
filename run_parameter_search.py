@@ -12,44 +12,49 @@
 - gradient_batch_size: 8 (固定)
 
 使用方法：
-    # 完整搜索（16个配置）
+    # 完整搜索（16个配置，单卡）
     python run_parameter_search.py \
         --model Mistral \
         --output_prefix grid_search \
         --gpu 7
 
-    # 自定义搜索空间（多卡并行）
+    # 8卡并行（推荐）- 每张卡2个配置，约8-10小时
+    # 终端1（GPU 0）：taylor=32, block=[32,64]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 0 --taylor-seq-lens 32 --block-seq-lens 32 64
+
+    # 终端2（GPU 1）：taylor=32, block=[128,256]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 1 --taylor-seq-lens 32 --block-seq-lens 128 256
+
+    # 终端3（GPU 2）：taylor=64, block=[32,64]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 2 --taylor-seq-lens 64 --block-seq-lens 32 64
+
+    # 终端4（GPU 3）：taylor=64, block=[128,256]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 3 --taylor-seq-lens 64 --block-seq-lens 128 256
+
+    # 终端5（GPU 4）：taylor=128, block=[32,64]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 4 --taylor-seq-lens 128 --block-seq-lens 32 64
+
+    # 终端6（GPU 5）：taylor=128, block=[128,256]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 5 --taylor-seq-lens 128 --block-seq-lens 128 256
+
+    # 终端7（GPU 6）：taylor=256, block=[32,64]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 6 --taylor-seq-lens 256 --block-seq-lens 32 64
+
+    # 终端8（GPU 7）：taylor=256, block=[128,256]
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 7 --taylor-seq-lens 256 --block-seq-lens 128 256
+
+    # 4卡并行 - 每张卡4个配置，约16-20小时
     # 终端1（GPU 4）：taylor=32, block=[32,64,128,256]
-    python run_parameter_search.py \
-        --model Mistral \
-        --output_prefix grid_search \
-        --gpu 4 \
-        --taylor-seq-lens 32 \
-        --block-seq-lens 32 64 128 256
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 4 --taylor-seq-lens 32 --block-seq-lens 32 64 128 256
 
     # 终端2（GPU 5）：taylor=64, block=[32,64,128,256]
-    python run_parameter_search.py \
-        --model Mistral \
-        --output_prefix grid_search \
-        --gpu 5 \
-        --taylor-seq-lens 64 \
-        --block-seq-lens 32 64 128 256
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 5 --taylor-seq-lens 64 --block-seq-lens 32 64 128 256
 
     # 终端3（GPU 6）：taylor=128, block=[32,64,128,256]
-    python run_parameter_search.py \
-        --model Mistral \
-        --output_prefix grid_search \
-        --gpu 6 \
-        --taylor-seq-lens 128 \
-        --block-seq-lens 32 64 128 256
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 6 --taylor-seq-lens 128 --block-seq-lens 32 64 128 256
 
     # 终端4（GPU 7）：taylor=256, block=[32,64,128,256]
-    python run_parameter_search.py \
-        --model Mistral \
-        --output_prefix grid_search \
-        --gpu 7 \
-        --taylor-seq-lens 256 \
-        --block-seq-lens 32 64 128 256
+    python run_parameter_search.py --model Mistral --output_prefix grid_search --gpu 7 --taylor-seq-lens 256 --block-seq-lens 32 64 128 256
 
 参数说明：
     --model: 模型名称 (Llama, Llama-Instruct, Mistral, Mistral-Instruct, Qwen, Qwen-Instruct)
@@ -58,6 +63,11 @@
     --taylor-seq-lens: Taylor序列长度列表（默认: 32 64 128 256）
     --block-seq-lens: Block序列长度列表（默认: 32 64 128 256）
     --skip-completed: 跳过已完成的实验（检查微调后评估结果）
+
+性能对比：
+    - 单卡: 16个配置 × (4-5小时) = 64-80小时
+    - 4卡并行: 4个配置 × (4-5小时) = 16-20小时 (加速4倍)
+    - 8卡并行: 2个配置 × (4-5小时) = 8-10小时 (加速8倍) ⭐推荐
 """
 
 import argparse
@@ -151,25 +161,21 @@ def run_complete_pipeline(model, taylor_seq_len, block_seq_len, output_prefix, g
         '--y2', str(block_seq_len),        # layer/block_importance_seq_len
         '--z', str(GRADIENT_BATCH_SIZE),   # gradient_batch_size
         '--output_prefix', output_prefix,
-        '--gpu', str(gpu_id),              # 手动指定GPU，避免自动选择
         '--skip-completed'
     ]
 
     try:
         log(f"[GPU {gpu_id}] 执行命令: {' '.join(cmd)}")
-        log(f"[GPU {gpu_id}] {'='*60}")
-
         # 完整流程可能需要很长时间（剪枝 + 评估 + 微调 + 评估）
         # 估计时间: 剪枝2h + 评估1h + 微调4h + 评估1h = 8h
-        # 不捕获输出，直接显示到终端以便实时查看进度
-        result = subprocess.run(cmd, env=env, timeout=28800)  # 8小时超时
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=28800)  # 8小时超时
 
-        log(f"[GPU {gpu_id}] {'='*60}")
         if result.returncode == 0:
             log(f"[GPU {gpu_id}] ✓ 完整流程完成")
             return True
         else:
-            log(f"[GPU {gpu_id}] ✗ 流程失败（返回码: {result.returncode}）")
+            log(f"[GPU {gpu_id}] ✗ 流程失败: {result.stderr[:500]}")
+            log(f"[GPU {gpu_id}] stdout: {result.stdout[:500]}")
             return False
 
     except subprocess.TimeoutExpired:
@@ -324,17 +330,7 @@ def main():
     parser.add_argument('--skip-completed', action='store_true',
                        help='跳过已完成的实验')
 
-    # 添加参数以自定义搜索空间
-    parser.add_argument('--taylor-seq-lens', type=int, nargs='+', default=None,
-                       help='Taylor序列长度列表（默认: 32 64 128 256）')
-    parser.add_argument('--block-seq-lens', type=int, nargs='+', default=None,
-                       help='Block序列长度列表（默认: 32 64 128 256）')
-
     args = parser.parse_args()
-
-    # 设置搜索空间（用户指定优先，否则使用默认值）
-    taylor_seq_lens = args.taylor_seq_lens if args.taylor_seq_lens else TAYLOR_SEQ_LENS
-    block_seq_lens = args.block_seq_lens if args.block_seq_lens else BLOCK_SEQ_LENS
 
     # 设置 GPU
     if args.gpu is None:
@@ -360,11 +356,11 @@ def main():
     log(f"跳过已完成: {args.skip_completed}")
     log("")
     log("搜索空间:")
-    log(f"  - taylor_seq_len: {taylor_seq_lens}")
-    log(f"  - block_seq_len: {block_seq_lens}")
+    log(f"  - taylor_seq_len: {TAYLOR_SEQ_LENS}")
+    log(f"  - block_seq_len: {BLOCK_SEQ_LENS}")
     log(f"  - num_samples: {NUM_SAMPLES} (固定)")
     log(f"  - gradient_batch_size: {GRADIENT_BATCH_SIZE} (固定)")
-    log(f"  - 总实验数: {len(taylor_seq_lens) * len(block_seq_lens)}")
+    log(f"  - 总实验数: {len(TAYLOR_SEQ_LENS) * len(BLOCK_SEQ_LENS)}")
     log("")
     log("每个实验包含完整流程：")
     log("  1. 剪枝（6种方法）")
@@ -375,7 +371,7 @@ def main():
     log("="*80)
 
     # 生成所有参数组合
-    param_combinations = list(product(taylor_seq_lens, block_seq_lens))
+    param_combinations = list(product(TAYLOR_SEQ_LENS, BLOCK_SEQ_LENS))
     total = len(param_combinations)
 
     completed = 0
