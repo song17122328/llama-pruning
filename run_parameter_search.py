@@ -5,22 +5,58 @@
 自动搜索不同的校准参数组合，对每个组合运行完整的流程：
 剪枝 → 评估 → 微调 → 评估
 
-搜索空间：
+默认搜索空间：
 - taylor_seq_len: [32, 64, 128, 256]
 - block_importance_seq_len = layer_importance_seq_len: [32, 64, 128, 256]
 - taylor_num_samples = layer_importance_num_samples = block_importance_num_samples: 256 (固定)
 - gradient_batch_size: 8 (固定)
 
 使用方法：
+    # 完整搜索（16个配置）
     python run_parameter_search.py \
-        --model Llama \
+        --model Mistral \
         --output_prefix grid_search \
-        --gpu 0
+        --gpu 7
+
+    # 自定义搜索空间（多卡并行）
+    # 终端1（GPU 4）：taylor=32, block=[32,64,128,256]
+    python run_parameter_search.py \
+        --model Mistral \
+        --output_prefix grid_search \
+        --gpu 4 \
+        --taylor-seq-lens 32 \
+        --block-seq-lens 32 64 128 256
+
+    # 终端2（GPU 5）：taylor=64, block=[32,64,128,256]
+    python run_parameter_search.py \
+        --model Mistral \
+        --output_prefix grid_search \
+        --gpu 5 \
+        --taylor-seq-lens 64 \
+        --block-seq-lens 32 64 128 256
+
+    # 终端3（GPU 6）：taylor=128, block=[32,64,128,256]
+    python run_parameter_search.py \
+        --model Mistral \
+        --output_prefix grid_search \
+        --gpu 6 \
+        --taylor-seq-lens 128 \
+        --block-seq-lens 32 64 128 256
+
+    # 终端4（GPU 7）：taylor=256, block=[32,64,128,256]
+    python run_parameter_search.py \
+        --model Mistral \
+        --output_prefix grid_search \
+        --gpu 7 \
+        --taylor-seq-lens 256 \
+        --block-seq-lens 32 64 128 256
 
 参数说明：
     --model: 模型名称 (Llama, Llama-Instruct, Mistral, Mistral-Instruct, Qwen, Qwen-Instruct)
     --output_prefix: 输出目录前缀
     --gpu: 使用的 GPU ID（默认: 自动选择）
+    --taylor-seq-lens: Taylor序列长度列表（默认: 32 64 128 256）
+    --block-seq-lens: Block序列长度列表（默认: 32 64 128 256）
     --skip-completed: 跳过已完成的实验（检查微调后评估结果）
 """
 
@@ -288,7 +324,17 @@ def main():
     parser.add_argument('--skip-completed', action='store_true',
                        help='跳过已完成的实验')
 
+    # 添加参数以自定义搜索空间
+    parser.add_argument('--taylor-seq-lens', type=int, nargs='+', default=None,
+                       help='Taylor序列长度列表（默认: 32 64 128 256）')
+    parser.add_argument('--block-seq-lens', type=int, nargs='+', default=None,
+                       help='Block序列长度列表（默认: 32 64 128 256）')
+
     args = parser.parse_args()
+
+    # 设置搜索空间（用户指定优先，否则使用默认值）
+    taylor_seq_lens = args.taylor_seq_lens if args.taylor_seq_lens else TAYLOR_SEQ_LENS
+    block_seq_lens = args.block_seq_lens if args.block_seq_lens else BLOCK_SEQ_LENS
 
     # 设置 GPU
     if args.gpu is None:
@@ -314,11 +360,11 @@ def main():
     log(f"跳过已完成: {args.skip_completed}")
     log("")
     log("搜索空间:")
-    log(f"  - taylor_seq_len: {TAYLOR_SEQ_LENS}")
-    log(f"  - block_seq_len: {BLOCK_SEQ_LENS}")
+    log(f"  - taylor_seq_len: {taylor_seq_lens}")
+    log(f"  - block_seq_len: {block_seq_lens}")
     log(f"  - num_samples: {NUM_SAMPLES} (固定)")
     log(f"  - gradient_batch_size: {GRADIENT_BATCH_SIZE} (固定)")
-    log(f"  - 总实验数: {len(TAYLOR_SEQ_LENS) * len(BLOCK_SEQ_LENS)}")
+    log(f"  - 总实验数: {len(taylor_seq_lens) * len(block_seq_lens)}")
     log("")
     log("每个实验包含完整流程：")
     log("  1. 剪枝（6种方法）")
@@ -329,7 +375,7 @@ def main():
     log("="*80)
 
     # 生成所有参数组合
-    param_combinations = list(product(TAYLOR_SEQ_LENS, BLOCK_SEQ_LENS))
+    param_combinations = list(product(taylor_seq_lens, block_seq_lens))
     total = len(param_combinations)
 
     completed = 0
